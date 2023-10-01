@@ -1,29 +1,27 @@
 # site settings
 
-title: cvless
-description: Jekyll theme for a beautiful online CV
-taglong: Jekyll theme for a beautiful online CV
-tagshort: Jekyll theme
-url: https://cvless.netlify.app
+title: omairr
+description: extremely (totally) skillful hobby programmer
+taglong: extremely (totally) skillful hobby programmer
+tagshort: Hobby Programmer
+url: https:/omaiirr.github.io
 baseurl: ""
 permalink: pretty
-repo: https://github.com/username/username.github.io
+repo: https://github.com/omaiirr/omaiirr.github.io
 
 # author settings
 
 author:
-  name: Place Holder
-  email: username@domain.com
-photo: /assets/jpg/photo.jpg
+  name: omaiirr
+  email: omairrdev@gmail.com
+photo: /assets/jpg/82a746492b4e6bfc02c0b28d82b05587.png
 
 # social media links
 
 social:
-  facebook: username
-  github: username
-  instagram: username
-  linkedin: username
-  stackoverflow: 0000000/username
+  github: omaiirr
+  instagram: oMx3n
+  stackoverflow: 22667158/omairr
   twitter: username
 
 # build settings
