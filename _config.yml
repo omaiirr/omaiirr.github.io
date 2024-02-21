@@ -1,8 +1,8 @@
 # site settings
 
 title: omairr
-description: extremely (totally) skilled hobby programmer
-taglong: extremely (totally) skilled hobby programmer
+description: extremely (totally) skilled programmer
+taglong: extremely (totally) skilled programmer
 tagshort: Hobby Programmer
 url: https:/omaiirr.github.io
 baseurl: ""
@@ -20,7 +20,7 @@ photo: /assets/jpg/82a746492b4e6bfc02c0b28d82b05587.png
 
 social:
   github: omaiirr
-  instagram: oMx3n
+  instagram: omairdev
   stackoverflow: 22667158/omairr
   twitter: omairrdev
   discord: 779442220104417280
