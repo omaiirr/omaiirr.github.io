@@ -10,22 +10,25 @@
   justify-content: center;
   gap: 32px;
   text-align: center;
-  background: linear-gradient(135deg, #6366f1 0%, #ec4899 50%, #f43f5e 100%);
+  background: rgba(99, 102, 241, 0.9);
   padding: 0;
   margin: 0;
   overflow: hidden;
-  z-index: 1;
+  z-index: 10;
+  backdrop-filter: blur(1px);
 }
 
 /* Animation Containers */
 #leaves {
   position: fixed;
   top: -50px;
+  left: 0;
   width: 100%;
   height: 100vh;
   text-align: right;
   z-index: 0;
   pointer-events: none;
+  overflow: hidden;
 }
 
 #leaves i {
@@ -241,12 +244,14 @@
   height: 100%;
   z-index: 0;
   pointer-events: none;
+  overflow: hidden;
 }
 
 #waveContainer canvas {
   display: block;
   width: 100%;
   height: 100%;
+  object-fit: cover;
 }
 
 /* Ocean 3D */
@@ -257,6 +262,14 @@
   width: 100%;
   height: 100%;
   z-index: 0;
+  overflow: hidden;
+}
+
+#oceanContainer canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 #ocean {
@@ -267,35 +280,100 @@
 }
 
 #overlay {
-  background: white;
+  background: rgba(255, 255, 255, 0.96);
   font-family: "Allerta Stencil", sans-serif;
   font-size: 1em;
-  opacity: 0.75;
   position: absolute;
   width: 100%;
   height: 100%;
   display: none;
   top: 0;
   left: 0;
+  z-index: 2;
+  overflow-y: auto;
+  padding: 24px 0;
 }
 
 #settings {
-  margin-top: 50px;
-  font-size: 2.8em;
+  margin-top: 24px;
+  font-size: 2.2em;
   text-align: center;
+  color: #031b2d;
 }
 
 #parameter {
-  margin-top: 50px;
-  font-size: 1.1em;
+  margin-top: 24px;
+  font-size: 1.05em;
   text-align: center;
   width: 100%;
+  color: #031b2d;
 }
 
 #holder {
-  width: 40%;
+  width: min(92%, 520px);
   margin-left: auto;
   margin-right: auto;
+  padding: 24px 18px 28px;
+  box-sizing: border-box;
+}
+
+#holder input,
+#holder button {
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  #holder {
+    padding: 18px 14px 26px;
+  }
+
+  #settings {
+    font-size: 1.9em;
+    margin-top: 20px;
+  }
+
+  #parameter {
+    margin-top: 18px;
+    font-size: 1rem;
+  }
+}
+
+#holder input,
+#holder button {
+  width: 100%;
+}
+
+#button {
+  margin-top: 30px;
+  width: 100%;
+  background-color: #031b2d;
+  color: white;
+  border: 3px solid #0d4d78;
+  font-size: 1.4em;
+  font-family: "Allerta Stencil", sans-serif;
+}
+
+#button:hover {
+  background-color: #0d4d78;
+}
+
+@media (max-width: 768px) {
+  #holder {
+    padding: 20px 14px 28px;
+  }
+
+  #settings {
+    font-size: 2.1em;
+  }
+
+  #parameter {
+    margin-top: 24px;
+    font-size: 1rem;
+  }
+
+  .slider {
+    margin-top: 20px;
+  }
 }
 
 .slider {
@@ -482,15 +560,51 @@
 
 .theme-modal {
   position: fixed;
-  bottom: 100px;
-  right: 30px;
-  background: rgba(0, 0, 0, 0.9);
-  border-radius: 16px;
+  bottom: 24px;
+  right: 24px;
+  width: min(420px, calc(100% - 32px));
+  max-width: 420px;
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.92);
+  border-radius: 18px;
   padding: 20px;
   z-index: 99;
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+}
+
+@media (max-width: 768px) {
+  .theme-modal {
+    left: 50%;
+    right: auto;
+    bottom: 16px;
+    transform: translateX(-50%);
+    width: calc(100% - 24px);
+    max-height: calc(100vh - 32px);
+  }
+
+  .theme-modal {
+    padding: 16px;
+  }
+
+  .theme-options {
+    grid-template-columns: 1fr;
+  }
+}
+
+.theme-modal {
+  overflow-y: auto;
+}
+
+.theme-modal::-webkit-scrollbar {
+  width: 8px;
+}
+
+.theme-modal::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
 }
 
 .theme-modal h3 {
@@ -530,27 +644,44 @@
 
 /* Theme Styles */
 .timer-container.theme-gradient-default {
-  background: linear-gradient(135deg, #6366f1 0%, #ec4899 50%, #f43f5e 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.8) 0%,
+    rgba(236, 72, 153, 0.8) 50%,
+    rgba(244, 63, 94, 0.8) 100%
+  );
 }
 
 .timer-container.theme-gradient-sunset {
-  background: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 107, 107, 0.8) 0%,
+    rgba(254, 202, 87, 0.8) 100%
+  );
 }
 
 .timer-container.theme-gradient-ocean {
-  background: linear-gradient(135deg, #0066ff 0%, #00d4ff 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(0, 102, 255, 0.8) 0%,
+    rgba(0, 212, 255, 0.8) 100%
+  );
 }
 
 .timer-container.theme-gradient-forest {
-  background: linear-gradient(135deg, #134e5e 0%, #71b280 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(19, 78, 94, 0.8) 0%,
+    rgba(113, 178, 128, 0.8) 100%
+  );
 }
 
 .timer-container.theme-color-dark {
-  background: #000000;
+  background: rgba(0, 0, 0, 0.9);
 }
 
 .timer-container.theme-color-light {
-  background: #f5f5f5;
+  background: rgba(245, 245, 245, 0.9);
 }
 
 .timer-container.theme-color-light .mode-btn,
