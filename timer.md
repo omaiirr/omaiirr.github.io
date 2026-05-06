@@ -49,7 +49,7 @@ permalink: /timer/
           <div id="oceanSpecificToggle" style="display: none; margin-top: 10px;">
             <label class="toggle-label">
               <input type="checkbox" id="plasticOceanToggle">
-              <span>Plastic Ocean (3D)</span>
+              <span>Deep Ocean (3D)</span>
             </label>
           </div>
         </div>
