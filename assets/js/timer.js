@@ -238,12 +238,7 @@
     overlay.style.display = "none";
   });
 
-  document.addEventListener("keydown", (evt) => {
-    const isEscape = evt.key === "Escape" || evt.key === "Esc";
-    if (!isEscape) return;
-    overlay.style.display =
-      overlay.style.display === "block" ? "none" : "block";
-  });
+  // ESC key handler removed - overlay settings not needed
 
   changeSliders();
   loadSavedModes();
