@@ -9,6 +9,43 @@
   let interval = null;
   let running = false;
   let remaining = modes.focus;
+  let pomodoroCount = 0;
+  let soundEnabled = true;
+
+  // Audio context for sound effects
+  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+  function playSound(frequency = 1000, duration = 300, type = "sine") {
+    if (!soundEnabled) return;
+    try {
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      osc.frequency.value = frequency;
+      osc.type = type;
+      gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gain.gain.exponentialRampToValueAtTime(
+        0.01,
+        audioContext.currentTime + duration / 1000,
+      );
+      osc.start(audioContext.currentTime);
+      osc.stop(audioContext.currentTime + duration / 1000);
+    } catch (e) {
+      console.log("Audio playback not available");
+    }
+  }
+
+  function playTimerCompleteSound() {
+    // Play a pleasant two-tone notification sound
+    playSound(800, 150);
+    setTimeout(() => playSound(1000, 150), 160);
+  }
+
+  function playWarningSound() {
+    // Play a subtle warning beep when nearing the end
+    playSound(600, 100);
+  }
 
   const display = document.getElementById("display");
   const minutesInput = document.getElementById("minutes");
@@ -91,11 +128,37 @@
     running = true;
 
     interval = setInterval(() => {
+      // Play warning sound in last 3 seconds
+      if (remaining === 3) {
+        playWarningSound();
+      }
+
       if (remaining <= 1) {
         clearInterval(interval);
         remaining = 0;
         running = false;
         render();
+
+        // Timer finished - play completion sound
+        playTimerCompleteSound();
+
+        // Auto-cycle logic
+        if (currentMode === "focus") {
+          pomodoroCount++;
+
+          // After 4 pomodoros, go to long break
+          if (pomodoroCount % 4 === 0) {
+            setActiveMode("long");
+            startTimer();
+          } else {
+            // Otherwise go to short break
+            setActiveMode("short");
+            startTimer();
+          }
+        } else {
+          // After break, go back to focus mode (don't auto-start)
+          setActiveMode("focus");
+        }
         return;
       }
       remaining--;
@@ -114,6 +177,7 @@
 
     if (currentMode === "focus") {
       remaining = modes.focus;
+      pomodoroCount = 0;
     } else if (currentMode === "short") {
       remaining = modes.short;
     } else {
