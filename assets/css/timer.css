@@ -1081,7 +1081,7 @@ body {
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   transition: all 0.2s ease;
-  font-size: 0.85rem;
+  font-size: 0.93rem;
 }
 
 .planner-task-item.overdue {
@@ -1107,7 +1107,7 @@ body {
 
 .task-title {
   margin: 0 0 3px;
-  font-size: 0.82rem;
+  font-size: 0.88rem;
   color: white;
   font-weight: 600;
 }
@@ -1117,7 +1117,7 @@ body {
   flex-wrap: wrap;
   gap: 3px;
   color: #aab6dd;
-  font-size: 0.72rem;
+  font-size: 0.77rem;
 }
 
 .task-meta span {
@@ -1130,7 +1130,7 @@ body {
 }
 
 .task-meta span i {
-  font-size: 0.65rem;
+  font-size: 0.68rem;
 }
 
 .tag-category.category-exam {
@@ -1193,7 +1193,7 @@ body {
   margin: 4px 0 0;
   color: #c2cbe0;
   line-height: 1.3;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
 }
 
 .task-actions {
@@ -1212,7 +1212,7 @@ body {
   padding: 4px 7px;
   border-radius: 12px;
   cursor: pointer;
-  font-size: 0.68rem;
+  font-size: 0.71rem;
 }
 .task-edit-btn {
   color: #a5e0ff;

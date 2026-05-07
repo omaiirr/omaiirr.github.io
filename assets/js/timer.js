@@ -769,8 +769,8 @@
 
         // Priority emoji and color mapping
         const priorityMap = {
-          High: { emoji: "⚠️", class: "priority-high" },
-          Urgent: { emoji: "🔴", class: "priority-urgent" },
+          High: { emoji: "🟡", class: "priority-high" },
+          Urgent: { emoji: "🔺", class: "priority-urgent" },
           "": { emoji: "🔵", class: "priority-normal" },
           Normal: { emoji: "🔵", class: "priority-normal" },
         };
