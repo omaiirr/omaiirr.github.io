@@ -1,0 +1,14 @@
+{
+  "files.encoding": "utf8",
+  "files.autoGuessEncoding": false,
+  "[markdown]": {
+    "files.encoding": "utf8",
+    "files.insertFinalNewline": true,
+    "files.trimFinalNewlines": true
+  },
+  "[json]": {
+    "files.encoding": "utf8"
+  },
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode"
+}

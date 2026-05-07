@@ -1,4 +1,4 @@
-﻿---
+---
 layout: default
 title: Timer
 permalink: /timer/
@@ -24,7 +24,88 @@ permalink: /timer/
     <input id="minutes" type="number" min="1" value="25">
   </div>
 
+<button class="planner-btn" id="plannerBtn">📝</button>
 <button class="settings-btn" id="settingsBtn">⚙️</button>
+
+<div class="planner-modal" id="plannerModal">
+  <div class="planner-card">
+    <div class="planner-header">
+      <div>
+        <p class="planner-label">Planner</p>
+        <h2>Task dashboard</h2>
+      </div>
+      <button class="planner-add-btn" id="plannerAddBtn">Add Task</button>
+    </div>
+
+    <div class="planner-summary" id="plannerSummary"></div>
+
+    <div class="planner-list" id="plannerTaskList"></div>
+
+  </div>
+</div>
+
+<div class="task-popup" id="taskPopup">
+  <div class="task-popup-card">
+    <div class="task-popup-header">
+      <h3>Add Task</h3>
+      <button class="task-popup-close" id="taskPopupClose">×</button>
+    </div>
+    <div class="task-popup-body">
+      <div class="form-section full-width">
+        <label for="taskTitle" class="form-label">Task Title</label>
+        <input id="taskTitle" type="text" placeholder="e.g. Do Chemistry Paper 4" class="form-input">
+      </div>
+
+      <div class="form-section full-width">
+        <label class="form-label">Category</label>
+        <div class="category-chips">
+          <button type="button" class="category-chip category-exam" data-category="Exam"><i class="fa-solid fa-bookmark"></i>Exam</button>
+          <button type="button" class="category-chip category-revision" data-category="Revision"><i class="fa-solid fa-book-open"></i>Revision</button>
+          <button type="button" class="category-chip category-past-paper" data-category="Past Paper"><i class="fa-solid fa-file-lines"></i>Past Paper</button>
+          <button type="button" class="category-chip category-finals" data-category="Finals"><i class="fa-solid fa-bullseye"></i>Finals</button>
+          <button type="button" class="category-chip category-other" data-category="Other"><i class="fa-solid fa-ellipsis-h"></i>Other</button>
+        </div>
+        <input id="taskCategory" type="hidden">
+      </div>
+
+      <div class="form-row">
+        <div class="form-section">
+          <label for="taskSubject" class="form-label">Subject</label>
+          <input id="taskSubject" type="text" placeholder="e.g Chemistry" class="form-input">
+        </div>
+        <div class="form-section">
+          <label for="taskPriority" class="form-label">Priority</label>
+          <select id="taskPriority" class="form-input">
+            <option value="">Normal</option>
+            <option value="High">High</option>
+            <option value="Urgent">Urgent</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-section">
+          <label for="taskDueDate" class="form-label">Due Date</label>
+          <input id="taskDueDate" type="date" placeholder="mm/dd/yyyy" class="form-input">
+        </div>
+        <div class="form-section">
+          <label for="taskEstimate" class="form-label">Estimated Time</label>
+          <input id="taskEstimate" type="text" placeholder="e.g. 1h 30m" class="form-input">
+        </div>
+      </div>
+
+      <div class="form-section full-width">
+        <label for="taskNotes" class="form-label">Notes</label>
+        <textarea id="taskNotes" placeholder="Topics to focus on..." class="form-textarea"></textarea>
+      </div>
+    </div>
+    <div class="task-popup-actions">
+      <button class="cancel-task-btn" id="taskPopupCancelBtn">Cancel</button>
+      <button class="save-task-btn" id="saveTaskBtn">💾 Save</button>
+    </div>
+
+  </div>
+</div>
 
   <div class="theme-modal" id="themeModal" style="display: none;">
     <div class="theme-modal-content">
