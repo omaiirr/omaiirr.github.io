@@ -1,0 +1,263 @@
+<div class="theme-modal" id="themeModal" style="display: none">
+  <div class="theme-modal-content">
+    <!-- Tab buttons -->
+    <div
+      style="
+        display: flex;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        margin-bottom: 20px;
+      "
+    >
+      <button
+        class="settings-tab-btn active"
+        data-tab="themes"
+        style="
+          flex: 1;
+          padding: 15px;
+          background: none;
+          border: none;
+          color: white;
+          cursor: pointer;
+          font-weight: 600;
+          border-bottom: 2px solid white;
+          margin-bottom: -2px;
+        "
+      >
+        Settings
+      </button>
+      <button
+        class="settings-tab-btn"
+        data-tab="statistics"
+        style="
+          flex: 1;
+          padding: 15px;
+          background: none;
+          border: none;
+          color: rgba(255, 255, 255, 0.5);
+          cursor: pointer;
+          font-weight: 600;
+        "
+      >
+        Statistics
+      </button>
+    </div>
+
+    <!-- Themes Tab -->
+    <div class="settings-tab-content" data-tab="themes">
+      <div class="theme-section">
+        <h3>Themes</h3>
+        <div class="theme-options">
+          <button
+            class="theme-option"
+            data-theme="gradient-default"
+            style="
+              background: linear-gradient(
+                135deg,
+                #6366f1 0%,
+                #ec4899 50%,
+                #f43f5e 100%
+              );
+            "
+          >
+            Default
+          </button>
+          <button
+            class="theme-option"
+            data-theme="gradient-sunset"
+            style="
+              background: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%);
+            "
+          >
+            Sunset
+          </button>
+          <button
+            class="theme-option"
+            data-theme="gradient-ocean"
+            style="
+              background: linear-gradient(135deg, #0066ff 0%, #00d4ff 100%);
+            "
+          >
+            Ocean
+          </button>
+          <button
+            class="theme-option"
+            data-theme="gradient-forest"
+            style="
+              background: linear-gradient(135deg, #134e5e 0%, #71b280 100%);
+            "
+          >
+            Forest
+          </button>
+          <button
+            class="theme-option"
+            data-theme="color-dark"
+            style="background: #000000"
+          >
+            Dark
+          </button>
+          <button
+            class="theme-option"
+            data-theme="color-light"
+            style="background: #f5f5f5; color: #333"
+          >
+            Light
+          </button>
+        </div>
+      </div>
+
+      <div
+        class="timer-section"
+        style="
+          margin-top: 20px;
+          padding-top: 20px;
+          border-top: 1px solid rgba(255, 255, 255, 0.2);
+        "
+      >
+        <h3>Animations</h3>
+        <div class="animation-controls">
+          <label class="toggle-label">
+            <input type="checkbox" id="globalAnimationToggle" checked />
+            <span>Custom Animations</span>
+          </label>
+          <div id="oceanSpecificToggle" style="display: none; margin-top: 10px">
+            <label class="toggle-label">
+              <input type="checkbox" id="plasticOceanToggle" />
+              <span>Deep Ocean (3D)</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="timer-section"
+        style="
+          margin-top: 20px;
+          padding-top: 20px;
+          border-top: 1px solid rgba(255, 255, 255, 0.2);
+        "
+      >
+        <h3>Clock</h3>
+        <div class="custom-timer-inputs">
+          <div class="input-group">
+            <label for="customFocus">Focus (min)</label>
+            <input
+              id="customFocus"
+              type="number"
+              min="1"
+              max="120"
+              value="25"
+            />
+          </div>
+          <div class="input-group">
+            <label for="customShort">Short Break (min)</label>
+            <input id="customShort" type="number" min="1" max="60" value="5" />
+          </div>
+          <div class="input-group">
+            <label for="customLong">Long Break (min)</label>
+            <input id="customLong" type="number" min="1" max="60" value="15" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Statistics Tab -->
+    <div
+      class="settings-tab-content"
+      data-tab="statistics"
+      style="display: none"
+    >
+      <div class="theme-section">
+        <h3>Today's Statistics</h3>
+        <div
+          style="
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+          "
+        >
+          <div
+            style="
+              margin: 15px 0;
+              font-size: 16px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            "
+          >
+            <span style="color: rgba(255, 255, 255, 0.7)">Study Time:</span>
+            <strong style="font-size: 20px" id="totalStudyTime">0</strong>
+            <span style="color: rgba(255, 255, 255, 0.5)">minutes</span>
+          </div>
+          <div
+            style="
+              margin: 15px 0;
+              font-size: 16px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            "
+          >
+            <span style="color: rgba(255, 255, 255, 0.7)">Break Time:</span>
+            <strong style="font-size: 20px" id="totalBreakTime">0</strong>
+            <span style="color: rgba(255, 255, 255, 0.5)">minutes</span>
+          </div>
+          <div
+            style="
+              margin: 15px 0;
+              font-size: 16px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            "
+          >
+            <span style="color: rgba(255, 255, 255, 0.7)">Sessions:</span>
+            <strong style="font-size: 20px" id="totalSessions">0</strong>
+            <span style="color: rgba(255, 255, 255, 0.5)">completed</span>
+          </div>
+        </div>
+
+        <h3 style="margin-top: 20px">Time by Subject</h3>
+        <div
+          id="subjectBreakdown"
+          style="
+            margin-top: 12px;
+            padding: 14px 18px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            min-height: 50px;
+          "
+        >
+          <div
+            style="
+              color: rgba(255, 255, 255, 0.4);
+              font-size: 0.85rem;
+              text-align: center;
+              padding: 8px 0;
+            "
+          >
+            No subject data yet
+          </div>
+        </div>
+
+        <button
+          id="resetStatsBtn"
+          style="
+            margin-top: 20px;
+            padding: 12px 20px;
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            color: #fca5a5;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            width: 100%;
+            transition: all 0.3s ease;
+          "
+        >
+          Reset Statistics
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

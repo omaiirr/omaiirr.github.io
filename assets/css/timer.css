@@ -934,6 +934,7 @@ body {
   gap: 22px;
   transform: translateY(24px);
   transition: transform 0.25s ease;
+  text-align: center;
 }
 
 .planner-modal.open .planner-card {
@@ -1072,11 +1073,12 @@ body {
 }
 
 .planner-task-item {
+  /* task card */
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 6px;
+  gap: 4px; /* ← gap between task info and action buttons */
   align-items: start;
-  padding: 8px;
+  padding: 4px 8px; /* ← controls the card height/inner spacing */
   background: rgba(255, 255, 255, 0.05);
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -1106,7 +1108,7 @@ body {
 }
 
 .task-title {
-  margin: 0 0 3px;
+  margin: 0 0 4px;
   font-size: 0.88rem;
   color: white;
   font-weight: 600;
@@ -1115,22 +1117,22 @@ body {
 .task-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: 4px;
   color: #aab6dd;
-  font-size: 0.77rem;
+  font-size: 0.78rem;
 }
 
 .task-meta span {
   background: rgba(255, 255, 255, 0.08);
-  padding: 2px 6px;
+  padding: 3px 7px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 5px;
 }
 
 .task-meta span i {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
 }
 
 .tag-category.category-exam {
@@ -1190,16 +1192,16 @@ body {
 }
 
 .task-notes {
-  margin: 4px 0 0;
+  margin: 8px 0 0;
   color: #c2cbe0;
-  line-height: 1.3;
-  font-size: 0.85rem;
+  line-height: 1.4;
+  font-size: 0.88rem;
 }
 
 .task-actions {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   align-items: flex-end;
 }
 
@@ -1209,10 +1211,10 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.15);
   background: rgba(255, 255, 255, 0.06);
   color: white;
-  padding: 4px 7px;
+  padding: 5px 8px;
   border-radius: 12px;
   cursor: pointer;
-  font-size: 0.71rem;
+  font-size: 0.74rem;
 }
 .task-edit-btn {
   color: #a5e0ff;

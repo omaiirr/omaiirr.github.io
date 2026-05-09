@@ -9,42 +9,76 @@
   let interval = null;
   let running = false;
   let remaining = modes.focus;
-  let pomodoroCount = 0;
-  let soundEnabled = true;
+  let currentSubject = null;
 
-  // Audio context for sound effects
-  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-
-  function playSound(frequency = 1000, duration = 300, type = "sine") {
-    if (!soundEnabled) return;
-    try {
-      const osc = audioContext.createOscillator();
-      const gain = audioContext.createGain();
-      osc.connect(gain);
-      gain.connect(audioContext.destination);
-      osc.frequency.value = frequency;
-      osc.type = type;
-      gain.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gain.gain.exponentialRampToValueAtTime(
-        0.01,
-        audioContext.currentTime + duration / 1000,
-      );
-      osc.start(audioContext.currentTime);
-      osc.stop(audioContext.currentTime + duration / 1000);
-    } catch (e) {
-      console.log("Audio playback not available");
+  // Stats functions
+  function getStats() {
+    return (
+      JSON.parse(localStorage.getItem("timerStats")) || {
+        totalStudyTime: 0,
+        totalBreakTime: 0,
+        sessions: [],
+      }
+    );
+  }
+  function saveStats(stats) {
+    localStorage.setItem("timerStats", JSON.stringify(stats));
+  }
+  function logSession(type, duration) {
+    const stats = getStats();
+    stats.sessions.push({
+      type,
+      duration,
+      subject: currentSubject,
+      date: new Date().toISOString(),
+    });
+    if (type === "focus") {
+      stats.totalStudyTime += duration;
+      if (currentSubject) {
+        if (!stats.subjectTime) stats.subjectTime = {};
+        stats.subjectTime[currentSubject] =
+          (stats.subjectTime[currentSubject] || 0) + duration;
+      }
+    } else {
+      stats.totalBreakTime += duration;
     }
+    saveStats(stats);
   }
-
-  function playTimerCompleteSound() {
-    // Play a pleasant two-tone notification sound
-    playSound(800, 150);
-    setTimeout(() => playSound(1000, 150), 160);
+  function resetStats() {
+    localStorage.removeItem("timerStats");
   }
+  function updateStatsDisplay() {
+    const stats = getStats();
+    const elem1 = document.getElementById("totalStudyTime");
+    const elem2 = document.getElementById("totalBreakTime");
+    const elem3 = document.getElementById("totalSessions");
+    if (elem1) elem1.textContent = stats.totalStudyTime;
+    if (elem2) elem2.textContent = stats.totalBreakTime;
+    if (elem3)
+      elem3.textContent = stats.sessions.filter(
+        (s) => s.type === "focus",
+      ).length;
 
-  function playWarningSound() {
-    // Play a subtle warning beep when nearing the end
-    playSound(600, 100);
+    // Subject time breakdown
+    const subjectBreakdown = document.getElementById("subjectBreakdown");
+    if (subjectBreakdown) {
+      const st = stats.subjectTime || {};
+      const entries = Object.entries(st);
+      if (entries.length === 0) {
+        subjectBreakdown.innerHTML =
+          '<div style="color:rgba(255,255,255,0.4);font-size:0.85rem;text-align:center;padding:8px 0;">No subject data yet</div>';
+      } else {
+        subjectBreakdown.innerHTML = entries
+          .map(
+            ([subj, mins]) =>
+              `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+            <span style="color:rgba(255,255,255,0.75);font-size:0.9rem;">${subj}</span>
+            <span style="color:white;font-weight:600;">${mins} min</span>
+          </div>`,
+          )
+          .join("");
+      }
+    }
   }
 
   const display = document.getElementById("display");
@@ -123,42 +157,77 @@
     render();
   }
 
+  // Sound helpers using Web Audio API
+  function playBeep(freq, duration, vol) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.type = "sine";
+      gain.gain.setValueAtTime(vol || 0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + duration);
+    } catch (e) {}
+  }
+  function playWarningSound() {
+    // 3 quick beeps — "almost done"
+    playBeep(880, 0.15, 0.25);
+    setTimeout(() => playBeep(880, 0.15, 0.25), 200);
+    setTimeout(() => playBeep(880, 0.15, 0.25), 400);
+  }
+  function playBreakStartSound() {
+    // Rising tone — "break time"
+    playBeep(440, 0.3, 0.3);
+    setTimeout(() => playBeep(523, 0.3, 0.3), 320);
+    setTimeout(() => playBeep(659, 0.5, 0.3), 640);
+  }
+  function playFocusStartSound() {
+    // Descending — "back to work"
+    playBeep(659, 0.3, 0.3);
+    setTimeout(() => playBeep(523, 0.3, 0.3), 320);
+    setTimeout(() => playBeep(440, 0.5, 0.3), 640);
+  }
+
   function startTimer() {
     if (running) return;
     running = true;
 
     interval = setInterval(() => {
-      // Play warning sound in last 3 seconds
-      if (remaining === 3) {
+      // Warning sound at 5 seconds remaining
+      if (remaining === 5) {
         playWarningSound();
       }
 
       if (remaining <= 1) {
         clearInterval(interval);
+        const duration =
+          currentMode === "focus"
+            ? modes.focus / 60
+            : currentMode === "short"
+              ? modes.short / 60
+              : modes.long / 60;
+        logSession(currentMode, duration);
         remaining = 0;
         running = false;
         render();
 
-        // Timer finished - play completion sound
-        playTimerCompleteSound();
-
-        // Auto-cycle logic
-        if (currentMode === "focus") {
-          pomodoroCount++;
-
-          // After 4 pomodoros, go to long break
-          if (pomodoroCount % 4 === 0) {
-            setActiveMode("long");
-            startTimer();
-          } else {
-            // Otherwise go to short break
+        // Auto-start break (or focus) after session ends
+        setTimeout(() => {
+          if (currentMode === "focus") {
             setActiveMode("short");
-            startTimer();
+            playBreakStartSound();
+            setTimeout(() => startTimer(), 800);
+          } else {
+            setActiveMode("focus");
+            playFocusStartSound();
+            setTimeout(() => startTimer(), 800);
           }
-        } else {
-          // After break, go back to focus mode (don't auto-start)
-          setActiveMode("focus");
-        }
+        }, 500);
+
         return;
       }
       remaining--;
@@ -177,7 +246,6 @@
 
     if (currentMode === "focus") {
       remaining = modes.focus;
-      pomodoroCount = 0;
     } else if (currentMode === "short") {
       remaining = modes.short;
     } else {
@@ -238,7 +306,12 @@
     overlay.style.display = "none";
   });
 
-  // ESC key handler removed - overlay settings not needed
+  document.addEventListener("keydown", (evt) => {
+    const isEscape = evt.key === "Escape" || evt.key === "Esc";
+    if (!isEscape) return;
+    overlay.style.display =
+      overlay.style.display === "block" ? "none" : "block";
+  });
 
   changeSliders();
   loadSavedModes();
@@ -304,11 +377,8 @@
   function showOceanToggle() {
     const currentTheme =
       localStorage.getItem("timerTheme") || "gradient-default";
-    if (currentTheme === "gradient-ocean") {
-      oceanSpecificToggle.style.display = "block";
-    } else {
-      oceanSpecificToggle.style.display = "none";
-    }
+    oceanSpecificToggle.style.display =
+      currentTheme === "gradient-ocean" ? "block" : "none";
   }
 
   function startAnimation(theme) {
@@ -364,8 +434,12 @@
 
     let w, h;
     let lastFrameTime = 0;
-    const targetFPS = 30;
+    const targetFPS = 24;
     const frameInterval = 1000 / targetFPS;
+    let wavePaused = false;
+    document.addEventListener("visibilitychange", () => {
+      wavePaused = document.hidden;
+    });
 
     function setSize() {
       w = canvas.width = Math.max(600, window.innerWidth);
@@ -374,6 +448,10 @@
 
     function update(currentTime) {
       if (!currentTime) currentTime = performance.now();
+      if (wavePaused) {
+        requestAnimationFrame(update);
+        return;
+      }
       if (currentTime - lastFrameTime < frameInterval) {
         requestAnimationFrame(update);
         return;
@@ -397,18 +475,38 @@
           yBase + offsetInc * 2,
         );
 
-        if (localStorage.getItem("timerTheme") === "gradient-ocean") {
-          grd.addColorStop(0, "rgba(0, 212, 255, 0.8)");
-          grd.addColorStop(0.5, "rgba(0, 140, 255, 0.6)");
-          grd.addColorStop(1, "rgba(0, 100, 200, 0.4)");
+        const theme = localStorage.getItem("timerTheme") || "gradient-default";
+
+        // Theme-based wave colors
+        let color0, color1, color2;
+        if (theme === "gradient-default") {
+          color0 = "rgba(100, 40, 140, 0.10)";
+          color1 = "rgba(150, 35, 100, 0.08)";
+          color2 = "rgba(170, 35, 85, 0.05)";
+        } else if (theme === "gradient-sunset") {
+          color0 = "rgba(200, 80, 80, 0.10)";
+          color1 = "rgba(220, 150, 50, 0.08)";
+          color2 = "rgba(230, 120, 40, 0.05)";
+        } else if (theme === "gradient-ocean") {
+          color0 = "rgba(0, 60, 160, 0.10)";
+          color1 = "rgba(0, 50, 140, 0.08)";
+          color2 = "rgba(0, 40, 120, 0.05)";
+        } else if (theme === "gradient-forest") {
+          color0 = "rgba(30, 80, 60, 0.10)";
+          color1 = "rgba(25, 65, 50, 0.08)";
+          color2 = "rgba(20, 50, 40, 0.05)";
         } else {
-          grd.addColorStop(0, "rgba(128, 224, 208, 0.8)");
-          grd.addColorStop(0.5, "rgba(64, 216, 212, 0.6)");
-          grd.addColorStop(1, "rgba(64, 212, 208, 0.4)");
+          color0 = "rgba(60, 100, 160, 0.10)";
+          color1 = "rgba(50, 80, 140, 0.08)";
+          color2 = "rgba(40, 60, 120, 0.05)";
         }
 
+        grd.addColorStop(0, color0);
+        grd.addColorStop(0.5, color1);
+        grd.addColorStop(1, color2);
+
         ctx.beginPath();
-        for (let x = 0; x <= w; x += 15) {
+        for (let x = 0; x <= w; x += 30) {
           const y =
             yBase +
             Math.sin(x * 0.02 + phase) * amplitude +
@@ -457,8 +555,12 @@
 
     let w, h;
     let lastFrameTime = 0;
-    const targetFPS = 30;
+    const targetFPS = 24;
     const frameInterval = 1000 / targetFPS;
+    let paused = false;
+    document.addEventListener("visibilitychange", () => {
+      paused = document.hidden;
+    });
     let debris = [];
     let rings = [];
     let jellyfish = [];
@@ -658,6 +760,10 @@
 
     function update(currentTime) {
       if (!currentTime) currentTime = performance.now();
+      if (paused) {
+        requestAnimationFrame(update);
+        return;
+      }
       if (currentTime - lastFrameTime < frameInterval) {
         requestAnimationFrame(update);
         return;
@@ -755,7 +861,6 @@
   plasticOceanToggle.addEventListener("change", (e) => {
     plasticOceanEnabled = e.target.checked;
     localStorage.setItem("plasticOceanEnabled", plasticOceanEnabled);
-
     const currentTheme =
       localStorage.getItem("timerTheme") || "gradient-default";
     if (currentTheme === "gradient-ocean") {
@@ -806,44 +911,39 @@
     } else {
       filteredTasks.forEach((task) => {
         const taskItem = document.createElement("div");
-
-        // Status classes
-        let statusClass = "";
-        if (isOverdue(task)) {
-          statusClass = "overdue";
-        } else if (task.status === "done") {
-          statusClass = "done";
-        }
-
+        const statusClass = isOverdue(task)
+          ? "overdue"
+          : task.status === "done"
+            ? "done"
+            : "active";
         taskItem.className = `planner-task-item ${statusClass}`;
+        const statusText = isOverdue(task)
+          ? "Overdue"
+          : task.status === "done"
+            ? "Done"
+            : "Active";
+        const statusColor = isOverdue(task)
+          ? "#ff8a91"
+          : task.status === "done"
+            ? "#7ee787"
+            : "#d0def2";
 
-        // Category color mapping
-        const categoryColorMap = {
-          Exam: "category-exam",
-          Revision: "category-revision",
-          "Past Paper": "category-past-paper",
-          Finals: "category-finals",
-          Other: "category-other",
-        };
-
-        // Priority emoji and color mapping
-        const priorityMap = {
-          High: { emoji: "🟡", class: "priority-high" },
-          Urgent: { emoji: "🔺", class: "priority-urgent" },
-          "": { emoji: "🔵", class: "priority-normal" },
-          Normal: { emoji: "🔵", class: "priority-normal" },
-        };
-
-        const priorityInfo = priorityMap[task.priority] || priorityMap[""];
+        const categoryClass = task.category
+          ? "category-" + task.category.toLowerCase().replace(/\s+/g, "-")
+          : "";
+        const priorityClass = task.priority
+          ? "priority-" + task.priority.toLowerCase()
+          : "priority-normal";
 
         taskItem.innerHTML = `
           <div class="task-info">
             <h4 class="task-title">${task.title || "Untitled"}</h4>
             <div class="task-meta">
-              ${task.category ? `<span class="tag-category ${categoryColorMap[task.category] || ""}"><i class="fa-solid fa-bookmark"></i>${task.category}</span>` : ""}
-              ${task.subject ? `<span class="tag-subject">${task.subject}</span>` : ""}
-              ${task.priority || task.priority === "" ? `<span class="tag-priority ${priorityInfo.class}">${priorityInfo.emoji} ${task.priority || "Normal"}</span>` : ""}
-              ${task.estimate ? `<span class="tag-estimate">${task.estimate}</span>` : ""}
+              ${task.category ? `<span class="tag-category ${categoryClass}"><i class="fa-solid fa-tag"></i>${task.category}</span>` : ""}
+              ${task.subject ? `<span class="tag-subject"><i class="fa-solid fa-book"></i>${task.subject}</span>` : ""}
+              ${task.priority || task.priority === "" ? `<span class="tag-priority ${priorityClass}"><i class="fa-solid fa-flag"></i>${task.priority || "Normal"}</span>` : `<span class="tag-priority priority-normal"><i class="fa-solid fa-flag"></i>Normal</span>`}
+              ${task.dueDate ? `<span class="tag-due"><i class="fa-solid fa-calendar"></i>${new Date(task.dueDate + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>` : ""}
+              ${task.estimate ? `<span class="tag-estimate"><i class="fa-solid fa-clock"></i>${task.estimate}</span>` : ""}
             </div>
             ${task.notes ? `<div class="task-notes">${task.notes}</div>` : ""}
           </div>
@@ -1034,6 +1134,64 @@
   taskPopupClose.addEventListener("click", closeTaskPopup);
   taskPopupCancelBtn.addEventListener("click", closeTaskPopup);
   saveTaskBtn.addEventListener("click", saveTask);
+
+  // Tab switching in settings modal
+  const tabBtns = document.querySelectorAll(".settings-tab-btn");
+  const tabContents = document.querySelectorAll(".settings-tab-content");
+
+  tabBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tabName = btn.getAttribute("data-tab");
+      tabBtns.forEach((b) => {
+        b.classList.remove("active");
+        b.style.color = "rgba(255,255,255,0.5)";
+        b.style.borderBottomColor = "transparent";
+      });
+      tabContents.forEach((content) => (content.style.display = "none"));
+
+      btn.classList.add("active");
+      btn.style.color = "white";
+      btn.style.borderBottomColor = "white";
+      const activeContent = Array.from(tabContents).find(
+        (c) => c.getAttribute("data-tab") === tabName,
+      );
+      if (activeContent) {
+        activeContent.style.display = "block";
+        if (tabName === "statistics") updateStatsDisplay();
+      }
+    });
+  });
+
+  // Reset stats button
+  const resetStatsBtn = document.getElementById("resetStatsBtn");
+  if (resetStatsBtn) {
+    resetStatsBtn.addEventListener("click", () => {
+      if (confirm("Reset all statistics?")) {
+        resetStats();
+        updateStatsDisplay();
+      }
+    });
+  }
+
+  // Subject selector always visible
+  const subjectSelector = document.getElementById("subjectSelector");
+  const subjectSelect = document.getElementById("subjectSelect");
+
+  if (subjectSelect) {
+    subjectSelect.addEventListener("change", (e) => {
+      currentSubject = e.target.value || null;
+      if (currentSubject)
+        localStorage.setItem("currentSubject", currentSubject);
+      else localStorage.removeItem("currentSubject");
+    });
+  }
+
+  // Restore saved subject
+  const savedSubject = localStorage.getItem("currentSubject");
+  if (savedSubject && subjectSelect) {
+    subjectSelect.value = savedSubject;
+    currentSubject = savedSubject;
+  }
 
   // Expose functions to window for inline onclick handlers
   window.openTaskPopup = openTaskPopup;
