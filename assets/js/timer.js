@@ -192,47 +192,86 @@
     setTimeout(() => playBeep(440, 0.5, 0.3), 640);
   }
 
+  let endTime = null;
+  let timerTick = null;
+  let warningPlayed = false;
+
+  function updateTimerDisplay() {
+    const msLeft = endTime - Date.now();
+    const newRemaining = Math.max(0, Math.ceil(msLeft / 1000));
+
+    if (newRemaining === 5 && !warningPlayed) {
+      playWarningSound();
+      warningPlayed = true;
+    }
+
+    remaining = newRemaining;
+    render();
+
+    if (remaining <= 0) {
+      clearInterval(timerTick);
+      timerTick = null;
+      running = false;
+      warningPlayed = false;
+
+      const duration =
+        currentMode === "focus"
+          ? modes.focus / 60
+          : currentMode === "short"
+            ? modes.short / 60
+            : modes.long / 60;
+
+      logSession(currentMode, duration);
+      remaining = 0;
+      render();
+
+      setTimeout(() => {
+        if (currentMode === "focus") {
+          setActiveMode("short");
+          playBreakStartSound();
+          setTimeout(() => startTimer(), 800);
+        } else {
+          setActiveMode("focus");
+          playFocusStartSound();
+          setTimeout(() => startTimer(), 800);
+        }
+      }, 500);
+    }
+  }
+
   function startTimer() {
     if (running) return;
     running = true;
+    warningPlayed = false;
+    endTime = Date.now() + remaining * 1000;
+    updateTimerDisplay();
+    timerTick = setInterval(updateTimerDisplay, 250);
+  }
 
-    interval = setInterval(() => {
-      // Warning sound at 5 seconds remaining
-      if (remaining === 5) {
-        playWarningSound();
-      }
+  function pauseTimer() {
+    if (timerTick) clearInterval(timerTick);
+    timerTick = null;
+    running = false;
+    remaining = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+    render();
+  }
 
-      if (remaining <= 1) {
-        clearInterval(interval);
-        const duration =
-          currentMode === "focus"
-            ? modes.focus / 60
-            : currentMode === "short"
-              ? modes.short / 60
-              : modes.long / 60;
-        logSession(currentMode, duration);
-        remaining = 0;
-        running = false;
-        render();
+  function resetTimer() {
+    if (timerTick) clearInterval(timerTick);
+    timerTick = null;
+    running = false;
+    warningPlayed = false;
+    endTime = null;
 
-        // Auto-start break (or focus) after session ends
-        setTimeout(() => {
-          if (currentMode === "focus") {
-            setActiveMode("short");
-            playBreakStartSound();
-            setTimeout(() => startTimer(), 800);
-          } else {
-            setActiveMode("focus");
-            playFocusStartSound();
-            setTimeout(() => startTimer(), 800);
-          }
-        }, 500);
+    if (currentMode === "focus") {
+      remaining = modes.focus;
+    } else if (currentMode === "short") {
+      remaining = modes.short;
+    } else {
+      remaining = modes.long;
+    }
 
-        return;
-      }
-      remaining--;
-      render();
-    }, 1000);
+    render();
   }
 
   function pauseTimer() {
@@ -436,6 +475,10 @@
     let lastFrameTime = 0;
     const targetFPS = 24;
     const frameInterval = 1000 / targetFPS;
+    let wavePaused = false;
+    document.addEventListener("visibilitychange", () => {
+      wavePaused = document.hidden;
+    });
 
     function setSize() {
       w = canvas.width = Math.max(600, window.innerWidth);
@@ -444,6 +487,10 @@
 
     function update(currentTime) {
       if (!currentTime) currentTime = performance.now();
+      if (wavePaused) {
+        requestAnimationFrame(update);
+        return;
+      }
       if (currentTime - lastFrameTime < frameInterval) {
         requestAnimationFrame(update);
         return;
@@ -469,6 +516,7 @@
 
         const theme = localStorage.getItem("timerTheme") || "gradient-default";
 
+        // Theme-based wave colors
         let color0, color1, color2;
         if (theme === "gradient-default") {
           color0 = "rgba(100, 40, 140, 0.10)";
@@ -548,6 +596,10 @@
     let lastFrameTime = 0;
     const targetFPS = 24;
     const frameInterval = 1000 / targetFPS;
+    let paused = false;
+    document.addEventListener("visibilitychange", () => {
+      paused = document.hidden;
+    });
     let debris = [];
     let rings = [];
     let jellyfish = [];
@@ -747,6 +799,10 @@
 
     function update(currentTime) {
       if (!currentTime) currentTime = performance.now();
+      if (paused) {
+        requestAnimationFrame(update);
+        return;
+      }
       if (currentTime - lastFrameTime < frameInterval) {
         requestAnimationFrame(update);
         return;
