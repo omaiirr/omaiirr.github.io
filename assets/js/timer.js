@@ -1238,5 +1238,348 @@
   window.deleteTask = deleteTask;
   window.setFilter = setFilter;
 
+  // ============ ANALYTICS MODAL ============
+  const analyticsModal = document.getElementById("statisticsModal");
+  const analyticsBackdrop = document.getElementById("analyticsBackdrop");
+  const analyticsCloseBtn = document.getElementById("statisticsCloseBtn");
+  const statsResetBtn2 = document.getElementById("statsResetBtn");
+  const statsExportBtn = document.getElementById("statsExportBtn");
+  const toggleSessionBtn = document.getElementById("toggleSessionHistory");
+
+  let analyticsRange = "today";
+  let sessionLogExpanded = false;
+
+  const SUBJECT_COLORS = [
+    "#6366f1",
+    "#38bdf8",
+    "#a78bfa",
+    "#34d399",
+    "#f59e0b",
+    "#f472b6",
+    "#fb923c",
+    "#4ade80",
+    "#60a5fa",
+    "#e879f9",
+  ];
+
+  function openAnalytics() {
+    analyticsModal.classList.add("open");
+    renderAnalytics();
+  }
+
+  function closeAnalytics() {
+    analyticsModal.classList.remove("open");
+  }
+
+  function getFilteredStats(range) {
+    const stats = getStats();
+    const now = new Date();
+    const todayStr = now.toDateString();
+    const weekAgo = new Date(now - 7 * 864e5);
+
+    if (range === "all") return stats;
+
+    const sessions = stats.sessions.filter((s) => {
+      const d = new Date(s.date);
+      if (range === "today") return d.toDateString() === todayStr;
+      if (range === "week") return d >= weekAgo;
+      return true;
+    });
+
+    const totalStudyTime = sessions
+      .filter((s) => s.type === "focus")
+      .reduce((a, s) => a + s.duration, 0);
+    const totalBreakTime = sessions
+      .filter((s) => s.type !== "focus")
+      .reduce((a, s) => a + s.duration, 0);
+    const subjectTime = {};
+    sessions
+      .filter((s) => s.type === "focus" && s.subject)
+      .forEach((s) => {
+        subjectTime[s.subject] = (subjectTime[s.subject] || 0) + s.duration;
+      });
+
+    return { sessions, totalStudyTime, totalBreakTime, subjectTime };
+  }
+
+  function calcStreak() {
+    const stats = getStats();
+    const days = new Set(
+      stats.sessions
+        .filter((s) => s.type === "focus")
+        .map((s) => new Date(s.date).toDateString()),
+    );
+    let streak = 0;
+    const d = new Date();
+    while (days.has(d.toDateString())) {
+      streak++;
+      d.setDate(d.getDate() - 1);
+    }
+    return streak;
+  }
+
+  function animateValue(el, target) {
+    const start = parseInt(el.textContent) || 0;
+    const duration = 600;
+    const startTime = performance.now();
+    function step(now) {
+      const p = Math.min((now - startTime) / duration, 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(start + (target - start) * ease);
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function renderAnalytics() {
+    const data = getFilteredStats(analyticsRange);
+    const streak = calcStreak();
+
+    // Date label
+    const label = document.getElementById("analyticsDateLabel");
+    if (label) {
+      const now = new Date();
+      if (analyticsRange === "today")
+        label.textContent = now.toLocaleDateString("en-GB", {
+          weekday: "long",
+          day: "numeric",
+          month: "short",
+        });
+      else if (analyticsRange === "week") label.textContent = "Last 7 days";
+      else label.textContent = "All time";
+    }
+
+    // KPIs
+    const studyEl = document.getElementById("kpiStudyTime");
+    const breakEl = document.getElementById("kpiBreakTime");
+    const sessEl = document.getElementById("kpiSessions");
+    const strkEl = document.getElementById("kpiStreak");
+    if (studyEl) animateValue(studyEl, Math.round(data.totalStudyTime));
+    if (breakEl) animateValue(breakEl, Math.round(data.totalBreakTime));
+    if (sessEl)
+      animateValue(
+        sessEl,
+        data.sessions.filter((s) => s.type === "focus").length,
+      );
+    if (strkEl) animateValue(strkEl, streak);
+
+    // KPI bars (relative to max of the four)
+    const maxVal = Math.max(
+      data.totalStudyTime,
+      data.totalBreakTime,
+      data.sessions.length * 5,
+      streak * 10,
+      1,
+    );
+    setTimeout(() => {
+      const sb = document.getElementById("kpiStudyBar");
+      const bb = document.getElementById("kpiBreakBar");
+      const sesb = document.getElementById("kpiSessionsBar");
+      const strb = document.getElementById("kpiStreakBar");
+      if (sb)
+        sb.style.width =
+          Math.min(100, (data.totalStudyTime / maxVal) * 100) + "%";
+      if (bb)
+        bb.style.width =
+          Math.min(100, (data.totalBreakTime / maxVal) * 100) + "%";
+      if (sesb)
+        sesb.style.width =
+          Math.min(100, ((data.sessions.length * 5) / maxVal) * 100) + "%";
+      if (strb)
+        strb.style.width = Math.min(100, ((streak * 10) / maxVal) * 100) + "%";
+    }, 50);
+
+    // Activity chart — last 7 days always
+    renderActivityChart();
+
+    // Subject list
+    renderSubjectList(data);
+
+    // Session log
+    renderSessionLog(data);
+  }
+
+  function renderActivityChart() {
+    const chartArea = document.getElementById("activityChart");
+    const xLabels = document.getElementById("chartXLabels");
+    if (!chartArea || !xLabels) return;
+
+    const stats = getStats();
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      days.push(d);
+    }
+
+    const dayData = days.map((d) => {
+      const str = d.toDateString();
+      const focus = stats.sessions
+        .filter(
+          (s) => s.type === "focus" && new Date(s.date).toDateString() === str,
+        )
+        .reduce((a, s) => a + s.duration, 0);
+      const brk = stats.sessions
+        .filter(
+          (s) => s.type !== "focus" && new Date(s.date).toDateString() === str,
+        )
+        .reduce((a, s) => a + s.duration, 0);
+      return {
+        focus,
+        brk,
+        label: d.toLocaleDateString("en-GB", { weekday: "short" }),
+      };
+    });
+
+    const maxMins = Math.max(...dayData.map((d) => d.focus + d.brk), 1);
+
+    chartArea.innerHTML = dayData
+      .map((d) => {
+        const fh = Math.round((d.focus / maxMins) * 82);
+        const bh = Math.round((d.brk / maxMins) * 82);
+        return `<div class="chart-bar-wrap">
+        ${d.focus > 0 ? `<div class="chart-bar study-bar" style="height:${fh}px" data-tip="${d.focus}min study"></div>` : ""}
+        ${d.brk > 0 ? `<div class="chart-bar break-bar" style="height:${bh}px" data-tip="${d.brk}min break"></div>` : `<div style="height:3px;width:100%;border-radius:2px;background:rgba(255,255,255,0.04)"></div>`}
+      </div>`;
+      })
+      .join("");
+
+    xLabels.innerHTML = dayData
+      .map((d) => `<span class="chart-x-label">${d.label}</span>`)
+      .join("");
+  }
+
+  function renderSubjectList(data) {
+    const list = document.getElementById("subjectList");
+    if (!list) return;
+    const st = data.subjectTime || {};
+    const entries = Object.entries(st).sort((a, b) => b[1] - a[1]);
+    if (!entries.length) {
+      list.innerHTML = '<p class="analytics-empty">No subject data yet</p>';
+      return;
+    }
+    const maxMins = entries[0][1];
+    list.innerHTML = entries
+      .map(([subj, mins], i) => {
+        const pct = Math.round((mins / maxMins) * 100);
+        const color = SUBJECT_COLORS[i % SUBJECT_COLORS.length];
+        const hrs =
+          mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+        return `<div class="subject-row">
+        <div class="subject-row-top">
+          <span class="subject-name">${subj}</span>
+          <span class="subject-time">${hrs}</span>
+        </div>
+        <div class="subject-progress">
+          <div class="subject-progress-fill" style="width:0%;background:${color}" data-pct="${pct}"></div>
+        </div>
+      </div>`;
+      })
+      .join("");
+
+    // Animate bars in
+    setTimeout(() => {
+      list.querySelectorAll(".subject-progress-fill").forEach((el) => {
+        el.style.width = el.dataset.pct + "%";
+      });
+    }, 80);
+  }
+
+  function renderSessionLog(data) {
+    const log = document.getElementById("sessionHistory");
+    if (!log) return;
+    const sessions = [...data.sessions].reverse();
+    const show = sessionLogExpanded ? sessions : sessions.slice(0, 5);
+
+    if (!sessions.length) {
+      log.innerHTML = '<p class="analytics-empty">No sessions yet</p>';
+      return;
+    }
+
+    log.className = "session-log" + (sessionLogExpanded ? " expanded" : "");
+    log.innerHTML = show
+      .map((s) => {
+        const isFocus = s.type === "focus";
+        const d = new Date(s.date);
+        const time = d.toLocaleTimeString("en-GB", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        const dateStr =
+          d.toDateString() === new Date().toDateString()
+            ? `Today ${time}`
+            : `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} ${time}`;
+        const title = isFocus ? s.subject || "Focus session" : "Break";
+        const dur =
+          s.duration >= 60
+            ? `${Math.floor(s.duration / 60)}h ${s.duration % 60}m`
+            : `${s.duration}m`;
+        return `<div class="session-entry">
+        <div class="session-dot ${isFocus ? "focus" : "break"}"></div>
+        <div class="session-entry-info">
+          <span class="session-entry-title">${title}</span>
+          <span class="session-entry-sub">${dateStr}</span>
+        </div>
+        <span class="session-entry-duration">${dur}</span>
+      </div>`;
+      })
+      .join("");
+
+    if (toggleSessionBtn) {
+      toggleSessionBtn.textContent = sessionLogExpanded
+        ? "Show less"
+        : `Show all (${sessions.length})`;
+    }
+  }
+
+  // Event listeners
+  document
+    .getElementById("openStatsModalBtn")
+    ?.addEventListener("click", openAnalytics);
+  analyticsBackdrop?.addEventListener("click", closeAnalytics);
+  analyticsCloseBtn?.addEventListener("click", closeAnalytics);
+
+  document.querySelectorAll(".date-pill").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document
+        .querySelectorAll(".date-pill")
+        .forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      analyticsRange = btn.dataset.range;
+      renderAnalytics();
+    });
+  });
+
+  toggleSessionBtn?.addEventListener("click", () => {
+    sessionLogExpanded = !sessionLogExpanded;
+    const data = getFilteredStats(analyticsRange);
+    renderSessionLog(data);
+  });
+
+  statsResetBtn2?.addEventListener("click", () => {
+    if (confirm("Reset all statistics? This cannot be undone.")) {
+      resetStats();
+      renderAnalytics();
+    }
+  });
+
+  statsExportBtn?.addEventListener("click", () => {
+    const stats = getStats();
+    const rows = [["Type", "Subject", "Duration (min)", "Date"]];
+    stats.sessions.forEach((s) => {
+      rows.push([
+        s.type,
+        s.subject || "",
+        s.duration,
+        new Date(s.date).toLocaleString(),
+      ]);
+    });
+    const csv = rows.map((r) => r.join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = "data:text/csv," + encodeURIComponent(csv);
+    a.download = "study-sessions.csv";
+    a.click();
+  });
+
   renderTasks();
 });

@@ -35,6 +35,7 @@ permalink: /timer/
 {% include planner-modal.html %}
 {% include task-popup.html %}
 {% include theme-modal.html %}
+{% include statistics-popup.html %}
 
   <!-- Animation Containers -->
 

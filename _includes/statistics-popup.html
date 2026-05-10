@@ -1,0 +1,127 @@
+<div class="analytics-modal" id="statisticsModal">
+  <div class="analytics-backdrop" id="analyticsBackdrop"></div>
+  <div class="analytics-panel">
+    <div class="analytics-header">
+      <div class="analytics-header-left">
+        <p class="analytics-eyebrow">Overview</p>
+        <h2 class="analytics-title">Study Analytics</h2>
+      </div>
+      <button class="analytics-close" id="statisticsCloseBtn">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <path
+            d="M1 1l16 16M17 1L1 17"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Date range pill -->
+    <div class="analytics-date-row">
+      <div class="analytics-date-pills">
+        <button class="date-pill active" data-range="today">Today</button>
+        <button class="date-pill" data-range="week">This Week</button>
+        <button class="date-pill" data-range="all">All Time</button>
+      </div>
+      <span class="analytics-date-label" id="analyticsDateLabel"></span>
+    </div>
+
+    <!-- KPI row -->
+    <div class="analytics-kpi-row">
+      <div class="analytics-kpi">
+        <span class="kpi-value" id="kpiStudyTime">0</span>
+        <span class="kpi-unit">min</span>
+        <span class="kpi-label">Study Time</span>
+        <div class="kpi-bar">
+          <div
+            class="kpi-bar-fill study"
+            id="kpiStudyBar"
+            style="width: 0%"
+          ></div>
+        </div>
+      </div>
+      <div class="analytics-kpi-divider"></div>
+      <div class="analytics-kpi">
+        <span class="kpi-value" id="kpiBreakTime">0</span>
+        <span class="kpi-unit">min</span>
+        <span class="kpi-label">Break Time</span>
+        <div class="kpi-bar">
+          <div
+            class="kpi-bar-fill break"
+            id="kpiBreakBar"
+            style="width: 0%"
+          ></div>
+        </div>
+      </div>
+      <div class="analytics-kpi-divider"></div>
+      <div class="analytics-kpi">
+        <span class="kpi-value" id="kpiSessions">0</span>
+        <span class="kpi-unit"></span>
+        <span class="kpi-label">Sessions</span>
+        <div class="kpi-bar">
+          <div
+            class="kpi-bar-fill sessions"
+            id="kpiSessionsBar"
+            style="width: 0%"
+          ></div>
+        </div>
+      </div>
+      <div class="analytics-kpi-divider"></div>
+      <div class="analytics-kpi">
+        <span class="kpi-value" id="kpiStreak">0</span>
+        <span class="kpi-unit">days</span>
+        <span class="kpi-label">Streak</span>
+        <div class="kpi-bar">
+          <div
+            class="kpi-bar-fill streak"
+            id="kpiStreakBar"
+            style="width: 0%"
+          ></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chart + Subject side by side -->
+    <div class="analytics-body">
+      <!-- Weekly activity chart -->
+      <div class="analytics-card analytics-chart-card">
+        <p class="analytics-card-label">Daily Activity</p>
+        <div class="chart-area" id="activityChart"></div>
+        <div class="chart-x-labels" id="chartXLabels"></div>
+      </div>
+
+      <!-- Subject breakdown -->
+      <div class="analytics-card analytics-subject-card">
+        <p class="analytics-card-label">By Subject</p>
+        <div class="subject-list" id="subjectList">
+          <p class="analytics-empty">No data yet</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Session log -->
+    <div class="analytics-card analytics-sessions-card">
+      <div class="analytics-sessions-header">
+        <p class="analytics-card-label" style="margin: 0">Recent Sessions</p>
+        <button class="analytics-show-all" id="toggleSessionHistory">
+          Show all
+        </button>
+      </div>
+      <div class="session-log" id="sessionHistory">
+        <p class="analytics-empty">No sessions yet</p>
+      </div>
+    </div>
+
+    <!-- Footer actions -->
+    <div class="analytics-footer">
+      <button class="analytics-btn analytics-btn-danger" id="statsResetBtn">
+        Reset Data
+      </button>
+      <button class="analytics-btn analytics-btn-export" id="statsExportBtn">
+        Export CSV
+      </button>
+    </div>
+  </div>
+</div>
