@@ -436,10 +436,6 @@
     let lastFrameTime = 0;
     const targetFPS = 24;
     const frameInterval = 1000 / targetFPS;
-    let wavePaused = false;
-    document.addEventListener("visibilitychange", () => {
-      wavePaused = document.hidden;
-    });
 
     function setSize() {
       w = canvas.width = Math.max(600, window.innerWidth);
@@ -448,10 +444,6 @@
 
     function update(currentTime) {
       if (!currentTime) currentTime = performance.now();
-      if (wavePaused) {
-        requestAnimationFrame(update);
-        return;
-      }
       if (currentTime - lastFrameTime < frameInterval) {
         requestAnimationFrame(update);
         return;
@@ -477,7 +469,6 @@
 
         const theme = localStorage.getItem("timerTheme") || "gradient-default";
 
-        // Theme-based wave colors
         let color0, color1, color2;
         if (theme === "gradient-default") {
           color0 = "rgba(100, 40, 140, 0.10)";
@@ -557,10 +548,6 @@
     let lastFrameTime = 0;
     const targetFPS = 24;
     const frameInterval = 1000 / targetFPS;
-    let paused = false;
-    document.addEventListener("visibilitychange", () => {
-      paused = document.hidden;
-    });
     let debris = [];
     let rings = [];
     let jellyfish = [];
@@ -760,10 +747,6 @@
 
     function update(currentTime) {
       if (!currentTime) currentTime = performance.now();
-      if (paused) {
-        requestAnimationFrame(update);
-        return;
-      }
       if (currentTime - lastFrameTime < frameInterval) {
         requestAnimationFrame(update);
         return;
