@@ -152,7 +152,8 @@
       minutesInput.disabled = true;
     }
 
-    clearInterval(interval);
+    if (timerTick) clearInterval(timerTick);
+    timerTick = null;
     running = false;
     render();
   }
@@ -262,26 +263,6 @@
     running = false;
     warningPlayed = false;
     endTime = null;
-
-    if (currentMode === "focus") {
-      remaining = modes.focus;
-    } else if (currentMode === "short") {
-      remaining = modes.short;
-    } else {
-      remaining = modes.long;
-    }
-
-    render();
-  }
-
-  function pauseTimer() {
-    clearInterval(interval);
-    running = false;
-  }
-
-  function resetTimer() {
-    clearInterval(interval);
-    running = false;
 
     if (currentMode === "focus") {
       remaining = modes.focus;
