@@ -11,7 +11,7 @@ permalink: /timer/
   <!-- Subject Selector -->
   <div id="subjectSelector" style="margin-top: 15px; display: block; position: relative; z-index: 20;">
     <select id="subjectSelect" class="form-input" style="max-width: 300px; margin: 0 auto; display: block;">
-      <option value="">Select Subject (Optional)</option>
+      <option value="">📚 Select Subject (Optional)</option>
       <option value="Computer Science">Computer Science</option>
       <option value="Mathematics">Mathematics</option>
       <option value="Biology">Biology</option>
