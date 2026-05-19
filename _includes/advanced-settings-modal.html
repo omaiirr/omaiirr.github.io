@@ -1,0 +1,466 @@
+<!-- Full Settings Modal -->
+<div class="advanced-settings-modal" id="advancedSettingsModal">
+  <div class="advanced-settings-backdrop" id="advancedSettingsBackdrop"></div>
+  <div class="advanced-settings-panel">
+    <div class="advanced-settings-header">
+      <div>
+        <p class="advanced-settings-eyebrow">Expand Settings</p>
+        <h2 class="advanced-settings-title">Expanded Settings</h2>
+      </div>
+      <button class="advanced-settings-close" id="advancedSettingsCloseBtn">
+        <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+          <path
+            d="M1 1l16 16M17 1L1 17"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
+    </div>
+
+    <!-- TAB INTERFACE -->
+    <div class="fs-tab-container">
+      <div class="fs-tabs-sidebar">
+        <button class="fs-tab-btn active" data-tab="general">
+          <i class="fas fa-sliders-h"></i> General
+        </button>
+        <button class="fs-tab-btn" data-tab="theme">
+          <i class="fas fa-palette"></i> Theme
+        </button>
+        <button class="fs-tab-btn" data-tab="extras">
+          <i class="fas fa-star"></i> Extras
+        </button>
+      </div>
+
+      <div class="fs-tab-content-wrapper">
+        <!-- GENERAL TAB -->
+        <div class="fs-tab-content active" id="tab-general">
+          <!-- Clock Settings -->
+          <div class="fs-card">
+            <p class="fs-card-label">Clock (minutes)</p>
+            <div class="fs-clock-grid">
+              <div class="fs-clock-item">
+                <label>Focus</label>
+                <input
+                  id="fsFocus"
+                  type="number"
+                  min="1"
+                  max="120"
+                  value="25"
+                />
+              </div>
+              <div class="fs-clock-item">
+                <label>Short Break</label>
+                <input id="fsShort" type="number" min="1" max="60" value="5" />
+              </div>
+              <div class="fs-clock-item">
+                <label>Long Break</label>
+                <input id="fsLong" type="number" min="1" max="60" value="15" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Timer Behaviour -->
+          <div class="fs-card">
+            <p class="fs-card-label">Timer Behaviour</p>
+            <label class="fs-toggle-row">
+              <div class="fs-toggle-info">
+                <span class="fs-toggle-name">Auto-start break</span>
+                <span class="fs-toggle-desc"
+                  >Starts break timer automatically when focus ends</span
+                >
+              </div>
+              <div class="fs-toggle-wrap">
+                <input
+                  type="checkbox"
+                  id="autoStartBreakToggle"
+                  class="fs-toggle-input"
+                  checked
+                />
+                <div class="fs-toggle-thumb"></div>
+              </div>
+            </label>
+          </div>
+
+          <!-- Sound Settings -->
+          <div class="fs-card">
+            <p class="fs-card-label">Sounds</p>
+            <label class="fs-toggle-row">
+              <div class="fs-toggle-info">
+                <span class="fs-toggle-name">Timer warning sound</span>
+                <span class="fs-toggle-desc"
+                  >Beep when time is running out</span
+                >
+              </div>
+              <div class="fs-toggle-wrap">
+                <input
+                  type="checkbox"
+                  id="timerSoundToggle"
+                  class="fs-toggle-input"
+                  checked
+                />
+                <div class="fs-toggle-thumb"></div>
+              </div>
+            </label>
+            <label class="fs-toggle-row" style="margin-top: 12px">
+              <div class="fs-toggle-info">
+                <span class="fs-toggle-name">Break start sound</span>
+                <span class="fs-toggle-desc">Chime when break begins</span>
+              </div>
+              <div class="fs-toggle-wrap">
+                <input
+                  type="checkbox"
+                  id="breakSoundToggle"
+                  class="fs-toggle-input"
+                  checked
+                />
+                <div class="fs-toggle-thumb"></div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- THEME TAB -->
+        <div class="fs-tab-content" id="tab-theme">
+          <!-- Theme Selection -->
+          <div class="fs-card">
+            <p class="fs-card-label">Select Theme</p>
+            <div class="theme-options fs-themes">
+              <button
+                class="theme-option"
+                data-theme="gradient-default"
+                style="
+                  background: linear-gradient(
+                    135deg,
+                    #6366f1 0%,
+                    #ec4899 50%,
+                    #f43f5e 100%
+                  );
+                "
+              >
+                Default
+              </button>
+              <button
+                class="theme-option theme-disabled"
+                disabled
+                data-theme="gradient-day-night"
+                title="This theme is disabled (WIP)"
+                style="
+                  background: linear-gradient(
+                    to bottom,
+                    #0a0a2e 0%,
+                    #1e3c72 35%,
+                    #f97316 68%,
+                    #fbbf24 100%
+                  );
+                "
+              >
+                Day/Night
+              </button>
+              <button
+                class="theme-option"
+                data-theme="gradient-deep-ocean"
+                style="
+                  background: linear-gradient(
+                    180deg,
+                    #0a1f3f 0%,
+                    #0d324e 55%,
+                    #045c7c 100%
+                  );
+                "
+              >
+                Deep Ocean
+              </button>
+              <button
+                class="theme-option"
+                data-theme="gradient-forest"
+                style="
+                  background: linear-gradient(135deg, #134e5e 0%, #71b280 100%);
+                "
+              >
+                Forest
+              </button>
+              <button
+                class="theme-option"
+                data-theme="color-dark"
+                style="background: #111"
+              >
+                Dark
+              </button>
+              <button
+                class="theme-option"
+                data-theme="color-light"
+                style="background: #f0f0f0; color: #333"
+              >
+                Light
+              </button>
+            </div>
+          </div>
+
+          <!-- Default: gradient builder -->
+          <div
+            class="theme-settings-section fs-card"
+            id="defaultThemeSettings"
+            style="display: none"
+          >
+            <p class="fs-card-label">Gradient — Default Theme</p>
+            <p class="fs-sub-label">Presets</p>
+            <div class="fs-preset-grid">
+              <button
+                class="gradient-preset"
+                data-preset="default-purple"
+                style="
+                  background: linear-gradient(
+                    135deg,
+                    #6366f1,
+                    #ec4899,
+                    #f43f5e
+                  );
+                "
+              >
+                Default
+              </button>
+              <button
+                class="gradient-preset"
+                data-preset="ocean-classic"
+                style="background: linear-gradient(135deg, #0066ff, #00d4ff)"
+              >
+                Ocean
+              </button>
+              <button
+                class="gradient-preset"
+                data-preset="sunset-classic"
+                style="background: linear-gradient(135deg, #ff6b6b, #feca57)"
+              >
+                Sunset
+              </button>
+              <button
+                class="gradient-preset"
+                data-preset="midnight"
+                style="background: linear-gradient(135deg, #1a1a2e, #16213e)"
+              >
+                Midnight
+              </button>
+            </div>
+            <p class="fs-sub-label" style="margin-top: 13px">Custom</p>
+            <div class="fs-color-row">
+              <div class="fs-color-item">
+                <label>Start</label>
+                <input type="color" id="gradientStartColor" value="#6366f1" />
+              </div>
+              <div class="fs-color-item">
+                <label>End</label>
+                <input type="color" id="gradientEndColor" value="#ec4899" />
+              </div>
+            </div>
+            <div id="customGradientPreview" class="fs-gradient-preview"></div>
+            <label class="fs-toggle-row" style="margin-top: 13px">
+              <div class="fs-toggle-info">
+                <span class="fs-toggle-name">Wave animation</span>
+              </div>
+              <div class="fs-toggle-wrap">
+                <input
+                  type="checkbox"
+                  id="defaultAnimationToggle"
+                  class="fs-toggle-input"
+                  checked
+                />
+                <div class="fs-toggle-thumb"></div>
+              </div>
+            </label>
+          </div>
+
+          <!-- Forest -->
+          <div
+            class="theme-settings-section fs-card"
+            id="forestThemeSettings"
+            style="display: none"
+          >
+            <p class="fs-card-label">Forest Theme</p>
+            <label class="fs-toggle-row">
+              <div class="fs-toggle-info">
+                <span class="fs-toggle-name">Falling leaves</span>
+                <span class="fs-toggle-desc"
+                  >Animated leaves in the background</span
+                >
+              </div>
+              <div class="fs-toggle-wrap">
+                <input
+                  type="checkbox"
+                  id="forestAnimationToggle"
+                  class="fs-toggle-input"
+                  checked
+                />
+                <div class="fs-toggle-thumb"></div>
+              </div>
+            </label>
+          </div>
+
+          <!-- Day/Night -->
+          <div
+            class="theme-settings-section fs-card"
+            id="dayNightSettings"
+            style="display: none"
+          >
+            <p class="fs-card-label">Day / Night Cycle</p>
+            <p class="fs-hint">Follow your device clock or scrub manually.</p>
+            <div class="fs-mode-row">
+              <button class="mode-toggle-btn active" data-mode="realtime">
+                Real-time
+              </button>
+              <button class="mode-toggle-btn" data-mode="slider">Manual</button>
+            </div>
+            <div
+              id="sliderControlsContainer"
+              style="display: none; margin-top: 12px"
+            >
+              <label class="fs-range-label"
+                >Time — <span id="dayNightTimeDisplay">12:00</span></label
+              >
+              <input
+                type="range"
+                id="dayNightSlider"
+                min="0"
+                max="24"
+                value="12"
+                class="fs-range"
+              />
+            </div>
+          </div>
+
+          <!-- Deep Ocean -->
+          <div
+            class="theme-settings-section fs-card"
+            id="deepOceanSettings"
+            style="display: none"
+          >
+            <p class="fs-card-label">Deep Ocean</p>
+            <label class="fs-toggle-row">
+              <div class="fs-toggle-info">
+                <span class="fs-toggle-name">Deep Ocean animation</span>
+                <span class="fs-toggle-desc"
+                  >Enable animated 3D ocean effects</span
+                >
+              </div>
+              <div class="fs-toggle-wrap">
+                <input
+                  type="checkbox"
+                  id="deepOceanAnimationToggle"
+                  class="fs-toggle-input"
+                  checked
+                />
+                <div class="fs-toggle-thumb"></div>
+              </div>
+            </label>
+            <label class="fs-range-label"
+              >Rotation speed — <span id="oceanSpeedValue">1</span>%</label
+            >
+            <input
+              type="range"
+              id="oceanSpeed"
+              min="1"
+              max="100"
+              value="1"
+              class="fs-range"
+            />
+            <label class="fs-range-label" style="margin-top: 11px"
+              >Debris size — <span id="oceanTireSizeValue">1</span>%</label
+            >
+            <input
+              type="range"
+              id="oceanTireSize"
+              min="1"
+              max="100"
+              value="1"
+              class="fs-range"
+            />
+            <label class="fs-range-label" style="margin-top: 11px"
+              >Jellyfish size —
+              <span id="oceanJellyfishSizeValue">1</span>%</label
+            >
+            <input
+              type="range"
+              id="oceanJellyfishSize"
+              min="1"
+              max="100"
+              value="1"
+              class="fs-range"
+            />
+          </div>
+
+          <!-- Dark / Light — no extra settings -->
+          <div
+            class="theme-settings-section fs-card"
+            id="staticThemeSettings"
+            style="display: none"
+          >
+            <p class="fs-card-label">Theme Options</p>
+            <p class="fs-hint">This theme has no additional settings.</p>
+          </div>
+        </div>
+
+        <!-- EXTRAS TAB -->
+        <div class="fs-tab-content" id="tab-extras">
+          <div class="fs-card">
+            <p class="fs-card-label">Analytics</p>
+            <label class="fs-toggle-row">
+              <div class="fs-toggle-info">
+                <span class="fs-toggle-name">Track statistics</span>
+                <span class="fs-toggle-desc"
+                  >Record study sessions and build your streak</span
+                >
+              </div>
+              <div class="fs-toggle-wrap">
+                <input
+                  type="checkbox"
+                  id="statisticsToggle"
+                  class="fs-toggle-input"
+                  checked
+                />
+                <div class="fs-toggle-thumb"></div>
+              </div>
+            </label>
+          </div>
+
+          <div class="fs-card">
+            <p class="fs-card-label">Patch Notes</p>
+            <p class="fs-hint" style="margin: 0">
+              Latest updates and fixes for the site.
+            </p>
+            <div id="patchNotesPreview" class="patch-notes-preview"></div>
+            <button
+              id="openPatchNotesBtn"
+              class="advanced-settings-btn"
+              style="margin-top: 16px; width: 100%"
+            >
+              View all updates
+            </button>
+          </div>
+
+          <div class="fs-card">
+            <p class="fs-card-label">About</p>
+            <p class="fs-hint" style="margin: 0">Expand Settings v1.0</p>
+            <p class="fs-hint" style="margin: 8px 0 0 0; opacity: 0.6">
+              Manage timer behavior, theme options, and system settings
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="advanced-settings-footer">
+      <button
+        class="advanced-settings-btn"
+        id="advancedSettingsSaveBtn"
+        style="
+          background: rgba(99, 102, 241, 0.2);
+          border: 1px solid rgba(99, 102, 241, 0.4);
+          color: #c7d2fe;
+        "
+      >
+        Apply &amp; Close
+      </button>
+    </div>
+  </div>
+</div>

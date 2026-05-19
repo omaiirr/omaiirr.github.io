@@ -10,11 +10,37 @@
   let running = false;
   let remaining = modes.focus;
   let currentSubject = null;
+  let autoStartBreak = localStorage.getItem("autoStartBreak") !== "false";
+
+  function applyAutoBreakToggle() {
+    const toggle = document.getElementById("autoStartBreakToggle");
+    if (toggle) {
+      toggle.checked = autoStartBreak;
+      toggle.addEventListener("change", (e) => {
+        autoStartBreak = e.target.checked;
+        localStorage.setItem("autoStartBreak", autoStartBreak);
+      });
+    }
+  }
+
+  function safeJSONParse(value, fallback) {
+    if (!value) return fallback;
+    try {
+      return JSON.parse(value);
+    } catch (error) {
+      console.warn("safeJSONParse: invalid JSON detected", value, error);
+      return fallback;
+    }
+  }
 
   // Stats functions
   function getStats() {
     return (
-      JSON.parse(localStorage.getItem("timerStats")) || {
+      safeJSONParse(localStorage.getItem("timerStats"), {
+        totalStudyTime: 0,
+        totalBreakTime: 0,
+        sessions: [],
+      }) || {
         totalStudyTime: 0,
         totalBreakTime: 0,
         sessions: [],
@@ -25,6 +51,7 @@
     localStorage.setItem("timerStats", JSON.stringify(stats));
   }
   function logSession(type, duration) {
+    if (!statisticsEnabled) return;
     const stats = getStats();
     stats.sessions.push({
       type,
@@ -95,8 +122,6 @@
   const speedSlider = document.getElementById("speed");
   const tsizeSlider = document.getElementById("tsize");
   const jsizeSlider = document.getElementById("jsize");
-  const overlay = document.getElementById("overlay");
-  const overlayButton = document.getElementById("button");
 
   const params = {
     speed: 1,
@@ -121,11 +146,13 @@
   function loadSavedModes() {
     const saved = localStorage.getItem("timerModes");
     if (saved) {
-      const parsed = JSON.parse(saved);
-      customFocusInput.value = parsed.focus;
-      customShortInput.value = parsed.short;
-      customLongInput.value = parsed.long;
-      updateModes();
+      const parsed = safeJSONParse(saved, null);
+      if (parsed) {
+        customFocusInput.value = parsed.focus;
+        customShortInput.value = parsed.short;
+        customLongInput.value = parsed.long;
+        updateModes();
+      }
     }
   }
 
@@ -175,18 +202,21 @@
     } catch (e) {}
   }
   function playWarningSound() {
+    if (!timerSoundEnabled) return;
     // 3 quick beeps — "almost done"
     playBeep(880, 0.15, 0.25);
     setTimeout(() => playBeep(880, 0.15, 0.25), 200);
     setTimeout(() => playBeep(880, 0.15, 0.25), 400);
   }
   function playBreakStartSound() {
+    if (!breakSoundEnabled) return;
     // Rising tone — "break time"
     playBeep(440, 0.3, 0.3);
     setTimeout(() => playBeep(523, 0.3, 0.3), 320);
     setTimeout(() => playBeep(659, 0.5, 0.3), 640);
   }
   function playFocusStartSound() {
+    if (!breakSoundEnabled) return;
     // Descending — "back to work"
     playBeep(659, 0.3, 0.3);
     setTimeout(() => playBeep(523, 0.3, 0.3), 320);
@@ -228,9 +258,15 @@
 
       setTimeout(() => {
         if (currentMode === "focus") {
-          setActiveMode("short");
-          playBreakStartSound();
-          setTimeout(() => startTimer(), 800);
+          if (autoStartBreak) {
+            setActiveMode("short");
+            playBreakStartSound();
+            setTimeout(() => startTimer(), 800);
+          } else {
+            remaining = modes.focus;
+            warningPlayed = false;
+            render();
+          }
         } else {
           setActiveMode("focus");
           playFocusStartSound();
@@ -314,132 +350,828 @@
   });
 
   function changeSliders() {
-    params.speed = Number(speedSlider.value) / 16 + 1;
-    params.tsize = Number(tsizeSlider.value) / 20 + 1;
-    params.jsize = Number(jsizeSlider.value) / 20 + 1;
+    if (speedSlider) params.speed = Number(speedSlider.value) / 16 + 1;
+    if (tsizeSlider) params.tsize = Number(tsizeSlider.value) / 20 + 1;
+    if (jsizeSlider) params.jsize = Number(jsizeSlider.value) / 20 + 1;
   }
 
   speedSlider?.addEventListener("input", changeSliders);
   tsizeSlider?.addEventListener("input", changeSliders);
   jsizeSlider?.addEventListener("input", changeSliders);
-  overlayButton?.addEventListener("click", () => {
-    overlay.style.display = "none";
-  });
-
-  document.addEventListener("keydown", (evt) => {
-    const isEscape = evt.key === "Escape" || evt.key === "Esc";
-    if (!isEscape) return;
-    overlay.style.display =
-      overlay.style.display === "block" ? "none" : "block";
-  });
 
   changeSliders();
   loadSavedModes();
   render();
 
+  // ── theme config ──────────────────────────────────────────
+  const THEME_CFG = {
+    "gradient-default": { adv: true, section: "defaultThemeSettings" },
+    "gradient-day-night": { adv: true, section: "dayNightSettings" },
+    "gradient-ocean": { adv: true, section: "deepOceanSettings" },
+    "gradient-deep-ocean": { adv: true, section: "deepOceanSettings" },
+    "gradient-forest": { adv: true, section: "forestThemeSettings" },
+    "color-dark": { adv: false, section: "staticThemeSettings" },
+    "color-light": { adv: false, section: "staticThemeSettings" },
+  };
+
+  const THEME_ALIAS = {
+    "gradient-sunset": "gradient-day-night",
+  };
+
+  function normalizeTheme(theme) {
+    if (!theme) return "gradient-default";
+    return THEME_ALIAS[theme] || theme;
+  }
+
+  // ── DOM refs ──────────────────────────────────────────────
   const settingsBtn = document.getElementById("settingsBtn");
   const themeModal = document.getElementById("themeModal");
   const timerContainer = document.getElementById("timerContainer");
   const themeOptions = document.querySelectorAll(".theme-option");
+  const advModal = document.getElementById("advancedSettingsModal");
+  const advBackdrop = document.getElementById("advancedSettingsBackdrop");
+  const advCloseBtn = document.getElementById("advancedSettingsCloseBtn");
+  const advOpenBtn = document.getElementById("openAdvancedSettingsBtn");
+  const advSaveBtn = document.getElementById("advancedSettingsSaveBtn");
+  const patchNotesPreview = document.getElementById("patchNotesPreview");
+  const openPatchNotesBtn = document.getElementById("openPatchNotesBtn");
+  const patchNotesPopup = document.getElementById("patchNotesPopup");
+  const patchNotesCloseBtn = document.getElementById("patchNotesCloseBtn");
+  const patchNotesList = document.getElementById("patchNotesList");
+  const dayNightContainer = document.getElementById("dayNightContainer");
+  const leavesContainer = document.getElementById("leaves");
+  const waveContainer = document.getElementById("waveContainer");
+  const oceanContainer = document.getElementById("oceanContainer");
 
-  const savedTheme = localStorage.getItem("timerTheme") || "gradient-default";
-  timerContainer.classList.add("theme-" + savedTheme);
-  document
-    .querySelector(`[data-theme="${savedTheme}"]`)
-    ?.classList.add("active");
+  // ── current state ─────────────────────────────────────────
+  let savedTheme =
+    normalizeTheme(localStorage.getItem("timerTheme")) || "gradient-default";
+  if (savedTheme === "gradient-day-night" || savedTheme === "gradient-sunset") {
+    savedTheme = "gradient-default";
+  }
+  if (localStorage.getItem("timerTheme") !== savedTheme) {
+    localStorage.setItem("timerTheme", savedTheme);
+  }
+  let animationEnabled =
+    localStorage.getItem("timerAnimationEnabled") !== "false";
+  let currentAnimation = null;
+  let dayNightInterval = null;
 
-  settingsBtn.addEventListener("click", () => {
-    themeModal.style.display =
-      themeModal.style.display === "none" ? "block" : "none";
-  });
+  // ── sound control ────────────────────────────────────────
+  let timerSoundEnabled = localStorage.getItem("timerSoundEnabled") !== "false";
+  let breakSoundEnabled = localStorage.getItem("breakSoundEnabled") !== "false";
+  let statisticsEnabled = localStorage.getItem("statisticsEnabled") !== "false";
 
-  themeOptions.forEach((option) => {
-    option.addEventListener("click", (e) => {
-      const theme = e.target.dataset.theme;
-      timerContainer.classList.remove(
-        ...Array.from(timerContainer.classList).filter((c) =>
-          c.startsWith("theme-"),
-        ),
-      );
-      timerContainer.classList.add("theme-" + theme);
-      themeOptions.forEach((opt) => opt.classList.remove("active"));
-      e.target.classList.add("active");
-      localStorage.setItem("timerTheme", theme);
-      startAnimation(theme);
-      showOceanToggle();
+  const PATCH_NOTES = [
+    {
+      date: "2026-05-19",
+      title: "Expanded settings menu and other changes ",
+      details:
+        "New expanded settings menu, theme overhaul, and new animations across the entire page.",
+    },
+    {
+      date: "2026-05-18",
+      title: "Bug fixes and UI improvements",
+      details:
+        "Improved and made UI more consistent. Fixed various bugs related to the timer and settings menu.",
+    },
+    {
+      date: "2026-05-17",
+      title: "Advanced analytics menu",
+      details:
+        "Added a new analytics menu with more detailed breakdowns of your study sessions, including subject tracking and session history.",
+    },
+  ];
+
+  // ── apply saved theme class ───────────────────────────────
+  (function bootstrap() {
+    timerContainer.classList.add("theme-" + savedTheme);
+    document
+      .querySelectorAll(`[data-theme="${savedTheme}"]`)
+      .forEach((el) => el.classList.add("active"));
+    renderPatchNotesPreview();
+    renderPatchNotesList();
+  })();
+
+  function refreshBodyOverflow() {
+    document.body.style.overflow =
+      advModal?.classList.contains("open") ||
+      patchNotesPopup?.classList.contains("open")
+        ? "hidden"
+        : "";
+  }
+
+  function renderPatchNotesPreview() {
+    if (!patchNotesPreview) return;
+    const first = PATCH_NOTES[0];
+    if (!first) {
+      patchNotesPreview.innerHTML = "";
+      return;
+    }
+    const moreCount = Math.max(0, PATCH_NOTES.length - 1);
+    patchNotesPreview.innerHTML = `
+      <button type="button" class="patch-note-preview" data-index="0">
+        <div>
+          <strong>${first.title}</strong>
+          <small>${first.date}</small>
+        </div>
+        <p>${first.details}</p>
+        ${
+          moreCount > 0
+            ? `<div class="patch-more">and ${moreCount} more — View all</div>`
+            : ""
+        }
+      </button>
+    `;
+  }
+
+  function renderPatchNotesList() {
+    if (!patchNotesList) return;
+    patchNotesList.innerHTML = PATCH_NOTES.map(
+      (note) =>
+        `<div class="patch-notes-entry">
+          <div class="patch-notes-entry-header">
+            <h4>${note.title}</h4>
+            <span>${note.date}</span>
+          </div>
+          <p>${note.details}</p>
+        </div>`,
+    ).join("");
+  }
+
+  function openPatchNotesPopup() {
+    if (!patchNotesPopup) return;
+    patchNotesPopup.classList.add("open");
+    refreshBodyOverflow();
+  }
+
+  function closePatchNotesPopup() {
+    if (!patchNotesPopup) return;
+    patchNotesPopup.classList.remove("open");
+    refreshBodyOverflow();
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  SETTINGS BUTTON  →  spring-open theme modal
+  // ═══════════════════════════════════════════════════════════
+  if (settingsBtn) {
+    settingsBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const modal = themeModal || document.getElementById("themeModal");
+      if (!modal) return;
+      const isOpen = modal.classList.contains("open");
+      modal.classList.toggle("open", !isOpen);
+      addRipple(settingsBtn, e);
     });
-  });
+  }
 
   document.addEventListener("click", (e) => {
     if (
       !e.target.closest(".settings-btn") &&
-      !e.target.closest(".theme-modal")
+      !e.target.closest(".theme-modal") &&
+      !e.target.closest(".advanced-settings-panel") &&
+      !e.target.closest(".planner-card") &&
+      !e.target.closest(".task-popup-card") &&
+      !e.target.closest(".analytics-panel")
     ) {
-      themeModal.style.display = "none";
+      const modal = themeModal || document.getElementById("themeModal");
+      if (modal) modal.classList.remove("open");
     }
   });
 
-  let currentAnimation = null;
-  let animationEnabled =
-    localStorage.getItem("timerAnimationEnabled") !== "false";
-  let plasticOceanEnabled =
-    localStorage.getItem("plasticOceanEnabled") === "true";
+  patchNotesPreview?.addEventListener("click", (e) => {
+    const target = e.target.closest(".patch-note-preview");
+    if (!target) return;
+    openPatchNotesPopup();
+  });
 
-  const globalAnimationToggle = document.getElementById(
-    "globalAnimationToggle",
-  );
-  const plasticOceanToggle = document.getElementById("plasticOceanToggle");
-  const oceanSpecificToggle = document.getElementById("oceanSpecificToggle");
+  openPatchNotesBtn?.addEventListener("click", openPatchNotesPopup);
+  patchNotesCloseBtn?.addEventListener("click", closePatchNotesPopup);
+  patchNotesPopup?.addEventListener("click", (e) => {
+    if (e.target === patchNotesPopup) closePatchNotesPopup();
+  });
 
-  globalAnimationToggle.checked = animationEnabled;
-  plasticOceanToggle.checked = plasticOceanEnabled;
+  function showThemeSettingsSection(theme) {
+    document
+      .querySelectorAll(".theme-settings-section")
+      .forEach((s) => (s.style.display = "none"));
+    const cfg = THEME_CFG[theme];
+    if (cfg) {
+      const sec = document.getElementById(cfg.section);
+      if (sec) sec.style.display = "block";
+    }
+  }
+  function addRipple(btn, e) {
+    const ripple = document.createElement("span");
+    const rect = btn.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    ripple.style.cssText = `
+    position:absolute;border-radius:50%;
+    width:${size}px;height:${size}px;
+    left:${e.clientX - rect.left - size / 2}px;
+    top:${e.clientY - rect.top - size / 2}px;
+  `;
+    ripple.classList.add("ripple");
+    btn.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 650);
+  }
 
-  function showOceanToggle() {
-    const currentTheme =
-      localStorage.getItem("timerTheme") || "gradient-default";
-    oceanSpecificToggle.style.display =
-      currentTheme === "gradient-ocean" ? "block" : "none";
+  // ═══════════════════════════════════════════════════════════
+  //  THEME SELECTION
+  // ═══════════════════════════════════════════════════════════
+  if (themeOptions.length > 0) {
+    themeOptions.forEach((opt) => {
+      // Disable Day/Night theme
+      if (
+        opt.dataset.theme === "gradient-day-night" ||
+        opt.dataset.theme === "gradient-sunset"
+      ) {
+        opt.classList.add("theme-disabled");
+        opt.setAttribute("title", "This theme is disabled (WIP)");
+        opt.style.opacity = "0.5";
+        opt.style.cursor = "not-allowed";
+      }
+
+      opt.addEventListener("click", (e) => {
+        const btn = e.currentTarget;
+        if (!btn) return;
+
+        // Prevent selection of Day/Night theme
+        if (
+          btn.dataset.theme === "gradient-day-night" ||
+          btn.dataset.theme === "gradient-sunset"
+        ) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+
+        const theme = normalizeTheme(btn.dataset.theme);
+        if (!theme) return;
+
+        // swap class
+        if (timerContainer) {
+          timerContainer.classList.remove(
+            ...Array.from(timerContainer.classList).filter((c) =>
+              c.startsWith("theme-"),
+            ),
+          );
+          timerContainer.classList.add("theme-" + theme);
+        }
+
+        themeOptions.forEach((o) => o.classList.remove("active"));
+        btn.classList.add("active");
+
+        savedTheme = theme;
+        localStorage.setItem("timerTheme", theme);
+
+        applyTheme(theme);
+      });
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  EXTENDED SETTINGS MODAL
+  // ═══════════════════════════════════════════════════════════
+  advOpenBtn?.addEventListener("click", openAdvModal);
+  advCloseBtn?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    closeAdvModal();
+  });
+
+  advBackdrop?.addEventListener("click", closeAdvModal);
+  advSaveBtn?.addEventListener("click", saveAdvSettings);
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && advModal?.classList.contains("open"))
+      closeAdvModal();
+  });
+
+  function openAdvModal() {
+    // sync clock inputs into full-settings panel
+    const fsFocus = document.getElementById("fsFocus");
+    const fsShort = document.getElementById("fsShort");
+    const fsLong = document.getElementById("fsLong");
+    const qsFocus = document.getElementById("customFocus");
+    const qsShort = document.getElementById("customShort");
+    const qsLong = document.getElementById("customLong");
+    if (fsFocus && qsFocus) fsFocus.value = qsFocus.value;
+    if (fsShort && qsShort) fsShort.value = qsShort.value;
+    if (fsLong && qsLong) fsLong.value = qsLong.value;
+
+    // sync autoStartBreak toggle
+    const asbToggle = document.getElementById("autoStartBreakToggle");
+    if (asbToggle) asbToggle.checked = autoStartBreak;
+
+    // sync theme buttons inside full settings
+    document.querySelectorAll(".theme-option").forEach((o) => {
+      o.classList.toggle("active", o.dataset.theme === savedTheme);
+    });
+
+    // show correct theme section
+    showThemeSettingsSection(savedTheme);
+    loadAdvValues();
+
+    // wire up theme switching inside advanced modal (remove old listeners first)
+    advModal.querySelectorAll(".theme-option").forEach((opt) => {
+      const clone = opt.cloneNode(true);
+      opt.parentNode.replaceChild(clone, opt);
+
+      // Disable Day/Night in advanced modal
+      if (
+        clone.dataset.theme === "gradient-day-night" ||
+        clone.dataset.theme === "gradient-sunset"
+      ) {
+        clone.classList.add("theme-disabled");
+        clone.setAttribute("title", "This theme is disabled (WIP)");
+        clone.style.opacity = "0.5";
+        clone.style.cursor = "not-allowed";
+      }
+
+      clone.addEventListener("click", (e) => {
+        const btn = e.currentTarget;
+        if (!btn) return;
+
+        // Prevent Day/Night selection
+        if (
+          btn.dataset.theme === "gradient-day-night" ||
+          btn.dataset.theme === "gradient-sunset"
+        ) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+
+        const newTheme = normalizeTheme(btn.dataset.theme);
+        if (!newTheme) return;
+
+        savedTheme = newTheme;
+        advModal
+          .querySelectorAll(".theme-option")
+          .forEach((o) => o.classList.remove("active"));
+        btn.classList.add("active");
+        showThemeSettingsSection(newTheme);
+        loadAdvValues();
+      });
+    });
+
+    // TAB SWITCHING
+    if (!advModal.dataset.tabsInit) {
+      document.querySelectorAll(".fs-tab-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const tabName = btn.dataset.tab;
+          document
+            .querySelectorAll(".fs-tab-btn")
+            .forEach((b) => b.classList.remove("active"));
+          document
+            .querySelectorAll(".fs-tab-content")
+            .forEach((c) => c.classList.remove("active"));
+          btn.classList.add("active");
+          const tabContent = document.getElementById(`tab-${tabName}`);
+          if (tabContent) tabContent.classList.add("active");
+        });
+      });
+      advModal.dataset.tabsInit = "true";
+    }
+
+    // SOUND TOGGLES
+    const timerSoundToggle = document.getElementById("timerSoundToggle");
+    const breakSoundToggle = document.getElementById("breakSoundToggle");
+    const statisticsToggle = document.getElementById("statisticsToggle");
+
+    if (timerSoundToggle) timerSoundToggle.checked = timerSoundEnabled;
+    if (breakSoundToggle) breakSoundToggle.checked = breakSoundEnabled;
+    if (statisticsToggle) statisticsToggle.checked = statisticsEnabled;
+
+    advModal.classList.add("open");
+    document.body.style.overflow = "hidden";
+    themeModal.classList.remove("open");
+  }
+
+  function getAdvRaw(theme) {
+    return (
+      localStorage.getItem("advSettings_" + theme) ||
+      localStorage.getItem("advSettings_gradient-ocean") ||
+      localStorage.getItem("advSettings_gradient-deep-ocean")
+    );
+  }
+
+  function closeAdvModal() {
+    if (!advModal) return;
+    advModal.classList.remove("open");
+    document.body.style.overflow = "";
+  }
+
+  function loadAdvValues() {
+    const raw = localStorage.getItem("advSettings_" + savedTheme);
+    if (!raw) return;
+    const s = safeJSONParse(raw, {});
+
+    if (savedTheme === "gradient-default") {
+      if (s.start)
+        document.getElementById("gradientStartColor").value = s.start;
+      if (s.end) document.getElementById("gradientEndColor").value = s.end;
+      if (s.anim !== undefined)
+        document.getElementById("defaultAnimationToggle").checked = s.anim;
+      updateGradientPreview();
+    } else if (savedTheme === "gradient-forest") {
+      if (s.anim !== undefined)
+        document.getElementById("forestAnimationToggle").checked = s.anim;
+    } else if (savedTheme === "gradient-day-night") {
+      const mode = s.mode || "realtime";
+      document.querySelectorAll(".mode-toggle-btn").forEach((b) => {
+        b.classList.toggle("active", b.dataset.mode === mode);
+      });
+      setDayNightModeUI(mode);
+      if (s.sliderVal !== undefined) {
+        document.getElementById("dayNightSlider").value = s.sliderVal;
+        updateDNDisplay(s.sliderVal);
+      }
+    } else if (
+      savedTheme === "gradient-deep-ocean" ||
+      savedTheme === "gradient-ocean"
+    ) {
+      const ids = ["oceanSpeed", "oceanTireSize", "oceanJellyfishSize"];
+      const keys = ["speed", "tsize", "jsize"];
+      ids.forEach((id, i) => {
+        const el = document.getElementById(id);
+        if (el && s[keys[i]] !== undefined) {
+          el.value = s[keys[i]];
+          document.getElementById(id + "Value").textContent = s[keys[i]];
+        }
+      });
+      if (s.anim !== undefined) {
+        const t = document.getElementById("deepOceanAnimationToggle");
+        if (t) t.checked = !!s.anim;
+      }
+    }
+  }
+
+  function saveAdvSettings() {
+    // save clock from full-settings inputs
+    const fsFocus = document.getElementById("fsFocus");
+    const fsShort = document.getElementById("fsShort");
+    const fsLong = document.getElementById("fsLong");
+    if (fsFocus && fsShort && fsLong) {
+      customFocusInput.value = fsFocus.value;
+      customShortInput.value = fsShort.value;
+      customLongInput.value = fsLong.value;
+      updateModes();
+    }
+
+    // save autoStartBreak
+    const asbToggle = document.getElementById("autoStartBreakToggle");
+    if (asbToggle) {
+      autoStartBreak = asbToggle.checked;
+      localStorage.setItem("autoStartBreak", autoStartBreak);
+    }
+
+    // theme-specific settings (unchanged logic)
+    const s = {};
+    if (savedTheme === "gradient-default") {
+      s.start = document.getElementById("gradientStartColor").value;
+      s.end = document.getElementById("gradientEndColor").value;
+      s.anim = document.getElementById("defaultAnimationToggle").checked;
+      applyCustomGradient(s.start, s.end);
+      animationEnabled = s.anim;
+      localStorage.setItem("timerAnimationEnabled", s.anim);
+      if (!s.anim) stopAnimation();
+      else startAnimation("gradient-default");
+    } else if (savedTheme === "gradient-forest") {
+      s.anim = document.getElementById("forestAnimationToggle").checked;
+      const leaves = document.getElementById("leaves");
+      if (leaves) leaves.style.display = s.anim ? "block" : "none";
+    } else if (savedTheme === "gradient-day-night") {
+      const activeBtn = document.querySelector(".mode-toggle-btn.active");
+      s.mode = activeBtn ? activeBtn.dataset.mode : "realtime";
+      s.sliderVal = document.getElementById("dayNightSlider").value;
+      applyDNMode(s.mode);
+    } else if (
+      savedTheme === "gradient-deep-ocean" ||
+      savedTheme === "gradient-ocean"
+    ) {
+      s.speed = document.getElementById("oceanSpeed").value;
+      s.tsize = document.getElementById("oceanTireSize").value;
+      s.jsize = document.getElementById("oceanJellyfishSize").value;
+      const animToggle = document.getElementById("deepOceanAnimationToggle");
+      if (animToggle) s.anim = animToggle.checked;
+    }
+
+    if (Object.keys(s).length) {
+      localStorage.setItem("advSettings_" + savedTheme, JSON.stringify(s));
+    }
+
+    if (
+      [
+        "gradient-default",
+        "gradient-forest",
+        "gradient-day-night",
+        "gradient-deep-ocean",
+      ].includes(savedTheme)
+    ) {
+      applyTheme(savedTheme);
+    }
+
+    // SAVE SOUND TOGGLES
+    const timerSoundToggle = document.getElementById("timerSoundToggle");
+    const breakSoundToggle = document.getElementById("breakSoundToggle");
+    const statisticsToggle = document.getElementById("statisticsToggle");
+
+    if (timerSoundToggle) {
+      timerSoundEnabled = timerSoundToggle.checked;
+      localStorage.setItem("timerSoundEnabled", timerSoundEnabled);
+    }
+    if (breakSoundToggle) {
+      breakSoundEnabled = breakSoundToggle.checked;
+      localStorage.setItem("breakSoundEnabled", breakSoundEnabled);
+    }
+    if (statisticsToggle) {
+      statisticsEnabled = statisticsToggle.checked;
+      localStorage.setItem("statisticsEnabled", statisticsEnabled);
+    }
+
+    closeAdvModal();
+  }
+
+  // ── live ocean slider value labels ───────────────────────
+  ["oceanSpeed", "oceanTireSize", "oceanJellyfishSize"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener("input", () => {
+        document.getElementById(id + "Value").textContent = el.value;
+      });
+    }
+  });
+
+  // ── Day/Night mode buttons ────────────────────────────────
+  document.querySelectorAll(".mode-toggle-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document
+        .querySelectorAll(".mode-toggle-btn")
+        .forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      const mode = btn.dataset.mode;
+      const sc = document.getElementById("sliderControlsContainer");
+      if (sc) sc.style.display = mode === "slider" ? "block" : "none";
+    });
+  });
+
+  // ── gradient color pickers live preview ──────────────────
+  ["gradientStartColor", "gradientEndColor"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("input", updateGradientPreview);
+  });
+
+  // ── gradient presets ─────────────────────────────────────
+  document.querySelectorAll(".gradient-preset").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const map = {
+        "default-purple": ["#6366f1", "#ec4899"],
+        "ocean-classic": ["#0066ff", "#00d4ff"],
+        "sunset-classic": ["#ff6b6b", "#feca57"],
+        midnight: ["#1a1a2e", "#16213e"],
+      };
+      const colors = map[btn.dataset.preset];
+      if (!colors) return;
+      document.getElementById("gradientStartColor").value = colors[0];
+      document.getElementById("gradientEndColor").value = colors[1];
+      updateGradientPreview();
+    });
+  });
+
+  function updateGradientPreview() {
+    const s = document.getElementById("gradientStartColor")?.value;
+    const e = document.getElementById("gradientEndColor")?.value;
+    const p = document.getElementById("customGradientPreview");
+    if (p && s && e) p.style.background = `linear-gradient(135deg,${s},${e})`;
+  }
+
+  function parseHexColor(color) {
+    if (!color) return [255, 255, 255];
+    const value = color.trim();
+    const rgbMatch = value.match(
+      /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/i,
+    );
+    if (rgbMatch) {
+      return [Number(rgbMatch[1]), Number(rgbMatch[2]), Number(rgbMatch[3])];
+    }
+    let hex = value.replace("#", "");
+    if (hex.length === 3) {
+      hex = hex
+        .split("")
+        .map((c) => c + c)
+        .join("");
+    }
+    if (hex.length !== 6) return [255, 255, 255];
+    return [
+      parseInt(hex.slice(0, 2), 16),
+      parseInt(hex.slice(2, 4), 16),
+      parseInt(hex.slice(4, 6), 16),
+    ];
+  }
+
+  function rgba(color, alpha) {
+    const [r, g, b] = parseHexColor(color);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  function mixHexColors(a, bColor, t) {
+    const [r1, g1, b1] = parseHexColor(a);
+    const [r2, g2, b2] = parseHexColor(bColor);
+    const r = Math.round(r1 + (r2 - r1) * t);
+    const g = Math.round(g1 + (g2 - g1) * t);
+    const blue = Math.round(b1 + (b2 - b1) * t);
+    return `#${r.toString(16).padStart(2, "0")}${g
+      .toString(16)
+      .padStart(2, "0")}${blue.toString(16).padStart(2, "0")}`;
+  }
+
+  function getWaveColorsForTheme(theme) {
+    if (theme === "gradient-default") {
+      const raw = localStorage.getItem("advSettings_gradient-default");
+      const saved = safeJSONParse(raw, {});
+      const start = saved.start || "#6366f1";
+      const end = saved.end || "#ec4899";
+      const mid = mixHexColors(mixHexColors(start, end, 0.45), "#8b5cf6", 0.3);
+      return [rgba(start, 0.26), rgba(mid, 0.22), rgba(end, 0.14)];
+    }
+
+    if (theme === "gradient-deep-ocean" || theme === "gradient-ocean") {
+      return [
+        "rgba(30, 110, 190, 0.16)",
+        "rgba(10, 70, 140, 0.1)",
+        "rgba(5, 40, 100, 0.06)",
+      ];
+    }
+
+    if (theme === "gradient-forest") {
+      return [
+        "rgba(70, 160, 120, 0.14)",
+        "rgba(30, 90, 70, 0.1)",
+        "rgba(15, 55, 40, 0.06)",
+      ];
+    }
+
+    if (theme === "gradient-day-night" || theme === "gradient-sunset") {
+      return [
+        "rgba(220, 110, 70, 0.16)",
+        "rgba(190, 95, 40, 0.11)",
+        "rgba(160, 70, 35, 0.07)",
+      ];
+    }
+
+    if (theme === "color-dark") {
+      return [
+        "rgba(255, 255, 255, 0.12)",
+        "rgba(255, 255, 255, 0.08)",
+        "rgba(255, 255, 255, 0.05)",
+      ];
+    }
+
+    if (theme === "color-light") {
+      return [
+        "rgba(50, 50, 50, 0.12)",
+        "rgba(80, 80, 80, 0.08)",
+        "rgba(100, 100, 100, 0.05)",
+      ];
+    }
+
+    return [
+      "rgba(120, 70, 220, 0.14)",
+      "rgba(180, 50, 150, 0.1)",
+      "rgba(210, 50, 110, 0.06)",
+    ];
+  }
+
+  function updateWaveContainerGradient(theme) {
+    const wc = document.getElementById("waveContainer");
+    if (!wc) return;
+
+    if (theme === "gradient-default") {
+      const raw = localStorage.getItem("advSettings_gradient-default");
+      const saved = safeJSONParse(raw, {});
+      const start = saved.start || "#6366f1";
+      const end = saved.end || "#ec4899";
+      wc.style.background = `linear-gradient(135deg, ${start} 0%, ${end} 100%)`;
+    } else {
+      wc.style.background = "transparent";
+    }
+  }
+
+  function applyCustomGradient(start, end) {
+    if (animationEnabled) {
+      timerContainer.style.background = "transparent";
+      updateWaveContainerGradient("gradient-default");
+    } else {
+      timerContainer.style.background = `linear-gradient(135deg,${start} 0%,${end} 100%)`;
+      const wc = document.getElementById("waveContainer");
+      if (wc) wc.style.background = "transparent";
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  ANIMATION SYSTEM
+  // ═══════════════════════════════════════════════════════════
+  function applyTheme(theme) {
+    stopAnimation();
+    stopDNRealtime();
+    if (dayNightContainer) dayNightContainer.style.display = "none";
+    if (leavesContainer) leavesContainer.style.display = "none";
+    if (waveContainer) waveContainer.style.display = "none";
+    if (oceanContainer) oceanContainer.style.display = "none";
+
+    if (theme === "gradient-default") {
+      const raw = localStorage.getItem("advSettings_gradient-default");
+      const s = safeJSONParse(raw, {});
+      animationEnabled = s.anim !== false;
+
+      if (animationEnabled) {
+        timerContainer.style.background = "transparent";
+        if (s.start && s.end) {
+          updateWaveContainerGradient("gradient-default");
+        } else {
+          updateWaveContainerGradient("gradient-default");
+        }
+      } else if (s.start && s.end) {
+        timerContainer.style.background = `linear-gradient(135deg,${s.start} 0%,${s.end} 100%)`;
+        const wc = document.getElementById("waveContainer");
+        if (wc) wc.style.background = "transparent";
+      } else {
+        timerContainer.style.background = "";
+        const wc = document.getElementById("waveContainer");
+        if (wc) wc.style.background = "transparent";
+      }
+    } else if (
+      theme === "gradient-deep-ocean" ||
+      theme === "gradient-ocean" ||
+      theme === "gradient-day-night"
+    ) {
+      timerContainer.style.background = "";
+    } else {
+      timerContainer.style.background = "";
+    }
+
+    startAnimation(theme);
   }
 
   function startAnimation(theme) {
     stopAnimation();
-    if (!animationEnabled) return;
-
     if (theme === "gradient-forest") {
-      document.getElementById("leaves").style.display = "block";
-      currentAnimation = "leaves";
-    } else if (theme === "gradient-ocean") {
-      if (plasticOceanEnabled) {
-        document.getElementById("oceanContainer").style.display = "block";
-        initOcean3D();
+      const raw = localStorage.getItem("advSettings_gradient-forest");
+      const saved = safeJSONParse(raw, {});
+      const anim = saved.anim !== false;
+      if (anim) {
+        document.getElementById("leaves").style.display = "block";
+        currentAnimation = "leaves";
+      }
+    } else if (theme === "gradient-deep-ocean" || theme === "gradient-ocean") {
+      const oc = document.getElementById("oceanContainer");
+      oc.style.display = "block";
+      // Make sure the ocean background div is visible
+      const oceanBg = document.getElementById("ocean");
+      if (oceanBg) oceanBg.style.display = "block";
+      // Respect saved deep-ocean animation toggle (check either adv key)
+      const raw = getAdvRaw(theme);
+      const saved = safeJSONParse(raw, {});
+      const anim = saved.anim !== false;
+      if (anim) {
+        initOcean3D(theme);
         currentAnimation = "ocean3d";
       } else {
-        document.getElementById("waveContainer").style.display = "block";
-        initWaveAnimation();
-        currentAnimation = "wave";
+        currentAnimation = null;
       }
+    } else if (theme === "gradient-day-night") {
+      document.getElementById("dayNightContainer").style.display = "block";
+      initDayNight();
     } else if (theme === "gradient-default") {
-      document.getElementById("waveContainer").style.display = "block";
-      initWaveAnimation();
-      currentAnimation = "wave";
+      if (animationEnabled) {
+        const wc = document.getElementById("waveContainer");
+        if (wc) {
+          wc.style.display = "block";
+          initWaveAnimation();
+          currentAnimation = "wave";
+        }
+      }
     }
   }
 
   function stopAnimation() {
-    document.getElementById("leaves").style.display = "none";
-    const waveContainer = document.getElementById("waveContainer");
-    const oceanContainer = document.getElementById("oceanContainer");
-    const waveCanvas = waveContainer.querySelector("canvas");
-    const oceanCanvas = oceanContainer.querySelector("canvas");
-
-    if (waveCanvas) waveCanvas.remove();
-    if (oceanCanvas) oceanCanvas.remove();
-
-    document.getElementById("waveContainer").style.display = "none";
-    document.getElementById("oceanContainer").style.display = "none";
+    if (leavesContainer) leavesContainer.style.display = "none";
+    const wc = waveContainer || document.getElementById("waveContainer");
+    const oc = oceanContainer || document.getElementById("oceanContainer");
+    const dc =
+      dayNightContainer || document.getElementById("dayNightContainer");
+    const wCanvas = wc?.querySelector("canvas");
+    const oCanvas = oc?.querySelector("canvas");
+    if (wCanvas) wCanvas.remove();
+    if (oCanvas) oCanvas.remove();
+    if (wc) wc.style.display = "none";
+    if (oc) oc.style.display = "none";
+    if (dc) dc.style.display = "none";
     currentAnimation = null;
   }
 
+  // ─── wave animation (restored from working version) ─────────────
   function initWaveAnimation() {
     const container = document.getElementById("waveContainer");
     const canvas = document.createElement("canvas");
@@ -496,30 +1228,7 @@
         );
 
         const theme = localStorage.getItem("timerTheme") || "gradient-default";
-
-        // Theme-based wave colors
-        let color0, color1, color2;
-        if (theme === "gradient-default") {
-          color0 = "rgba(100, 40, 140, 0.10)";
-          color1 = "rgba(150, 35, 100, 0.08)";
-          color2 = "rgba(170, 35, 85, 0.05)";
-        } else if (theme === "gradient-sunset") {
-          color0 = "rgba(200, 80, 80, 0.10)";
-          color1 = "rgba(220, 150, 50, 0.08)";
-          color2 = "rgba(230, 120, 40, 0.05)";
-        } else if (theme === "gradient-ocean") {
-          color0 = "rgba(0, 60, 160, 0.10)";
-          color1 = "rgba(0, 50, 140, 0.08)";
-          color2 = "rgba(0, 40, 120, 0.05)";
-        } else if (theme === "gradient-forest") {
-          color0 = "rgba(30, 80, 60, 0.10)";
-          color1 = "rgba(25, 65, 50, 0.08)";
-          color2 = "rgba(20, 50, 40, 0.05)";
-        } else {
-          color0 = "rgba(60, 100, 160, 0.10)";
-          color1 = "rgba(50, 80, 140, 0.08)";
-          color2 = "rgba(40, 60, 120, 0.05)";
-        }
+        const [color0, color1, color2] = getWaveColorsForTheme(theme);
 
         grd.addColorStop(0, color0);
         grd.addColorStop(0.5, color1);
@@ -553,7 +1262,8 @@
     requestAnimationFrame(update);
   }
 
-  function initOcean3D() {
+  // ─── Ocean 3D (restored from original with full visuals) ───
+  function initOcean3D(theme) {
     const container = document.getElementById("oceanContainer");
     const existingCanvas = container.querySelector("canvas");
     if (existingCanvas) existingCanvas.remove();
@@ -865,31 +1575,119 @@
     requestAnimationFrame(update);
   }
 
-  globalAnimationToggle.addEventListener("change", (e) => {
-    animationEnabled = e.target.checked;
-    localStorage.setItem("timerAnimationEnabled", animationEnabled);
+  // ═══════════════════════════════════════════════════════════
+  //  DAY / NIGHT CYCLE
+  // ═══════════════════════════════════════════════════════════
+  function initDayNight() {
+    const raw = localStorage.getItem("advSettings_gradient-day-night");
+    const saved = safeJSONParse(raw, {});
+    const mode = saved.mode || "realtime";
+    applyDNMode(mode);
+  }
 
-    if (animationEnabled) {
-      const currentTheme =
-        localStorage.getItem("timerTheme") || "gradient-default";
-      startAnimation(currentTheme);
+  function applyDNMode(mode) {
+    stopDNRealtime();
+    const sc = document.getElementById("sliderControlsContainer");
+    if (sc) sc.style.display = mode === "slider" ? "block" : "none";
+
+    if (mode === "realtime") {
+      startDNRealtime();
+    } else if (mode === "slider") {
+      const raw = localStorage.getItem("advSettings_gradient-day-night");
+      const saved = safeJSONParse(raw, {});
+      const val = saved.sliderVal !== undefined ? saved.sliderVal : 12;
+      updateDNDisplay(val);
+      updateDNCycle(parseInt(val));
+    }
+  }
+
+  function startDNRealtime() {
+    function tick() {
+      const h = new Date().getHours();
+      updateDNCycle(h);
+      const sl = document.getElementById("dayNightSlider");
+      if (sl) sl.value = h;
+    }
+    tick();
+    dayNightInterval = setInterval(tick, 5000);
+  }
+
+  function stopDNRealtime() {
+    if (dayNightInterval) {
+      clearInterval(dayNightInterval);
+      dayNightInterval = null;
+    }
+  }
+
+  // slider live update
+  document.getElementById("dayNightSlider")?.addEventListener("input", (e) => {
+    const h = parseInt(e.target.value, 10);
+    updateDNDisplay(h);
+    updateDNCycle(h);
+  });
+
+  function updateDNDisplay(h) {
+    const el = document.getElementById("dayNightTimeDisplay");
+    if (el) el.textContent = String(h).padStart(2, "0") + ":00";
+  }
+
+  function updateDNCycle(hour) {
+    const sun = document.getElementById("sun");
+    const moon = document.getElementById("moon");
+    const world = document.getElementById("world");
+    if (!sun || !moon) return;
+
+    let sunTop = 450,
+      moonTop = 450;
+    let bgColor = "#002551";
+    let borderColor = "#67a8f1";
+
+    if (hour >= 5 && hour < 12) {
+      const p = (hour - 5) / 7;
+      sunTop = 300 - p * 270;
+      moonTop = 450;
+      bgColor = `hsl(${195 + p * 15}, 60%, ${50 + p * 10}%)`;
+      borderColor = "#7a6021";
+    } else if (hour >= 12 && hour < 19) {
+      const p = (hour - 12) / 7;
+      sunTop = 30 + p * 260;
+      moonTop = 450;
+      bgColor = `hsl(${210 - p * 30}, 55%, ${58 - p * 20}%)`;
+      borderColor = "#7a6021";
     } else {
-      stopAnimation();
+      const p = hour >= 19 ? (hour - 19) / 5 : (hour + 5) / 5;
+      moonTop = 280 - p * 200;
+      sunTop = 450;
+      bgColor = `hsl(${220 + p * 10}, 50%, ${15 - p * 5}%)`;
+      borderColor = "#67a8f1";
     }
-  });
 
-  plasticOceanToggle.addEventListener("change", (e) => {
-    plasticOceanEnabled = e.target.checked;
-    localStorage.setItem("plasticOceanEnabled", plasticOceanEnabled);
-    const currentTheme =
-      localStorage.getItem("timerTheme") || "gradient-default";
-    if (currentTheme === "gradient-ocean") {
-      startAnimation(currentTheme);
+    sun.style.top = sunTop + "px";
+    moon.style.top = moonTop + "px";
+    timerContainer.style.backgroundColor = bgColor;
+    if (world) world.style.borderColor = borderColor;
+  }
+
+  // ── custom timer inputs (carry over from original) ────────
+  const customFocus = document.getElementById("customFocus");
+  const customShort = document.getElementById("customShort");
+  const customLong = document.getElementById("customLong");
+
+  // ═══════════════════════════════════════════════════════════
+  //  BOOT
+  // ═══════════════════════════════════════════════════════════
+  function initEnhancedSystem() {
+    // restore custom gradient if on default theme
+    if (savedTheme === "gradient-default") {
+      const raw = localStorage.getItem("advSettings_gradient-default");
+      const s = safeJSONParse(raw, {});
+      if (s.start && s.end) applyCustomGradient(s.start, s.end);
+      if (s.anim === false) animationEnabled = false;
+      else if (s.anim === true) animationEnabled = true;
     }
-  });
-
-  startAnimation(savedTheme);
-  showOceanToggle();
+    applyAutoBreakToggle();
+    applyTheme(savedTheme);
+  }
 
   // ============ PLANNER LOGIC ============
   const plannerBtn = document.getElementById("plannerBtn");
@@ -900,7 +1698,7 @@
   const saveTaskBtn = document.getElementById("saveTaskBtn");
   const taskPopupCancelBtn = document.getElementById("taskPopupCancelBtn");
   const categoryChips = document.querySelectorAll(".category-chip");
-  let tasks = JSON.parse(localStorage.getItem("plannerTasks")) || [];
+  let tasks = safeJSONParse(localStorage.getItem("plannerTasks"), []) || [];
   let currentTaskId = null;
   let currentFilter = "all";
 
@@ -1244,6 +2042,7 @@
   ];
 
   function openAnalytics() {
+    themeModal?.classList.remove("open");
     analyticsModal.classList.add("open");
     renderAnalytics();
   }
@@ -1563,4 +2362,5 @@
   });
 
   renderTasks();
+  initEnhancedSystem();
 });

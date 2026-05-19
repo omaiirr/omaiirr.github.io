@@ -1,4 +1,4 @@
-<div class="theme-modal" id="themeModal" style="display: none">
+<div class="theme-modal" id="themeModal">
   <div class="theme-modal-content">
     <!-- Tab buttons -->
     <div
@@ -62,22 +62,34 @@
             Default
           </button>
           <button
-            class="theme-option"
-            data-theme="gradient-sunset"
+            class="theme-option theme-disabled"
+            disabled
+            data-theme="gradient-day-night"
+            title="This theme is disabled (WIP)"
             style="
-              background: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%);
+              background: radial-gradient(
+                circle at top,
+                #ffd27f 0%,
+                #fd9b3c 45%,
+                #173a7c 100%
+              );
             "
           >
-            Sunset
+            Day / Night
           </button>
           <button
             class="theme-option"
-            data-theme="gradient-ocean"
+            data-theme="gradient-deep-ocean"
             style="
-              background: linear-gradient(135deg, #0066ff 0%, #00d4ff 100%);
+              background: radial-gradient(
+                circle at top left,
+                #2da7ff 0%,
+                #046b9b 45%,
+                #001d36 100%
+              );
             "
           >
-            Ocean
+            Deep Ocean
           </button>
           <button
             class="theme-option"
@@ -113,29 +125,6 @@
           border-top: 1px solid rgba(255, 255, 255, 0.2);
         "
       >
-        <h3>Animations</h3>
-        <div class="animation-controls">
-          <label class="toggle-label">
-            <input type="checkbox" id="globalAnimationToggle" checked />
-            <span>Custom Animations</span>
-          </label>
-          <div id="oceanSpecificToggle" style="display: none; margin-top: 10px">
-            <label class="toggle-label">
-              <input type="checkbox" id="plasticOceanToggle" />
-              <span>Deep Ocean (3D)</span>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <div
-        class="timer-section"
-        style="
-          margin-top: 20px;
-          padding-top: 20px;
-          border-top: 1px solid rgba(255, 255, 255, 0.2);
-        "
-      >
         <h3>Clock</h3>
         <div class="custom-timer-inputs">
           <div class="input-group">
@@ -157,6 +146,20 @@
             <input id="customLong" type="number" min="1" max="60" value="15" />
           </div>
         </div>
+      </div>
+
+      <div
+        class="timer-section"
+        style="
+          margin-top: 20px;
+          padding-top: 20px;
+          border-top: 1px solid rgba(255, 255, 255, 0.2);
+        "
+      >
+        <h3>Advanced</h3>
+        <button id="openAdvancedSettingsBtn" class="qs-fullsettings-btn">
+          ⚙️ Expand Settings
+        </button>
       </div>
     </div>
 
