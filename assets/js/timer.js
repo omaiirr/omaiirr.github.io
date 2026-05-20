@@ -424,19 +424,25 @@
 
   const PATCH_NOTES = [
     {
+      date: "2026-05-20",
+      title: "Customize wave animation colors",
+      details:
+        "Added the ability to choose your own custom colors for the wave animation in the Default theme, and other small changes and bug fixes.",
+    },
+    {
       date: "2026-05-19",
-      title: "Expanded settings menu and other changes ",
+      title: "Expanded settings menu and other changes",
       details:
         "New expanded settings menu, theme overhaul, and new animations across the entire page.",
     },
     {
-      date: "2026-05-18",
+      date: "2026-05-11",
       title: "Bug fixes and UI improvements",
       details:
         "Improved and made UI more consistent. Fixed various bugs related to the timer and settings menu.",
     },
     {
-      date: "2026-05-17",
+      date: "2026-05-10",
       title: "Advanced analytics menu",
       details:
         "Added a new analytics menu with more detailed breakdowns of your study sessions, including subject tracking and session history.",
@@ -771,8 +777,18 @@
       if (s.start)
         document.getElementById("gradientStartColor").value = s.start;
       if (s.end) document.getElementById("gradientEndColor").value = s.end;
+      if (s.waveAccent)
+        document.getElementById("waveAccentColor").value = s.waveAccent;
+      // custom toggle
+      const wcToggle = document.getElementById("waveCustomToggle");
+      if (wcToggle)
+        wcToggle.checked =
+          s.waveCustomEnabled === undefined ? true : !!s.waveCustomEnabled;
+      const lowQ = document.getElementById("waveLowQualityToggle");
+      if (lowQ) lowQ.checked = !!s.waveLowQuality;
       if (s.anim !== undefined)
         document.getElementById("defaultAnimationToggle").checked = s.anim;
+      updateWaveAccentControls();
       updateGradientPreview();
     } else if (savedTheme === "gradient-forest") {
       if (s.anim !== undefined)
@@ -831,6 +847,16 @@
     if (savedTheme === "gradient-default") {
       s.start = document.getElementById("gradientStartColor").value;
       s.end = document.getElementById("gradientEndColor").value;
+      const waveCustomEnabled =
+        document.getElementById("waveCustomToggle")?.checked;
+      s.waveCustomEnabled =
+        waveCustomEnabled === undefined ? true : !!waveCustomEnabled;
+      if (s.waveCustomEnabled)
+        s.waveAccent =
+          document.getElementById("waveAccentColor")?.value || null;
+      else s.waveAccent = null;
+      s.waveLowQuality = !!document.getElementById("waveLowQualityToggle")
+        ?.checked;
       s.anim = document.getElementById("defaultAnimationToggle").checked;
       applyCustomGradient(s.start, s.end);
       animationEnabled = s.anim;
@@ -922,6 +948,78 @@
     if (el) el.addEventListener("input", updateGradientPreview);
   });
 
+  // live wave accent preview / apply
+  const waveAccentEl = document.getElementById("waveAccentColor");
+  if (waveAccentEl) {
+    const applyWaveAccent = debounce(() => {
+      const raw = localStorage.getItem("advSettings_gradient-default");
+      const s = safeJSONParse(raw, {});
+      // only save accent if custom enabled
+      s.waveAccent = s.waveCustomEnabled === false ? null : waveAccentEl.value;
+      localStorage.setItem("advSettings_gradient-default", JSON.stringify(s));
+      if (currentAnimation === "wave") {
+        stopAnimation();
+        startAnimation("gradient-default");
+      } else {
+        updateWaveContainerGradient("gradient-default");
+      }
+    }, 260);
+    waveAccentEl.addEventListener("input", applyWaveAccent);
+  }
+
+  function updateWaveAccentControls() {
+    const enabled = document.getElementById("waveCustomToggle")?.checked;
+    const controls = document.getElementById("waveAccentControls");
+    if (controls) controls.style.display = enabled ? "flex" : "none";
+  }
+
+  const waveCustomToggle = document.getElementById("waveCustomToggle");
+  if (waveCustomToggle)
+    waveCustomToggle.addEventListener("change", () => {
+      const raw = localStorage.getItem("advSettings_gradient-default");
+      const s = safeJSONParse(raw, {});
+      s.waveCustomEnabled = !!waveCustomToggle.checked;
+      if (!s.waveCustomEnabled) s.waveAccent = null;
+      localStorage.setItem("advSettings_gradient-default", JSON.stringify(s));
+      updateWaveAccentControls();
+      if (currentAnimation === "wave") {
+        stopAnimation();
+        startAnimation("gradient-default");
+      }
+    });
+
+  const waveAccentResetBtn = document.getElementById("waveAccentResetBtn");
+  if (waveAccentResetBtn)
+    waveAccentResetBtn.addEventListener("click", () => {
+      const defaultColor = "#8b5cf6";
+      const el = document.getElementById("waveAccentColor");
+      if (el) el.value = defaultColor;
+      const raw = localStorage.getItem("advSettings_gradient-default");
+      const s = safeJSONParse(raw, {});
+      s.waveAccent = defaultColor;
+      s.waveCustomEnabled = true;
+      localStorage.setItem("advSettings_gradient-default", JSON.stringify(s));
+      if (currentAnimation === "wave") {
+        stopAnimation();
+        startAnimation("gradient-default");
+      } else {
+        updateWaveContainerGradient("gradient-default");
+      }
+    });
+
+  const waveLowQualityToggle = document.getElementById("waveLowQualityToggle");
+  if (waveLowQualityToggle)
+    waveLowQualityToggle.addEventListener("change", () => {
+      const raw = localStorage.getItem("advSettings_gradient-default");
+      const s = safeJSONParse(raw, {});
+      s.waveLowQuality = !!waveLowQualityToggle.checked;
+      localStorage.setItem("advSettings_gradient-default", JSON.stringify(s));
+      if (currentAnimation === "wave") {
+        stopAnimation();
+        startAnimation("gradient-default");
+      }
+    });
+
   // ── gradient presets ─────────────────────────────────────
   document.querySelectorAll(".gradient-preset").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -975,6 +1073,15 @@
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
+  // small debounce helper to avoid heavy live-updates
+  function debounce(fn, wait) {
+    let t = null;
+    return function (...args) {
+      clearTimeout(t);
+      t = setTimeout(() => fn.apply(this, args), wait);
+    };
+  }
+
   function mixHexColors(a, bColor, t) {
     const [r1, g1, b1] = parseHexColor(a);
     const [r2, g2, b2] = parseHexColor(bColor);
@@ -992,8 +1099,34 @@
       const saved = safeJSONParse(raw, {});
       const start = saved.start || "#6366f1";
       const end = saved.end || "#ec4899";
-      const mid = mixHexColors(mixHexColors(start, end, 0.45), "#8b5cf6", 0.3);
-      return [rgba(start, 0.26), rgba(mid, 0.22), rgba(end, 0.14)];
+      const accent = saved.waveAccent || null;
+      const useCustom =
+        saved.waveCustomEnabled === undefined
+          ? true
+          : !!saved.waveCustomEnabled;
+      // helper: deepen a color by mixing with black
+      const deepen = (hex, t) => mixHexColors(hex, "#000000", t);
+      const lighten = (hex, t) => mixHexColors(hex, "#ffffff", t);
+      const midBase = mixHexColors(start, end, 0.5);
+      // detect brightness to ensure waves show on very dark gradients
+      const [mr, mg, mb] = parseHexColor(midBase);
+      const lum = 0.2126 * mr + 0.7152 * mg + 0.0722 * mb;
+      if (useCustom && accent) {
+        // prefer a deeper accent mix to add depth
+        const accentDeep = deepen(accent, 0.24);
+        const mid = mixHexColors(midBase, accentDeep, 0.36);
+        // if base is very dark, lighten a bit for contrast
+        const finalMid = lum < 60 ? lighten(mid, 0.14) : mid;
+        return [rgba(start, 0.4), rgba(finalMid, 0.3), rgba(end, 0.22)];
+      }
+      // default: slightly darken the middle to create contrast versus background gradient
+      let mid = deepen(midBase, 0.22);
+      if (lum < 60) {
+        // for dark themes (midnight) make waves lighter and more opaque
+        mid = lighten(midBase, 0.18);
+        return [rgba(start, 0.46), rgba(mid, 0.36), rgba(end, 0.28)];
+      }
+      return [rgba(start, 0.34), rgba(mid, 0.26), rgba(end, 0.18)];
     }
 
     if (theme === "gradient-deep-ocean" || theme === "gradient-ocean") {
@@ -1036,11 +1169,7 @@
       ];
     }
 
-    return [
-      "rgba(120, 70, 220, 0.14)",
-      "rgba(180, 50, 150, 0.1)",
-      "rgba(210, 50, 110, 0.06)",
-    ];
+    return [rgba("#7846dc", 0.3), rgba("#b43296", 0.22), rgba("#d2326e", 0.16)];
   }
 
   function updateWaveContainerGradient(theme) {
@@ -1186,7 +1315,11 @@
 
     let w, h;
     let lastFrameTime = 0;
-    const targetFPS = 24;
+    // allow reduced quality (lower FPS & smaller canvas) to save CPU
+    const raw = localStorage.getItem("advSettings_gradient-default");
+    const advSaved = safeJSONParse(raw, {});
+    const lowQuality = !!advSaved.waveLowQuality;
+    const targetFPS = lowQuality ? 16 : 24;
     const frameInterval = 1000 / targetFPS;
     let wavePaused = false;
     document.addEventListener("visibilitychange", () => {
@@ -1194,8 +1327,9 @@
     });
 
     function setSize() {
-      w = canvas.width = Math.max(600, window.innerWidth);
-      h = canvas.height = window.innerHeight;
+      const scale = lowQuality ? 0.75 : 1;
+      w = canvas.width = Math.max(600, Math.round(window.innerWidth * scale));
+      h = canvas.height = Math.round(window.innerHeight * scale);
     }
 
     function update(currentTime) {
@@ -1806,6 +1940,11 @@
   }
 
   function openTaskPopup(taskId = null) {
+    if (!taskPopup) {
+      console.error("Task popup element not found");
+      return;
+    }
+
     currentTaskId = taskId;
     const titleInput = document.getElementById("taskTitle");
     const notesInput = document.getElementById("taskNotes");
@@ -1815,21 +1954,28 @@
     const prioritySelect = document.getElementById("taskPriority");
     const estimateInput = document.getElementById("taskEstimate");
 
-    categoryChips.forEach((chip) => chip.classList.remove("selected"));
-    categoryInput.value = "";
+    // Clear all category chips selection
+    if (categoryChips && categoryChips.length) {
+      categoryChips.forEach((chip) => chip.classList.remove("selected"));
+    }
+
+    // Only set categoryInput if it exists
+    if (categoryInput) {
+      categoryInput.value = "";
+    }
 
     if (taskId) {
       const task = getTasks().find((t) => t.id === taskId);
       if (task) {
-        titleInput.value = task.title || "";
-        notesInput.value = task.notes || "";
-        dueDateInput.value = task.dueDate || "";
-        categoryInput.value = task.category || "";
-        subjectInput.value = task.subject || "";
-        prioritySelect.value = task.priority || "";
-        estimateInput.value = task.estimate || "";
+        if (titleInput) titleInput.value = task.title || "";
+        if (notesInput) notesInput.value = task.notes || "";
+        if (dueDateInput) dueDateInput.value = task.dueDate || "";
+        if (categoryInput) categoryInput.value = task.category || "";
+        if (subjectInput) subjectInput.value = task.subject || "";
+        if (prioritySelect) prioritySelect.value = task.priority || "";
+        if (estimateInput) estimateInput.value = task.estimate || "";
 
-        if (task.category) {
+        if (task.category && categoryChips && categoryChips.length) {
           const selectedChip = Array.from(categoryChips).find(
             (c) => c.dataset.category === task.category,
           );
@@ -1837,13 +1983,13 @@
         }
       }
     } else {
-      titleInput.value = "";
-      notesInput.value = "";
-      dueDateInput.value = "";
-      categoryInput.value = "";
-      subjectInput.value = "";
-      prioritySelect.value = "";
-      estimateInput.value = "";
+      if (titleInput) titleInput.value = "";
+      if (notesInput) notesInput.value = "";
+      if (dueDateInput) dueDateInput.value = "";
+      if (categoryInput) categoryInput.value = "";
+      if (subjectInput) subjectInput.value = "";
+      if (prioritySelect) prioritySelect.value = "";
+      if (estimateInput) estimateInput.value = "";
     }
 
     taskPopup.classList.add("open");
@@ -1924,34 +2070,45 @@
     renderTasks();
   }
 
-  plannerBtn.addEventListener("click", () => {
-    plannerModal.classList.toggle("open");
-  });
-
-  plannerModal.addEventListener("click", (e) => {
-    if (e.target === plannerModal) {
-      plannerModal.classList.remove("open");
-    }
-  });
-
-  taskPopup.addEventListener("click", (e) => {
-    if (e.target === taskPopup) {
-      closeTaskPopup();
-    }
-  });
-
-  categoryChips.forEach((chip) => {
-    chip.addEventListener("click", () => {
-      categoryChips.forEach((c) => c.classList.remove("selected"));
-      chip.classList.add("selected");
-      document.getElementById("taskCategory").value = chip.dataset.category;
+  if (plannerBtn) {
+    plannerBtn.addEventListener("click", () => {
+      if (plannerModal) plannerModal.classList.toggle("open");
     });
-  });
+  }
 
-  plannerAddBtn.addEventListener("click", () => openTaskPopup());
-  taskPopupClose.addEventListener("click", closeTaskPopup);
-  taskPopupCancelBtn.addEventListener("click", closeTaskPopup);
-  saveTaskBtn.addEventListener("click", saveTask);
+  if (plannerModal) {
+    plannerModal.addEventListener("click", (e) => {
+      if (e.target === plannerModal) {
+        plannerModal.classList.remove("open");
+      }
+    });
+  }
+
+  if (taskPopup) {
+    taskPopup.addEventListener("click", (e) => {
+      if (e.target === taskPopup) {
+        closeTaskPopup();
+      }
+    });
+  }
+
+  if (categoryChips && categoryChips.length) {
+    categoryChips.forEach((chip) => {
+      chip.addEventListener("click", () => {
+        categoryChips.forEach((c) => c.classList.remove("selected"));
+        chip.classList.add("selected");
+        const catEl = document.getElementById("taskCategory");
+        if (catEl) catEl.value = chip.dataset.category;
+      });
+    });
+  }
+
+  if (plannerAddBtn)
+    plannerAddBtn.addEventListener("click", () => openTaskPopup());
+  if (taskPopupClose) taskPopupClose.addEventListener("click", closeTaskPopup);
+  if (taskPopupCancelBtn)
+    taskPopupCancelBtn.addEventListener("click", closeTaskPopup);
+  if (saveTaskBtn) saveTaskBtn.addEventListener("click", saveTask);
 
   // Tab switching in settings modal
   const tabBtns = document.querySelectorAll(".settings-tab-btn");

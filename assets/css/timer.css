@@ -1488,15 +1488,52 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 24px;
-  background: linear-gradient(90deg, rgba(139, 92, 246, 0.06), transparent);
-  padding-bottom: 6px;
+  margin-bottom: 12px;
+  padding-bottom: 0;
 }
 
 .patch-notes-header h2 {
   margin: 0;
   font-size: 1.5rem;
   color: white;
+}
+
+.patch-notes-eyebrow {
+  color: var(--color-link);
+}
+
+/* small site-like button used inside settings to match UI */
+.fs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 10px;
+  height: 32px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-link);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.fs-btn:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* small reset button matching the rest of the UI */
+.fs-btn.reset-small {
+  padding: 5px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-weight: 500;
+  font-size: 0.85rem;
+  box-shadow: none;
+}
+.fs-btn.reset-small:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .patch-notes-close {
@@ -1523,6 +1560,11 @@ body {
   transition:
     opacity 0.2s ease,
     transform 0.2s ease;
+}
+
+.task-popup.open {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .task-popup-card {
@@ -1561,11 +1603,40 @@ body {
   background: rgba(255, 255, 255, 0.08);
 }
 
+.patch-note-preview,
+.patch-notes-entry,
+.patch-notes-entry-header,
+.patch-notes-entry-header h4,
+.patch-notes-entry-header span,
+.patch-note-preview p,
+.patch-note-preview strong,
 .patch-note-preview small {
-  display: block;
-  margin-top: 3px;
-  color: rgba(255, 255, 255, 0.55);
-  font-size: 0.82rem;
+  font-family: inherit;
+}
+
+.patch-note-preview {
+  font-size: 0.95rem;
+  line-height: 1.55;
+  font-weight: 400;
+}
+
+.patch-note-preview strong,
+.patch-notes-entry-header h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.patch-note-preview p,
+.patch-notes-entry p {
+  margin: 8px 0 0;
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.patch-note-preview small,
+.patch-notes-entry-header span {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.56);
+  font-weight: 400;
 }
 
 .patch-more {
@@ -2756,6 +2827,10 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator {
 .fs-toggle-input:checked ~ .fs-toggle-thumb::after {
   transform: translateX(18px);
   background: #fff;
+}
+
+#waveCustomToggle:not(:checked) ~ #waveAccentControls {
+  display: none !important;
 }
 
 /* Gradient presets */

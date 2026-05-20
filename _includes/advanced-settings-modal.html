@@ -255,9 +255,67 @@
               </div>
             </div>
             <div id="customGradientPreview" class="fs-gradient-preview"></div>
+            <div style="margin-top: 10px">
+              <label class="fs-sub-label">Wave Accent</label>
+              <label class="fs-toggle-row" style="margin-top: 6px">
+                <div class="fs-toggle-info">
+                  <span class="fs-toggle-name">Use custom wave color</span>
+                  <span class="fs-toggle-desc"
+                    >Customize the color of the wave animation
+                  </span>
+                </div>
+                <div class="fs-toggle-wrap">
+                  <input
+                    type="checkbox"
+                    id="waveCustomToggle"
+                    class="fs-toggle-input"
+                    checked
+                  />
+                  <div class="fs-toggle-thumb"></div>
+                </div>
+              </label>
+              <div
+                id="waveAccentControls"
+                style="
+                  display: flex;
+                  gap: 10px;
+                  align-items: center;
+                  margin-top: 10px;
+                  flex-wrap: wrap;
+                "
+              >
+                <input type="color" id="waveAccentColor" value="#8b5cf6" />
+                <button
+                  type="button"
+                  id="waveAccentResetBtn"
+                  class="fs-btn reset-small"
+                >
+                  Reset
+                </button>
+              </div>
+              <label class="fs-toggle-row" style="margin-top: 10px">
+                <div class="fs-toggle-info">
+                  <span class="fs-toggle-name">Low quality waves</span>
+                  <span class="fs-toggle-desc"
+                    >Reduce FPS/resolution to save CPU usage</span
+                  >
+                </div>
+                <div class="fs-toggle-wrap">
+                  <input
+                    type="checkbox"
+                    id="waveLowQualityToggle"
+                    class="fs-toggle-input"
+                  />
+                  <div class="fs-toggle-thumb"></div>
+                </div>
+              </label>
+            </div>
             <label class="fs-toggle-row" style="margin-top: 13px">
               <div class="fs-toggle-info">
                 <span class="fs-toggle-name">Wave animation</span>
+                <span class="fs-toggle-desc"
+                  >Enable a wave animation effect</span
+                >
               </div>
               <div class="fs-toggle-wrap">
                 <input
