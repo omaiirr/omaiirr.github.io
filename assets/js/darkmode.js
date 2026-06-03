@@ -7,19 +7,23 @@ let systemInitiatedDark = window.matchMedia("(prefers-color-scheme: dark)");
 let theme = sessionStorage.getItem("theme");
 
 if (systemInitiatedDark.matches) {
-  document.getElementById("theme-toggle").innerHTML = sun;
+  var _el = document.getElementById("theme-toggle");
+  if (_el) _el.innerHTML = sun;
 } else {
-  document.getElementById("theme-toggle").innerHTML = moon;
+  var _el = document.getElementById("theme-toggle");
+  if (_el) _el.innerHTML = moon;
 }
 
 function prefersColorTest(systemInitiatedDark) {
   if (systemInitiatedDark.matches) {
     document.documentElement.setAttribute("data-theme", "dark");
-    document.getElementById("theme-toggle").innerHTML = sun;
+    var _el2 = document.getElementById("theme-toggle");
+    if (_el2) _el2.innerHTML = sun;
     sessionStorage.setItem("theme", "");
   } else {
     document.documentElement.setAttribute("data-theme", "light");
-    document.getElementById("theme-toggle").innerHTML = moon;
+    var _el2 = document.getElementById("theme-toggle");
+    if (_el2) _el2.innerHTML = moon;
     sessionStorage.setItem("theme", "");
   }
 }
@@ -32,11 +36,13 @@ function modeSwitcher() {
   if (theme === "dark") {
     document.documentElement.setAttribute("data-theme", "light");
     sessionStorage.setItem("theme", "light");
-    document.getElementById("theme-toggle").innerHTML = moon;
+    var _el3 = document.getElementById("theme-toggle");
+    if (_el3) _el3.innerHTML = moon;
   } else if (theme === "light") {
     document.documentElement.setAttribute("data-theme", "dark");
     sessionStorage.setItem("theme", "dark");
-    document.getElementById("theme-toggle").innerHTML = sun;
+    var _el4 = document.getElementById("theme-toggle");
+    if (_el4) _el4.innerHTML = sun;
   } else if (systemInitiatedDark.matches) {
     document.documentElement.setAttribute("data-theme", "light");
     sessionStorage.setItem("theme", "light");
@@ -51,9 +57,11 @@ function modeSwitcher() {
 if (theme === "dark") {
   document.documentElement.setAttribute("data-theme", "dark");
   sessionStorage.setItem("theme", "dark");
-  document.getElementById("theme-toggle").innerHTML = sun;
+  var _el5 = document.getElementById("theme-toggle");
+  if (_el5) _el5.innerHTML = sun;
 } else if (theme === "light") {
   document.documentElement.setAttribute("data-theme", "light");
   sessionStorage.setItem("theme", "light");
-  document.getElementById("theme-toggle").innerHTML = moon;
+  var _el5 = document.getElementById("theme-toggle");
+  if (_el5) _el5.innerHTML = moon;
 }

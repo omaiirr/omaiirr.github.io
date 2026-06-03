@@ -1,4 +1,34 @@
 ﻿document.addEventListener("DOMContentLoaded", function () {
+  // ─── SECURITY: HTML Sanitization Utilities ───────────────────────
+  // Prevents XSS attacks by escaping HTML special characters and creating safe DOM nodes
+  function escapeHTML(str) {
+    if (!str) return "";
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function createSafeElement(tagName, attrs = {}, textContent = "") {
+    const el = document.createElement(tagName);
+    Object.entries(attrs).forEach(([key, value]) => {
+      if (key.startsWith("on")) return; // Prevent event handler injection
+      el.setAttribute(key, String(value));
+    });
+    if (textContent) el.textContent = textContent;
+    return el;
+  }
+
+  function sanitizeInput(str, maxLength = 500) {
+    if (!str) return "";
+    return String(str)
+      .trim()
+      .substring(0, maxLength)
+      .replace(
+        /[<>\"']/g,
+        (m) => ({ "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[m],
+      );
+  }
+
   let modes = {
     focus: 25 * 60,
     short: 5 * 60,
@@ -91,19 +121,40 @@
     if (subjectBreakdown) {
       const st = stats.subjectTime || {};
       const entries = Object.entries(st);
+      subjectBreakdown.innerHTML = "";
       if (entries.length === 0) {
-        subjectBreakdown.innerHTML =
-          '<div style="color:rgba(255,255,255,0.4);font-size:0.85rem;text-align:center;padding:8px 0;">No subject data yet</div>';
+        const emptyDiv = createSafeElement(
+          "div",
+          {
+            style:
+              "color:rgba(255,255,255,0.4);font-size:0.85rem;text-align:center;padding:8px 0;",
+          },
+          "No subject data yet",
+        );
+        subjectBreakdown.appendChild(emptyDiv);
       } else {
-        subjectBreakdown.innerHTML = entries
-          .map(
-            ([subj, mins]) =>
-              `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
-            <span style="color:rgba(255,255,255,0.75);font-size:0.9rem;">${subj}</span>
-            <span style="color:white;font-weight:600;">${mins} min</span>
-          </div>`,
-          )
-          .join("");
+        entries.forEach(([subj, mins]) => {
+          const itemDiv = createSafeElement("div", {
+            style:
+              "display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);",
+          });
+
+          const subjSpan = createSafeElement(
+            "span",
+            { style: "color:rgba(255,255,255,0.75);font-size:0.9rem;" },
+            sanitizeInput(subj),
+          );
+          itemDiv.appendChild(subjSpan);
+
+          const minsSpan = createSafeElement(
+            "span",
+            { style: "color:white;font-weight:600;" },
+            `${mins} min`,
+          );
+          itemDiv.appendChild(minsSpan);
+
+          subjectBreakdown.appendChild(itemDiv);
+        });
       }
     }
   }
@@ -114,7 +165,6 @@
   const shortBreakBtn = document.getElementById("shortBreakMode");
   const longBreakBtn = document.getElementById("longBreakMode");
   const startBtn = document.getElementById("startBtn");
-  const pauseBtn = document.getElementById("pauseBtn");
   const resetBtn = document.getElementById("resetBtn");
   const customFocusInput = document.getElementById("customFocus");
   const customShortInput = document.getElementById("customShort");
@@ -261,7 +311,7 @@
           if (autoStartBreak) {
             setActiveMode("short");
             playBreakStartSound();
-            setTimeout(() => startTimer(), 800);
+            setTimeout(() => toggleTimer(), 800);
           } else {
             remaining = modes.focus;
             warningPlayed = false;
@@ -270,28 +320,34 @@
         } else {
           setActiveMode("focus");
           playFocusStartSound();
-          setTimeout(() => startTimer(), 800);
+          setTimeout(() => toggleTimer(), 800);
         }
       }, 500);
     }
   }
 
-  function startTimer() {
-    if (running) return;
-    running = true;
-    warningPlayed = false;
-    endTime = Date.now() + remaining * 1000;
-    updateTimerDisplay();
-    timerTick = setInterval(updateTimerDisplay, 250);
+  function toggleTimer() {
+    if (running) {
+      // Pause
+      if (timerTick) clearInterval(timerTick);
+      timerTick = null;
+      running = false;
+      remaining = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+      render();
+      startBtn.textContent = "Start";
+      startBtn.classList.remove("pause-state");
+    } else {
+      // Start
+      running = true;
+      warningPlayed = false;
+      endTime = Date.now() + remaining * 1000;
+      updateTimerDisplay();
+      timerTick = setInterval(updateTimerDisplay, 250);
+      startBtn.textContent = "Pause";
+      startBtn.classList.add("pause-state");
+    }
   }
-
-  function pauseTimer() {
-    if (timerTick) clearInterval(timerTick);
-    timerTick = null;
-    running = false;
-    remaining = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
-    render();
-  }
+  window.toggleTimer = toggleTimer;
 
   function resetTimer() {
     if (timerTick) clearInterval(timerTick);
@@ -309,14 +365,264 @@
     }
 
     render();
+    startBtn.textContent = "Start";
+    startBtn.classList.remove("pause-state");
+  }
+
+  // Picture in Picture functionality
+  let pipWindow = null;
+  let pipStayOnTopInterval = null;
+  const pipToggle = document.getElementById("pipBtn");
+
+  function clearPipStayOnTopInterval() {
+    if (pipStayOnTopInterval) {
+      clearInterval(pipStayOnTopInterval);
+      pipStayOnTopInterval = null;
+    }
+  }
+
+  function refreshPipStayOnTop() {
+    clearPipStayOnTopInterval();
+    if (!pipWindow || pipWindow.closed) return;
+    pipStayOnTopInterval = setInterval(() => {
+      if (pipWindow && !pipWindow.closed) {
+        pipWindow.focus();
+      } else {
+        clearPipStayOnTopInterval();
+      }
+    }, 1200);
+  }
+
+  function getPiPThemeBackground(theme) {
+    const raw = localStorage.getItem("advSettings_" + theme);
+    if (theme === "gradient-default") {
+      const saved = safeJSONParse(raw, {});
+      if (saved.start && saved.end) {
+        return `linear-gradient(135deg, ${saved.start} 0%, ${saved.end} 50%, ${saved.end} 100%)`;
+      }
+      return "linear-gradient(135deg, #6366f1 0%, #ec4899 50%, #f43f5e 100%)";
+    }
+    if (theme === "gradient-day-night") {
+      return "linear-gradient(135deg, #ff6b6b 0%, #fedc57 100%)";
+    }
+    if (theme === "gradient-deep-ocean" || theme === "gradient-ocean") {
+      return "linear-gradient(135deg, #0066ff 0%, #00d4ff 100%)";
+    }
+    if (theme === "gradient-forest") {
+      return "linear-gradient(135deg, #134e5e 0%, #71b280 100%)";
+    }
+    if (theme === "color-light") {
+      return "#ffffff";
+    }
+    if (theme === "color-dark") {
+      return "#000000";
+    }
+    return "linear-gradient(135deg, #6366f1 0%, #ec4899 50%, #f43f5e 100%)";
+  }
+
+  function getPiPTextColor(theme) {
+    return theme === "color-light" ? "#111" : "white";
+  }
+
+  function buildPiPDocument(pipDoc) {
+    pipDoc.open();
+    pipDoc.write(
+      "<!DOCTYPE html><html><head><title>Timer</title></head><body></body></html>",
+    );
+    pipDoc.close();
+
+    const pipBackground = getPiPThemeBackground(savedTheme);
+    const pipColor = getPiPTextColor(savedTheme);
+    const style = pipDoc.createElement("style");
+    style.textContent = `
+      @import url('https://fonts.googleapis.com/css2?family=Piazzolla:wght@300;400;500;700;800&display=swap');
+      body {
+        margin: 0;
+        padding: 18px;
+        background: ${pipBackground};
+        color: ${pipColor};
+        font-family: 'Piazzolla', serif;
+        font-weight: 400;
+        line-height: 1.4;
+        font-variant-numeric: oldstyle-nums proportional-nums;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        box-sizing: border-box;
+        overflow: hidden;
+      }
+      .timer-label {
+        font-size: clamp(0.85rem, 2vw, 1rem);
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        opacity: 0.92;
+        margin-bottom: 12px;
+      }
+      .timer-display {
+        font-size: clamp(2.2rem, 10vw, 3.2rem);
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        margin-bottom: 16px;
+        text-align: center;
+        line-height: 1.2;
+      }
+      .pip-actions {
+        display: flex;
+        gap: 12px;
+        width: 100%;
+        justify-content: center;
+      }
+      .pip-control-btn,
+      .close-btn {
+        border: none;
+        cursor: pointer;
+        border-radius: 999px;
+        padding: 10px 18px;
+        background: rgba(255,255,255,0.18);
+        color: ${pipColor};
+        font-family: 'Piazzolla', serif;
+        font-weight: 600;
+        font-size: clamp(0.9rem, 2vw, 1rem);
+        line-height: 1.4;
+      }
+      .close-btn {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+      }
+    `;
+    pipDoc.head.appendChild(style);
+
+    const closeBtn = pipDoc.createElement("button");
+    closeBtn.className = "close-btn";
+    closeBtn.textContent = "×";
+    closeBtn.addEventListener("click", () => {
+      if (pipWindow) pipWindow.close();
+    });
+    pipDoc.body.appendChild(closeBtn);
+
+    const label = pipDoc.createElement("div");
+    label.className = "timer-label";
+    label.id = "pip-label";
+    label.textContent =
+      currentMode === "focus"
+        ? "Focus"
+        : currentMode === "short"
+          ? "Short Break"
+          : "Long Break";
+    pipDoc.body.appendChild(label);
+
+    const displayDiv = pipDoc.createElement("div");
+    displayDiv.className = "timer-display";
+    displayDiv.id = "pip-display";
+    displayDiv.textContent = display.textContent;
+    pipDoc.body.appendChild(displayDiv);
+
+    const actions = pipDoc.createElement("div");
+    actions.className = "pip-actions";
+    const controlBtn = pipDoc.createElement("button");
+    controlBtn.className = "pip-control-btn";
+    controlBtn.id = "pip-control-btn";
+    controlBtn.textContent = (startBtn && startBtn.textContent) || "Start";
+    actions.appendChild(controlBtn);
+    pipDoc.body.appendChild(actions);
+
+    const script = pipDoc.createElement("script");
+    script.textContent = `
+      const controlBtn = document.getElementById('pip-control-btn');
+      if (controlBtn && window.opener && typeof window.opener.toggleTimer === 'function') {
+        controlBtn.addEventListener('click', () => {
+          window.opener.toggleTimer();
+        });
+      }
+      const updateDisplay = () => {
+        const openerDoc = window.opener && window.opener.document;
+        if (!openerDoc) return;
+        const display = openerDoc.getElementById('display');
+        const mode = openerDoc.querySelector('.mode-btn.active');
+        const startBtn = openerDoc.getElementById('startBtn');
+        const pipDisplay = document.getElementById('pip-display');
+        const pipLabel = document.getElementById('pip-label');
+        const controlBtn = document.getElementById('pip-control-btn');
+        if (display && pipDisplay) pipDisplay.textContent = display.textContent;
+        if (mode && pipLabel) pipLabel.textContent = mode.textContent;
+        if (startBtn && controlBtn) controlBtn.textContent = startBtn.textContent;
+      };
+      updateDisplay();
+      setInterval(updateDisplay, 250);
+      window.addEventListener('beforeunload', () => {
+        if (window.opener) window.opener.pipWindow = null;
+      });
+    `;
+    pipDoc.body.appendChild(script);
+  }
+
+  async function togglePiP() {
+    if (pipWindow) {
+      pipWindow.close();
+      pipWindow = null;
+      if (pipToggle) pipToggle.classList.remove("active");
+      clearPipStayOnTopInterval();
+      return;
+    }
+
+    try {
+      const requestWindow =
+        window.documentPictureInPicture &&
+        window.documentPictureInPicture.requestWindow;
+      if (requestWindow) {
+        pipWindow = await requestWindow.call(window.documentPictureInPicture, {
+          width: 360,
+          height: 260,
+        });
+      } else {
+        pipWindow = window.open(
+          "about:blank",
+          "timer-pip",
+          "width=360,height=260,left=" +
+            (screenX + 100) +
+            ",top=" +
+            (screenY + 100),
+        );
+      }
+
+      if (pipWindow && pipWindow.document) {
+        buildPiPDocument(pipWindow.document);
+        pipWindow.focus();
+        refreshPipStayOnTop();
+        pipWindow.addEventListener("beforeunload", () => {
+          pipWindow = null;
+          clearPipStayOnTopInterval();
+          if (pipToggle) pipToggle.classList.remove("active");
+        });
+      }
+
+      if (pipToggle) pipToggle.classList.toggle("active", !!pipWindow);
+    } catch (e) {
+      console.warn("PiP failed:", e);
+      if (pipToggle) pipToggle.classList.remove("active");
+    }
   }
 
   focusModeBtn.addEventListener("click", () => setActiveMode("focus"));
   shortBreakBtn.addEventListener("click", () => setActiveMode("short"));
   longBreakBtn.addEventListener("click", () => setActiveMode("long"));
-  startBtn.addEventListener("click", startTimer);
-  pauseBtn.addEventListener("click", pauseTimer);
+  startBtn.addEventListener("click", toggleTimer);
   resetBtn.addEventListener("click", resetTimer);
+
+  const pipBtn = document.getElementById("pipBtn");
+  if (pipBtn) {
+    pipBtn.addEventListener("click", togglePiP);
+  }
 
   minutesInput.addEventListener("change", () => {
     if (currentMode === "focus") {
@@ -355,9 +661,9 @@
     if (jsizeSlider) params.jsize = Number(jsizeSlider.value) / 20 + 1;
   }
 
-  speedSlider?.addEventListener("input", changeSliders);
-  tsizeSlider?.addEventListener("input", changeSliders);
-  jsizeSlider?.addEventListener("input", changeSliders);
+  if (speedSlider) speedSlider.addEventListener("input", changeSliders);
+  if (tsizeSlider) tsizeSlider.addEventListener("input", changeSliders);
+  if (jsizeSlider) jsizeSlider.addEventListener("input", changeSliders);
 
   changeSliders();
   loadSavedModes();
@@ -398,6 +704,13 @@
   const patchNotesPopup = document.getElementById("patchNotesPopup");
   const patchNotesCloseBtn = document.getElementById("patchNotesCloseBtn");
   const patchNotesList = document.getElementById("patchNotesList");
+  const updateNoticePopup = document.getElementById("updateNoticePopup");
+  const viewPatchNotesFromUpdateBtn = document.getElementById(
+    "viewPatchNotesFromUpdateBtn",
+  );
+  const dismissUpdateNoticeBtn = document.getElementById(
+    "dismissUpdateNoticeBtn",
+  );
   const dayNightContainer = document.getElementById("dayNightContainer");
   const leavesContainer = document.getElementById("leaves");
   const waveContainer = document.getElementById("waveContainer");
@@ -406,7 +719,7 @@
   // ── current state ─────────────────────────────────────────
   let savedTheme =
     normalizeTheme(localStorage.getItem("timerTheme")) || "gradient-default";
-  if (savedTheme === "gradient-day-night" || savedTheme === "gradient-sunset") {
+  if (!THEME_CFG[savedTheme]) {
     savedTheme = "gradient-default";
   }
   if (localStorage.getItem("timerTheme") !== savedTheme) {
@@ -416,6 +729,7 @@
     localStorage.getItem("timerAnimationEnabled") !== "false";
   let currentAnimation = null;
   let dayNightInterval = null;
+  let pipAlwaysOnTop = localStorage.getItem("pipAlwaysOnTop") === "true";
 
   // ── sound control ────────────────────────────────────────
   let timerSoundEnabled = localStorage.getItem("timerSoundEnabled") !== "false";
@@ -423,6 +737,12 @@
   let statisticsEnabled = localStorage.getItem("statisticsEnabled") !== "false";
 
   const PATCH_NOTES = [
+    {
+      date: "2026-06-03",
+      title: "Added PiP mode, improved UI and animations, and more",
+      details:
+        "Added a new Picture-in-Picture mode to better improve your workflow while working on other tabs, along with various UI improvements animations, new wave animation logic and bug fixes.",
+    },
     {
       date: "2026-05-20",
       title: "Customize wave animation colors",
@@ -449,60 +769,133 @@
     },
   ];
 
+  // Update notice constants (declare before bootstrap to avoid TDZ)
+  const UPDATE_NOTIFICATION_VERSION = "2026-06-03";
+  const UPDATE_NOTIFICATION_KEY = "timerUpdateNoticeVersion";
+  const VISITED_KEY = "timerHasVisited";
+
   // ── apply saved theme class ───────────────────────────────
   (function bootstrap() {
     timerContainer.classList.add("theme-" + savedTheme);
+    if (document.body) document.body.classList.add("theme-" + savedTheme);
     document
       .querySelectorAll(`[data-theme="${savedTheme}"]`)
       .forEach((el) => el.classList.add("active"));
     renderPatchNotesPreview();
     renderPatchNotesList();
+    initUpdateNotice();
   })();
 
   function refreshBodyOverflow() {
     document.body.style.overflow =
-      advModal?.classList.contains("open") ||
-      patchNotesPopup?.classList.contains("open")
+      (advModal && advModal.classList.contains("open")) ||
+      (patchNotesPopup && patchNotesPopup.classList.contains("open")) ||
+      (updateNoticePopup && updateNoticePopup.classList.contains("open"))
         ? "hidden"
         : "";
+  }
+
+  function isReturningUser() {
+    if (localStorage.getItem(VISITED_KEY) === "true") return true;
+    return [
+      "timerTheme",
+      "timerAnimationEnabled",
+      "timerSoundEnabled",
+      "statisticsEnabled",
+    ].some((key) => localStorage.getItem(key) !== null);
+  }
+
+  function openUpdateNoticePopup() {
+    if (!updateNoticePopup) return;
+    updateNoticePopup.classList.add("open");
+    refreshBodyOverflow();
+  }
+
+  function closeUpdateNoticePopup() {
+    if (!updateNoticePopup) return;
+    updateNoticePopup.classList.remove("open");
+    refreshBodyOverflow();
+  }
+
+  function initUpdateNotice() {
+    const currentVersion = UPDATE_NOTIFICATION_VERSION;
+    const seenVersion = localStorage.getItem(UPDATE_NOTIFICATION_KEY);
+    const returning = isReturningUser();
+
+    if (!returning) {
+      localStorage.setItem(VISITED_KEY, "true");
+      localStorage.setItem(UPDATE_NOTIFICATION_KEY, currentVersion);
+      return;
+    }
+
+    if (seenVersion !== currentVersion) {
+      openUpdateNoticePopup();
+      localStorage.setItem(VISITED_KEY, "true");
+      localStorage.setItem(UPDATE_NOTIFICATION_KEY, currentVersion);
+    }
   }
 
   function renderPatchNotesPreview() {
     if (!patchNotesPreview) return;
     const first = PATCH_NOTES[0];
+    patchNotesPreview.innerHTML = "";
     if (!first) {
-      patchNotesPreview.innerHTML = "";
       return;
     }
     const moreCount = Math.max(0, PATCH_NOTES.length - 1);
-    patchNotesPreview.innerHTML = `
-      <button type="button" class="patch-note-preview" data-index="0">
-        <div>
-          <strong>${first.title}</strong>
-          <small>${first.date}</small>
-        </div>
-        <p>${first.details}</p>
-        ${
-          moreCount > 0
-            ? `<div class="patch-more">and ${moreCount} more — View all</div>`
-            : ""
-        }
-      </button>
-    `;
+
+    const btn = createSafeElement("button", {
+      type: "button",
+      class: "patch-note-preview",
+      "data-index": "0",
+    });
+
+    const headerDiv = createSafeElement("div");
+    const titleStrong = createSafeElement(
+      "strong",
+      {},
+      sanitizeInput(first.title),
+    );
+    const dateSmall = createSafeElement("small", {}, sanitizeInput(first.date));
+    headerDiv.appendChild(titleStrong);
+    headerDiv.appendChild(dateSmall);
+    btn.appendChild(headerDiv);
+
+    const detailsP = createSafeElement("p", {}, sanitizeInput(first.details));
+    btn.appendChild(detailsP);
+
+    if (moreCount > 0) {
+      const moreDiv = createSafeElement(
+        "div",
+        { class: "patch-more" },
+        `and ${moreCount} more — View all`,
+      );
+      btn.appendChild(moreDiv);
+    }
+
+    patchNotesPreview.appendChild(btn);
   }
 
   function renderPatchNotesList() {
     if (!patchNotesList) return;
-    patchNotesList.innerHTML = PATCH_NOTES.map(
-      (note) =>
-        `<div class="patch-notes-entry">
-          <div class="patch-notes-entry-header">
-            <h4>${note.title}</h4>
-            <span>${note.date}</span>
-          </div>
-          <p>${note.details}</p>
-        </div>`,
-    ).join("");
+    patchNotesList.innerHTML = "";
+    PATCH_NOTES.forEach((note) => {
+      const entryDiv = createSafeElement("div", { class: "patch-notes-entry" });
+
+      const headerDiv = createSafeElement("div", {
+        class: "patch-notes-entry-header",
+      });
+      const titleH4 = createSafeElement("h4", {}, sanitizeInput(note.title));
+      const dateSpan = createSafeElement("span", {}, sanitizeInput(note.date));
+      headerDiv.appendChild(titleH4);
+      headerDiv.appendChild(dateSpan);
+
+      const detailsP = createSafeElement("p", {}, sanitizeInput(note.details));
+
+      entryDiv.appendChild(headerDiv);
+      entryDiv.appendChild(detailsP);
+      patchNotesList.appendChild(entryDiv);
+    });
   }
 
   function openPatchNotesPopup() {
@@ -545,17 +938,27 @@
     }
   });
 
-  patchNotesPreview?.addEventListener("click", (e) => {
-    const target = e.target.closest(".patch-note-preview");
-    if (!target) return;
-    openPatchNotesPopup();
-  });
-
-  openPatchNotesBtn?.addEventListener("click", openPatchNotesPopup);
-  patchNotesCloseBtn?.addEventListener("click", closePatchNotesPopup);
-  patchNotesPopup?.addEventListener("click", (e) => {
-    if (e.target === patchNotesPopup) closePatchNotesPopup();
-  });
+  if (patchNotesPreview)
+    patchNotesPreview.addEventListener("click", (e) => {
+      const target = e.target.closest(".patch-note-preview");
+      if (!target) return;
+      openPatchNotesPopup();
+    });
+  if (openPatchNotesBtn)
+    openPatchNotesBtn.addEventListener("click", openPatchNotesPopup);
+  if (patchNotesCloseBtn)
+    patchNotesCloseBtn.addEventListener("click", closePatchNotesPopup);
+  if (viewPatchNotesFromUpdateBtn)
+    viewPatchNotesFromUpdateBtn.addEventListener("click", () => {
+      closeUpdateNoticePopup();
+      openPatchNotesPopup();
+    });
+  if (dismissUpdateNoticeBtn)
+    dismissUpdateNoticeBtn.addEventListener("click", closeUpdateNoticePopup);
+  if (patchNotesPopup)
+    patchNotesPopup.addEventListener("click", (e) => {
+      if (e.target === patchNotesPopup) closePatchNotesPopup();
+    });
 
   function showThemeSettingsSection(theme) {
     document
@@ -585,44 +988,99 @@
   // ═══════════════════════════════════════════════════════════
   //  THEME SELECTION
   // ═══════════════════════════════════════════════════════════
+
+  // Setup disabled button tooltips (complete rebuild)
+  document.addEventListener("DOMContentLoaded", function () {
+    setTimeout(() => {
+      document.querySelectorAll("button[disabled][title]").forEach((btn) => {
+        btn.style.position = "relative";
+
+        btn.addEventListener("mouseenter", function () {
+          // create tooltip appended to body to avoid clipping by modal overflow
+          // remove any existing tooltip attached to this button
+          if (this._activeTooltip) {
+            this._activeTooltip.remove();
+            this._activeTooltip = null;
+          }
+
+          const tooltip = document.createElement("div");
+          tooltip.className = "btn-wip-tooltip";
+          tooltip.textContent = this.getAttribute("title") || "";
+          tooltip.style.cssText = [
+            "position: fixed",
+            "background: #111",
+            "color: #fff",
+            "padding: 8px 12px",
+            "border-radius: 6px",
+            "font-size: 12px",
+            "font-weight: 600",
+            "white-space: nowrap",
+            "pointer-events: none",
+            "z-index: 1000000",
+            "box-shadow: 0 6px 20px rgba(0,0,0,0.6)",
+            "border: 1px solid rgba(255,255,255,0.06)",
+          ].join(";");
+
+          document.body.appendChild(tooltip);
+
+          // force reflow to get accurate size
+          void tooltip.offsetHeight;
+
+          const rect = this.getBoundingClientRect();
+          const tw = tooltip.offsetWidth;
+          const th = tooltip.offsetHeight;
+
+          let left = Math.round(rect.left + rect.width / 2 - tw / 2);
+          let top = Math.round(rect.top - th - 10);
+
+          // viewport bounds
+          if (left < 8) left = 8;
+          if (left + tw > window.innerWidth - 8)
+            left = window.innerWidth - tw - 8;
+          if (top < 8) top = Math.round(rect.bottom + 10);
+
+          tooltip.style.left = left + "px";
+          tooltip.style.top = top + "px";
+
+          this._activeTooltip = tooltip;
+        });
+
+        btn.addEventListener("mouseleave", function () {
+          if (this._activeTooltip) {
+            this._activeTooltip.remove();
+            this._activeTooltip = null;
+          }
+        });
+      });
+    }, 100);
+  });
+
   if (themeOptions.length > 0) {
     themeOptions.forEach((opt) => {
-      // Disable Day/Night theme
-      if (
-        opt.dataset.theme === "gradient-day-night" ||
-        opt.dataset.theme === "gradient-sunset"
-      ) {
-        opt.classList.add("theme-disabled");
-        opt.setAttribute("title", "This theme is disabled (WIP)");
-        opt.style.opacity = "0.5";
-        opt.style.cursor = "not-allowed";
-      }
-
       opt.addEventListener("click", (e) => {
         const btn = e.currentTarget;
         if (!btn) return;
 
-        // Prevent selection of Day/Night theme
-        if (
-          btn.dataset.theme === "gradient-day-night" ||
-          btn.dataset.theme === "gradient-sunset"
-        ) {
-          e.preventDefault();
-          e.stopPropagation();
-          return;
-        }
+        // Skip if button is disabled
+        if (btn.hasAttribute("disabled")) return;
 
         const theme = normalizeTheme(btn.dataset.theme);
         if (!theme) return;
 
         // swap class
         if (timerContainer) {
-          timerContainer.classList.remove(
-            ...Array.from(timerContainer.classList).filter((c) =>
-              c.startsWith("theme-"),
-            ),
+          const oldClasses = Array.from(timerContainer.classList).filter((c) =>
+            c.startsWith("theme-"),
           );
+          timerContainer.classList.remove(...oldClasses);
           timerContainer.classList.add("theme-" + theme);
+        }
+        if (document.body) {
+          const oldBodyClasses = Array.from(document.body.classList).filter(
+            (c) => c.startsWith("theme-"),
+          );
+          document.body.classList.remove(...oldBodyClasses);
+          document.body.classList.add("theme-" + theme);
         }
 
         themeOptions.forEach((o) => o.classList.remove("active"));
@@ -636,24 +1094,62 @@
     });
   }
 
+  function updatePipAlwaysOnTopButton() {
+    const pipBtn = document.getElementById("pipBtn");
+    const pipAlwaysOnTopToggle = document.getElementById(
+      "pipAlwaysOnTopToggle",
+    );
+    if (pipBtn) pipBtn.classList.toggle("always-on-top", pipAlwaysOnTop);
+    if (pipAlwaysOnTopToggle) {
+      pipAlwaysOnTopToggle.checked = pipAlwaysOnTop;
+    }
+    localStorage.setItem("pipAlwaysOnTop", pipAlwaysOnTop ? "true" : "false");
+    refreshPipStayOnTop();
+  }
+
+  function initPipAlwaysOnTop() {
+    updatePipAlwaysOnTopButton();
+    const pipAlwaysOnTopToggle = document.getElementById(
+      "pipAlwaysOnTopToggle",
+    );
+    if (pipAlwaysOnTopToggle) {
+      pipAlwaysOnTopToggle.addEventListener("change", () => {
+        pipAlwaysOnTop = pipAlwaysOnTopToggle.checked;
+        updatePipAlwaysOnTopButton();
+      });
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initPipAlwaysOnTop);
+  } else {
+    initPipAlwaysOnTop();
+  }
+
   // ═══════════════════════════════════════════════════════════
   //  EXTENDED SETTINGS MODAL
   // ═══════════════════════════════════════════════════════════
-  advOpenBtn?.addEventListener("click", openAdvModal);
-  advCloseBtn?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    closeAdvModal();
-  });
+  if (advOpenBtn)
+    advOpenBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openAdvModal();
+    });
+  if (advCloseBtn)
+    advCloseBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      closeAdvModal();
+    });
 
-  advBackdrop?.addEventListener("click", closeAdvModal);
-  advSaveBtn?.addEventListener("click", saveAdvSettings);
+  if (advBackdrop) advBackdrop.addEventListener("click", closeAdvModal);
+  if (advSaveBtn) advSaveBtn.addEventListener("click", saveAdvSettings);
 
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && advModal?.classList.contains("open"))
+    if (e.key === "Escape" && advModal && advModal.classList.contains("open"))
       closeAdvModal();
   });
 
   function openAdvModal() {
+    if (!advModal) return;
     // sync clock inputs into full-settings panel
     const fsFocus = document.getElementById("fsFocus");
     const fsShort = document.getElementById("fsShort");
@@ -683,30 +1179,9 @@
       const clone = opt.cloneNode(true);
       opt.parentNode.replaceChild(clone, opt);
 
-      // Disable Day/Night in advanced modal
-      if (
-        clone.dataset.theme === "gradient-day-night" ||
-        clone.dataset.theme === "gradient-sunset"
-      ) {
-        clone.classList.add("theme-disabled");
-        clone.setAttribute("title", "This theme is disabled (WIP)");
-        clone.style.opacity = "0.5";
-        clone.style.cursor = "not-allowed";
-      }
-
       clone.addEventListener("click", (e) => {
         const btn = e.currentTarget;
         if (!btn) return;
-
-        // Prevent Day/Night selection
-        if (
-          btn.dataset.theme === "gradient-day-night" ||
-          btn.dataset.theme === "gradient-sunset"
-        ) {
-          e.preventDefault();
-          e.stopPropagation();
-          return;
-        }
 
         const newTheme = normalizeTheme(btn.dataset.theme);
         if (!newTheme) return;
@@ -751,7 +1226,7 @@
 
     advModal.classList.add("open");
     document.body.style.overflow = "hidden";
-    themeModal.classList.remove("open");
+    if (themeModal) themeModal.classList.remove("open");
   }
 
   function getAdvRaw(theme) {
@@ -848,15 +1323,20 @@
       s.start = document.getElementById("gradientStartColor").value;
       s.end = document.getElementById("gradientEndColor").value;
       const waveCustomEnabled =
-        document.getElementById("waveCustomToggle")?.checked;
+        document.getElementById("waveCustomToggle") &&
+        document.getElementById("waveCustomToggle").checked;
       s.waveCustomEnabled =
         waveCustomEnabled === undefined ? true : !!waveCustomEnabled;
       if (s.waveCustomEnabled)
         s.waveAccent =
-          document.getElementById("waveAccentColor")?.value || null;
+          (document.getElementById("waveAccentColor") &&
+            document.getElementById("waveAccentColor").value) ||
+          null;
       else s.waveAccent = null;
-      s.waveLowQuality = !!document.getElementById("waveLowQualityToggle")
-        ?.checked;
+      s.waveLowQuality = !!(
+        document.getElementById("waveLowQualityToggle") &&
+        document.getElementById("waveLowQualityToggle").checked
+      );
       s.anim = document.getElementById("defaultAnimationToggle").checked;
       applyCustomGradient(s.start, s.end);
       animationEnabled = s.anim;
@@ -968,7 +1448,9 @@
   }
 
   function updateWaveAccentControls() {
-    const enabled = document.getElementById("waveCustomToggle")?.checked;
+    const enabled =
+      document.getElementById("waveCustomToggle") &&
+      document.getElementById("waveCustomToggle").checked;
     const controls = document.getElementById("waveAccentControls");
     if (controls) controls.style.display = enabled ? "flex" : "none";
   }
@@ -1038,8 +1520,14 @@
   });
 
   function updateGradientPreview() {
-    const s = document.getElementById("gradientStartColor")?.value;
-    const e = document.getElementById("gradientEndColor")?.value;
+    const s =
+      (document.getElementById("gradientStartColor") &&
+        document.getElementById("gradientStartColor").value) ||
+      null;
+    const e =
+      (document.getElementById("gradientEndColor") &&
+        document.getElementById("gradientEndColor").value) ||
+      null;
     const p = document.getElementById("customGradientPreview");
     if (p && s && e) p.style.background = `linear-gradient(135deg,${s},${e})`;
   }
@@ -1235,7 +1723,7 @@
       theme === "gradient-ocean" ||
       theme === "gradient-day-night"
     ) {
-      timerContainer.style.background = "";
+      timerContainer.style.background = "transparent";
     } else {
       timerContainer.style.background = "";
     }
@@ -1290,8 +1778,8 @@
     const oc = oceanContainer || document.getElementById("oceanContainer");
     const dc =
       dayNightContainer || document.getElementById("dayNightContainer");
-    const wCanvas = wc?.querySelector("canvas");
-    const oCanvas = oc?.querySelector("canvas");
+    const wCanvas = wc && wc.querySelector("canvas");
+    const oCanvas = oc && oc.querySelector("canvas");
     if (wCanvas) wCanvas.remove();
     if (oCanvas) oCanvas.remove();
     if (wc) wc.style.display = "none";
@@ -1328,8 +1816,8 @@
 
     function setSize() {
       const scale = lowQuality ? 0.75 : 1;
-      w = canvas.width = Math.max(600, Math.round(window.innerWidth * scale));
-      h = canvas.height = Math.round(window.innerHeight * scale);
+      w = canvas.width = Math.max(1000, Math.round(window.innerWidth * scale));
+      h = canvas.height = Math.max(520, Math.round(window.innerHeight * scale));
     }
 
     function update(currentTime) {
@@ -1346,46 +1834,95 @@
 
       ctx.clearRect(0, 0, w, h);
       const timeSec = currentTime * 0.001;
-      const maxLayers = Math.min(3, Math.floor(h / 200) + 1);
-      let offset = h * 0.75;
-      const offsetInc = 40;
 
-      for (let layer = 0; layer < maxLayers; layer++) {
-        const phase = timeSec * (0.8 + layer * 0.3);
-        const amplitude = 12 + layer * 8;
-        const yBase = offset - layer * 10;
-        const grd = ctx.createLinearGradient(
-          0,
-          yBase,
-          0,
-          yBase + offsetInc * 2,
-        );
+      // Draw dramatic, highly complex overlapping waves with strong harmonics
+      const waveConfigs = [
+        {
+          freq: 0.0018,
+          amp: h * 0.068,
+          speed: 0.18,
+          baseY: h * 0.65,
+          opacity: 0.7,
+          phase: 0,
+        },
+        {
+          freq: 0.0026,
+          amp: h * 0.065,
+          speed: 0.25,
+          baseY: h * 0.7,
+          opacity: 0.65,
+          phase: Math.PI / 12,
+        },
+        {
+          freq: 0.0032,
+          amp: h * 0.07,
+          speed: 0.32,
+          baseY: h * 0.75,
+          opacity: 0.62,
+          phase: Math.PI / 8,
+        },
+        {
+          freq: 0.0038,
+          amp: h * 0.067,
+          speed: 0.38,
+          baseY: h * 0.8,
+          opacity: 0.58,
+          phase: Math.PI / 6,
+        },
+        {
+          freq: 0.0022,
+          amp: h * 0.062,
+          speed: 0.2,
+          baseY: h * 0.85,
+          opacity: 0.54,
+          phase: Math.PI / 4,
+        },
+      ];
 
-        const theme = localStorage.getItem("timerTheme") || "gradient-default";
-        const [color0, color1, color2] = getWaveColorsForTheme(theme);
+      const theme = localStorage.getItem("timerTheme") || "gradient-default";
+      const [color0, color1, color2] = getWaveColorsForTheme(theme);
+
+      for (const config of waveConfigs) {
+        const phase = timeSec * config.speed + config.phase;
+        const grd = ctx.createLinearGradient(0, config.baseY, 0, h);
 
         grd.addColorStop(0, color0);
-        grd.addColorStop(0.5, color1);
+        grd.addColorStop(0.6, color1);
         grd.addColorStop(1, color2);
 
+        ctx.save();
+        ctx.globalAlpha = config.opacity;
         ctx.beginPath();
-        for (let x = 0; x <= w; x += 30) {
-          const y =
-            yBase +
-            Math.sin(x * 0.02 + phase) * amplitude +
-            Math.cos(phase + layer) * 8;
+        ctx.moveTo(0, h);
+
+        const xStep = lowQuality ? 8 : 2;
+
+        for (let x = 0; x <= w + xStep * 2; x += xStep) {
+          // Multi-harmonic wave: blend many frequencies for dramatic complexity
+          const primary = Math.sin(x * config.freq + phase);
+          const harmonic1 =
+            0.45 * Math.sin(x * config.freq * 2.1 + phase * 1.2);
+          const harmonic2 =
+            0.28 * Math.sin(x * config.freq * 3.5 + phase * 0.9);
+          const harmonic3 =
+            0.15 * Math.sin(x * config.freq * 4.8 + phase * 1.4);
+          const wave =
+            (primary + harmonic1 + harmonic2 + harmonic3) * config.amp;
+          const y = config.baseY + wave;
+
           if (x === 0) {
             ctx.moveTo(x, y);
           } else {
             ctx.lineTo(x, y);
           }
         }
-        ctx.lineTo(w, h);
+
+        ctx.lineTo(w + xStep, h);
         ctx.lineTo(0, h);
         ctx.closePath();
         ctx.fillStyle = grd;
         ctx.fill();
-        offset += offsetInc;
+        ctx.restore();
       }
 
       requestAnimationFrame(update);
@@ -1754,52 +2291,116 @@
   }
 
   // slider live update
-  document.getElementById("dayNightSlider")?.addEventListener("input", (e) => {
-    const h = parseInt(e.target.value, 10);
-    updateDNDisplay(h);
-    updateDNCycle(h);
-  });
+  const _dayNightSlider = document.getElementById("dayNightSlider");
+  if (_dayNightSlider)
+    _dayNightSlider.addEventListener("input", (e) => {
+      const h = parseInt(e.target.value, 10);
+      updateDNDisplay(h);
+      updateDNCycle(h);
+    });
 
   function updateDNDisplay(h) {
     const el = document.getElementById("dayNightTimeDisplay");
     if (el) el.textContent = String(h).padStart(2, "0") + ":00";
   }
 
+  function getDayNightSkyProps(hour) {
+    let top, mid, bottom, worldBg, borderColor, starOpacity;
+
+    if (hour >= 5 && hour < 9) {
+      const p = (hour - 5) / 4;
+      top = mixHexColors("#87c5ff", "#9eceff", p);
+      mid = mixHexColors("#f7d9a2", "#fde4bd", p);
+      bottom = mixHexColors("#fff5e1", "#fff9f1", p);
+      worldBg = `radial-gradient(circle at 50% 42%, rgba(255,235,180,0.18), transparent 42%), radial-gradient(circle at 62% 68%, rgba(9,41,86,0.22), rgba(6,18,42,0.92))`;
+      borderColor = "#b8843e";
+      starOpacity = 0.05 * (1 - p);
+    } else if (hour >= 9 && hour < 17) {
+      const p = (hour - 9) / 8;
+      top = mixHexColors("#86d4ff", "#63b8ff", p);
+      mid = mixHexColors("#d4f1ff", "#98dfff", p);
+      bottom = mixHexColors("#e8f7ff", "#cbefff", p);
+      worldBg = `radial-gradient(circle at 45% 40%, rgba(255,255,255,0.16), transparent 42%), radial-gradient(circle at 58% 68%, rgba(9,45,89,0.18), rgba(6,18,40,0.88))`;
+      borderColor = "#9a6b2c";
+      starOpacity = 0;
+    } else if (hour >= 17 && hour < 20) {
+      const p = (hour - 17) / 3;
+      top = mixHexColors("#2b3b72", "#a74f66", p);
+      mid = mixHexColors("#f28e6c", "#f5b88d", p);
+      bottom = mixHexColors("#f8d5c0", "#f0d3b1", p);
+      worldBg = `radial-gradient(circle at 50% 38%, rgba(255,200,130,0.16), transparent 40%), radial-gradient(circle at 56% 64%, rgba(12,28,60,0.24), rgba(6,14,36,0.9))`;
+      borderColor = "#c3795b";
+      starOpacity = 0.15 * p;
+    } else {
+      const p = hour >= 20 ? (hour - 20) / 4 : (hour + 4) / 4;
+      top = mixHexColors("#041330", "#081e4e", p);
+      mid = mixHexColors("#071d46", "#05112a", p);
+      bottom = mixHexColors("#020512", "#04081b", p);
+      worldBg = `radial-gradient(circle at 50% 42%, rgba(68,110,180,0.12), transparent 45%), radial-gradient(circle at 54% 64%, rgba(9,20,45,0.3), rgba(2,8,20,0.96))`;
+      borderColor = "#4f7bc7";
+      starOpacity = 0.24;
+    }
+
+    return { top, mid, bottom, worldBg, borderColor, starOpacity };
+  }
+
   function updateDNCycle(hour) {
     const sun = document.getElementById("sun");
     const moon = document.getElementById("moon");
     const world = document.getElementById("world");
-    if (!sun || !moon) return;
+    const sky = document.getElementById("dayNightContainer");
+    if (!sun || !moon || !world || !sky) return;
 
-    let sunTop = 450,
-      moonTop = 450;
-    let bgColor = "#002551";
-    let borderColor = "#67a8f1";
+    const { top, mid, bottom, worldBg, borderColor, starOpacity } =
+      getDayNightSkyProps(hour);
+    const worldWidth = world.offsetWidth || 380;
+    const travel = Math.max(180, worldWidth * 0.45);
 
-    if (hour >= 5 && hour < 12) {
-      const p = (hour - 5) / 7;
-      sunTop = 300 - p * 270;
+    let sunLeft = 100;
+    let moonLeft = 100;
+    let sunTop = 450;
+    let moonTop = 450;
+
+    if (hour >= 5 && hour < 19) {
+      const p = (hour - 5) / 14;
+      sunLeft = 80 + travel * p;
+      sunTop = 300 - p * 260;
       moonTop = 450;
-      bgColor = `hsl(${195 + p * 15}, 60%, ${50 + p * 10}%)`;
-      borderColor = "#7a6021";
-    } else if (hour >= 12 && hour < 19) {
-      const p = (hour - 12) / 7;
-      sunTop = 30 + p * 260;
-      moonTop = 450;
-      bgColor = `hsl(${210 - p * 30}, 55%, ${58 - p * 20}%)`;
-      borderColor = "#7a6021";
+      moonLeft = 80;
+      sun.style.opacity = "1";
+      moon.style.opacity = "0.08";
     } else {
       const p = hour >= 19 ? (hour - 19) / 5 : (hour + 5) / 5;
+      moonLeft = 80 + travel * p;
       moonTop = 280 - p * 200;
       sunTop = 450;
-      bgColor = `hsl(${220 + p * 10}, 50%, ${15 - p * 5}%)`;
-      borderColor = "#67a8f1";
+      sunLeft = 80;
+      sun.style.opacity = "0";
+      sun.style.visibility = "hidden";
+      moon.style.opacity = "1";
+      moon.style.visibility = "visible";
     }
 
+    if (hour >= 5 && hour < 19) {
+      sun.style.opacity = "1";
+      sun.style.visibility = "visible";
+      moon.style.opacity = "0";
+      moon.style.visibility = "hidden";
+    }
+
+    sun.style.left = sunLeft + "px";
+    moon.style.left = moonLeft + "px";
     sun.style.top = sunTop + "px";
     moon.style.top = moonTop + "px";
-    timerContainer.style.backgroundColor = bgColor;
-    if (world) world.style.borderColor = borderColor;
+
+    sky.style.background =
+      `radial-gradient(circle at 50% 8%, rgba(255,255,255,0.18), transparent 18%),` +
+      `linear-gradient(180deg, ${top} 0%, ${mid} 55%, ${bottom} 100%)`;
+    sky.style.setProperty("--stars-opacity", starOpacity.toFixed(3));
+    if (world) {
+      world.style.background = worldBg;
+      world.style.borderColor = borderColor;
+    }
   }
 
   // ── custom timer inputs (carry over from original) ────────
@@ -1858,8 +2459,14 @@
     });
 
     if (filteredTasks.length === 0) {
-      taskList.innerHTML =
-        '<div class="planner-empty">No tasks yet. Add one to keep the day moving.</div>';
+      taskList.innerHTML = "";
+      taskList.appendChild(
+        createSafeElement(
+          "div",
+          { class: "planner-empty" },
+          "No tasks yet. Add one to keep the day moving.",
+        ),
+      );
     } else {
       filteredTasks.forEach((task) => {
         const taskItem = document.createElement("div");
@@ -1881,32 +2488,112 @@
             : "#d0def2";
 
         const categoryClass = task.category
-          ? "category-" + task.category.toLowerCase().replace(/\s+/g, "-")
+          ? "category-" +
+            sanitizeInput(task.category).toLowerCase().replace(/\s+/g, "-")
           : "";
         const priorityClass = task.priority
-          ? "priority-" + task.priority.toLowerCase()
+          ? "priority-" + sanitizeInput(task.priority).toLowerCase()
           : "priority-normal";
 
-        taskItem.innerHTML = `
-          <div class="task-info">
-            <h4 class="task-title">${task.title || "Untitled"}</h4>
-            <div class="task-meta">
-              ${task.category ? `<span class="tag-category ${categoryClass}"><i class="fa-solid fa-tag"></i>${task.category}</span>` : ""}
-              ${task.subject ? `<span class="tag-subject"><i class="fa-solid fa-book"></i>${task.subject}</span>` : ""}
-              ${task.priority || task.priority === "" ? `<span class="tag-priority ${priorityClass}"><i class="fa-solid fa-flag"></i>${task.priority || "Normal"}</span>` : `<span class="tag-priority priority-normal"><i class="fa-solid fa-flag"></i>Normal</span>`}
-              ${task.dueDate ? `<span class="tag-due"><i class="fa-solid fa-calendar"></i>${new Date(task.dueDate + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>` : ""}
-              ${task.estimate ? `<span class="tag-estimate"><i class="fa-solid fa-clock"></i>${task.estimate}</span>` : ""}
-            </div>
-            ${task.notes ? `<div class="task-notes">${task.notes}</div>` : ""}
-          </div>
-          <div class="task-actions">
-            <button class="task-done-toggle ${task.status === "done" ? "checked" : ""}" onclick="window.updateTaskStatus('${task.id}')">
-              ${task.status === "done" ? "✓" : "○"}
-            </button>
-            <button class="task-edit-btn" onclick="window.openTaskPopup('${task.id}')">Edit</button>
-            <button class="task-delete-btn" onclick="window.deleteTask('${task.id}')">Delete</button>
-          </div>
-        `;
+        taskItem.innerHTML = ""; // Clear first
+        const taskInfoDiv = createSafeElement("div", { class: "task-info" });
+        const taskTitle = createSafeElement(
+          "h4",
+          { class: "task-title" },
+          sanitizeInput(task.title || "Untitled"),
+        );
+        taskInfoDiv.appendChild(taskTitle);
+
+        const taskMetaDiv = createSafeElement("div", { class: "task-meta" });
+        if (task.category) {
+          const catSpan = createSafeElement(
+            "span",
+            { class: `tag-category ${categoryClass}` },
+            sanitizeInput(task.category),
+          );
+          taskMetaDiv.appendChild(catSpan);
+        }
+        if (task.subject) {
+          const subjSpan = createSafeElement(
+            "span",
+            { class: "tag-subject" },
+            sanitizeInput(task.subject),
+          );
+          taskMetaDiv.appendChild(subjSpan);
+        }
+        const priClass =
+          task.priority || task.priority === ""
+            ? priorityClass
+            : "priority-normal";
+        const priSpan = createSafeElement(
+          "span",
+          { class: `tag-priority ${priClass}` },
+          sanitizeInput(task.priority || "Normal"),
+        );
+        taskMetaDiv.appendChild(priSpan);
+
+        if (task.dueDate) {
+          const dueSpan = createSafeElement(
+            "span",
+            { class: "tag-due" },
+            new Date(task.dueDate + "T00:00:00").toLocaleDateString("en-GB", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            }),
+          );
+          taskMetaDiv.appendChild(dueSpan);
+        }
+
+        if (task.estimate) {
+          const estSpan = createSafeElement(
+            "span",
+            { class: "tag-estimate" },
+            sanitizeInput(task.estimate),
+          );
+          taskMetaDiv.appendChild(estSpan);
+        }
+        taskInfoDiv.appendChild(taskMetaDiv);
+
+        if (task.notes) {
+          const notesDiv = createSafeElement(
+            "div",
+            { class: "task-notes" },
+            sanitizeInput(task.notes),
+          );
+          taskInfoDiv.appendChild(notesDiv);
+        }
+
+        taskItem.appendChild(taskInfoDiv);
+
+        const taskActionsDiv = createSafeElement("div", {
+          class: "task-actions",
+        });
+
+        const doneBtn = createSafeElement("button", {
+          class: `task-done-toggle ${task.status === "done" ? "checked" : ""}`,
+        });
+        doneBtn.textContent = task.status === "done" ? "✓" : "○";
+        doneBtn.addEventListener("click", () =>
+          window.updateTaskStatus(task.id),
+        );
+        taskActionsDiv.appendChild(doneBtn);
+
+        const editBtn = createSafeElement("button", {
+          class: "task-edit-btn",
+        });
+        editBtn.textContent = "Edit";
+        editBtn.addEventListener("click", () => window.openTaskPopup(task.id));
+        taskActionsDiv.appendChild(editBtn);
+
+        const deleteBtn = createSafeElement("button", {
+          class: "task-delete-btn",
+        });
+        deleteBtn.textContent = "Delete";
+        deleteBtn.addEventListener("click", () => window.deleteTask(task.id));
+        taskActionsDiv.appendChild(deleteBtn);
+
+        taskItem.appendChild(taskActionsDiv);
         taskList.appendChild(taskItem);
       });
     }
@@ -1919,19 +2606,49 @@
     const done = getTasks().filter((t) => t.status === "done").length;
     const overdue = getTasks().filter((t) => isOverdue(t)).length;
     const summary = document.getElementById("plannerSummary");
+    if (!summary) return;
 
-    summary.innerHTML = `
-      <div class="planner-summary-line">
-        <span class="planner-summary-item">Tasks: <strong>${all}</strong></span>
-        <span class="planner-summary-done">Done: <strong>${done}</strong></span>
-        <span class="planner-summary-overdue">Overdue: <strong>${overdue}</strong></span>
-      </div>
-      <div class="planner-filter-bar">
-        <button class="planner-filter-btn ${currentFilter === "active" ? "active" : ""}" onclick="window.setFilter('active')">Active</button>
-        <button class="planner-filter-btn ${currentFilter === "done" ? "active" : ""}" onclick="window.setFilter('done')">Done</button>
-        <button class="planner-filter-btn ${currentFilter === "overdue" ? "active" : ""}" onclick="window.setFilter('overdue')">Overdue</button>
-      </div>
-    `;
+    summary.innerHTML = "";
+
+    const statsLine = createSafeElement("div", {
+      class: "planner-summary-line",
+    });
+    statsLine.appendChild(
+      createSafeElement("span", { class: "planner-summary-item" }, `Tasks: `),
+    );
+    statsLine.appendChild(createSafeElement("strong", {}, String(all)));
+    statsLine.appendChild(
+      createSafeElement("span", { class: "planner-summary-done" }, `Done: `),
+    );
+    statsLine.appendChild(createSafeElement("strong", {}, String(done)));
+    statsLine.appendChild(
+      createSafeElement(
+        "span",
+        { class: "planner-summary-overdue" },
+        `Overdue: `,
+      ),
+    );
+    statsLine.appendChild(createSafeElement("strong", {}, String(overdue)));
+
+    const filterBar = createSafeElement("div", {
+      class: "planner-filter-bar",
+    });
+
+    ["active", "done", "overdue"].forEach((filter) => {
+      const button = createSafeElement(
+        "button",
+        {
+          type: "button",
+          class: `planner-filter-btn ${currentFilter === filter ? "active" : ""}`,
+        },
+        filter.charAt(0).toUpperCase() + filter.slice(1),
+      );
+      button.addEventListener("click", () => window.setFilter(filter));
+      filterBar.appendChild(button);
+    });
+
+    summary.appendChild(statsLine);
+    summary.appendChild(filterBar);
   }
 
   function isOverdue(task) {
@@ -2199,7 +2916,7 @@
   ];
 
   function openAnalytics() {
-    themeModal?.classList.remove("open");
+    if (themeModal) themeModal.classList.remove("open");
     analyticsModal.classList.add("open");
     renderAnalytics();
   }
@@ -2370,20 +3087,50 @@
 
     const maxMins = Math.max(...dayData.map((d) => d.focus + d.brk), 1);
 
-    chartArea.innerHTML = dayData
-      .map((d) => {
-        const fh = Math.round((d.focus / maxMins) * 82);
-        const bh = Math.round((d.brk / maxMins) * 82);
-        return `<div class="chart-bar-wrap">
-        ${d.focus > 0 ? `<div class="chart-bar study-bar" style="height:${fh}px" data-tip="${d.focus}min study"></div>` : ""}
-        ${d.brk > 0 ? `<div class="chart-bar break-bar" style="height:${bh}px" data-tip="${d.brk}min break"></div>` : `<div style="height:3px;width:100%;border-radius:2px;background:rgba(255,255,255,0.04)"></div>`}
-      </div>`;
-      })
-      .join("");
+    chartArea.innerHTML = "";
+    dayData.forEach((d) => {
+      const fh = Math.round((d.focus / maxMins) * 82);
+      const bh = Math.round((d.brk / maxMins) * 82);
+      const wrap = createSafeElement("div", { class: "chart-bar-wrap" });
 
-    xLabels.innerHTML = dayData
-      .map((d) => `<span class="chart-x-label">${d.label}</span>`)
-      .join("");
+      if (d.focus > 0) {
+        wrap.appendChild(
+          createSafeElement("div", {
+            class: "chart-bar study-bar",
+            style: `height:${fh}px`,
+            "data-tip": `${d.focus}min study`,
+          }),
+        );
+      }
+
+      if (d.brk > 0) {
+        wrap.appendChild(
+          createSafeElement("div", {
+            class: "chart-bar break-bar",
+            style: `height:${bh}px`,
+            "data-tip": `${d.brk}min break`,
+          }),
+        );
+      }
+
+      if (d.focus === 0 && d.brk === 0) {
+        wrap.appendChild(
+          createSafeElement("div", {
+            style:
+              "height:3px;width:100%;border-radius:2px;background:rgba(255,255,255,0.04)",
+          }),
+        );
+      }
+
+      chartArea.appendChild(wrap);
+    });
+
+    xLabels.innerHTML = "";
+    dayData.forEach((d) => {
+      xLabels.appendChild(
+        createSafeElement("span", { class: "chart-x-label" }, d.label),
+      );
+    });
   }
 
   function renderSubjectList(data) {
@@ -2392,27 +3139,48 @@
     const st = data.subjectTime || {};
     const entries = Object.entries(st).sort((a, b) => b[1] - a[1]);
     if (!entries.length) {
-      list.innerHTML = '<p class="analytics-empty">No subject data yet</p>';
+      list.innerHTML = "";
+      list.appendChild(
+        createSafeElement(
+          "p",
+          { class: "analytics-empty" },
+          "No subject data yet",
+        ),
+      );
       return;
     }
     const maxMins = entries[0][1];
-    list.innerHTML = entries
-      .map(([subj, mins], i) => {
-        const pct = Math.round((mins / maxMins) * 100);
-        const color = SUBJECT_COLORS[i % SUBJECT_COLORS.length];
-        const hrs =
-          mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
-        return `<div class="subject-row">
-        <div class="subject-row-top">
-          <span class="subject-name">${subj}</span>
-          <span class="subject-time">${hrs}</span>
-        </div>
-        <div class="subject-progress">
-          <div class="subject-progress-fill" style="width:0%;background:${color}" data-pct="${pct}"></div>
-        </div>
-      </div>`;
-      })
-      .join("");
+    list.innerHTML = "";
+    entries.forEach(([subj, mins], i) => {
+      const pct = Math.round((mins / maxMins) * 100);
+      const color = SUBJECT_COLORS[i % SUBJECT_COLORS.length];
+      const hrs =
+        mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+
+      const row = createSafeElement("div", { class: "subject-row" });
+      const topRow = createSafeElement("div", { class: "subject-row-top" });
+      topRow.appendChild(
+        createSafeElement(
+          "span",
+          { class: "subject-name" },
+          sanitizeInput(subj),
+        ),
+      );
+      topRow.appendChild(
+        createSafeElement("span", { class: "subject-time" }, hrs),
+      );
+      row.appendChild(topRow);
+
+      const progress = createSafeElement("div", { class: "subject-progress" });
+      const fill = createSafeElement("div", {
+        class: "subject-progress-fill",
+        style: `width:0%;background:${color}`,
+        "data-pct": `${pct}`,
+      });
+      progress.appendChild(fill);
+      row.appendChild(progress);
+      list.appendChild(row);
+    });
 
     // Animate bars in
     setTimeout(() => {
@@ -2429,38 +3197,65 @@
     const show = sessionLogExpanded ? sessions : sessions.slice(0, 5);
 
     if (!sessions.length) {
-      log.innerHTML = '<p class="analytics-empty">No sessions yet</p>';
+      log.innerHTML = "";
+      log.appendChild(
+        createSafeElement("p", { class: "analytics-empty" }, "No sessions yet"),
+      );
       return;
     }
 
     log.className = "session-log" + (sessionLogExpanded ? " expanded" : "");
-    log.innerHTML = show
-      .map((s) => {
-        const isFocus = s.type === "focus";
-        const d = new Date(s.date);
-        const time = d.toLocaleTimeString("en-GB", {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-        const dateStr =
-          d.toDateString() === new Date().toDateString()
-            ? `Today ${time}`
-            : `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} ${time}`;
-        const title = isFocus ? s.subject || "Focus session" : "Break";
-        const dur =
-          s.duration >= 60
-            ? `${Math.floor(s.duration / 60)}h ${s.duration % 60}m`
-            : `${s.duration}m`;
-        return `<div class="session-entry">
-        <div class="session-dot ${isFocus ? "focus" : "break"}"></div>
-        <div class="session-entry-info">
-          <span class="session-entry-title">${title}</span>
-          <span class="session-entry-sub">${dateStr}</span>
-        </div>
-        <span class="session-entry-duration">${dur}</span>
-      </div>`;
-      })
-      .join("");
+    log.innerHTML = "";
+
+    show.forEach((s) => {
+      const isFocus = s.type === "focus";
+      const d = new Date(s.date);
+      const time = d.toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const dateStr =
+        d.toDateString() === new Date().toDateString()
+          ? `Today ${time}`
+          : `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} ${time}`;
+      const title = isFocus ? s.subject || "Focus session" : "Break";
+      const dur =
+        s.duration >= 60
+          ? `${Math.floor(s.duration / 60)}h ${s.duration % 60}m`
+          : `${s.duration}m`;
+
+      const entry = createSafeElement("div", { class: "session-entry" });
+      entry.appendChild(
+        createSafeElement("div", {
+          class: `session-dot ${isFocus ? "focus" : "break"}`,
+        }),
+      );
+
+      const info = createSafeElement("div", {
+        class: "session-entry-info",
+      });
+      info.appendChild(
+        createSafeElement(
+          "span",
+          { class: "session-entry-title" },
+          sanitizeInput(title),
+        ),
+      );
+      info.appendChild(
+        createSafeElement(
+          "span",
+          {
+            class: "session-entry-sub",
+          },
+          dateStr,
+        ),
+      );
+      entry.appendChild(info);
+      entry.appendChild(
+        createSafeElement("span", { class: "session-entry-duration" }, dur),
+      );
+      log.appendChild(entry);
+    });
 
     if (toggleSessionBtn) {
       toggleSessionBtn.textContent = sessionLogExpanded
@@ -2470,11 +3265,12 @@
   }
 
   // Event listeners
-  document
-    .getElementById("openStatsModalBtn")
-    ?.addEventListener("click", openAnalytics);
-  analyticsBackdrop?.addEventListener("click", closeAnalytics);
-  analyticsCloseBtn?.addEventListener("click", closeAnalytics);
+  const _openStatsBtn = document.getElementById("openStatsModalBtn");
+  if (_openStatsBtn) _openStatsBtn.addEventListener("click", openAnalytics);
+  if (analyticsBackdrop)
+    analyticsBackdrop.addEventListener("click", closeAnalytics);
+  if (analyticsCloseBtn)
+    analyticsCloseBtn.addEventListener("click", closeAnalytics);
 
   document.querySelectorAll(".date-pill").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -2487,37 +3283,56 @@
     });
   });
 
-  toggleSessionBtn?.addEventListener("click", () => {
-    sessionLogExpanded = !sessionLogExpanded;
-    const data = getFilteredStats(analyticsRange);
-    renderSessionLog(data);
-  });
-
-  statsResetBtn2?.addEventListener("click", () => {
-    if (confirm("Reset all statistics? This cannot be undone.")) {
-      resetStats();
-      renderAnalytics();
-    }
-  });
-
-  statsExportBtn?.addEventListener("click", () => {
-    const stats = getStats();
-    const rows = [["Type", "Subject", "Duration (min)", "Date"]];
-    stats.sessions.forEach((s) => {
-      rows.push([
-        s.type,
-        s.subject || "",
-        s.duration,
-        new Date(s.date).toLocaleString(),
-      ]);
+  if (toggleSessionBtn)
+    toggleSessionBtn.addEventListener("click", () => {
+      sessionLogExpanded = !sessionLogExpanded;
+      const data = getFilteredStats(analyticsRange);
+      renderSessionLog(data);
     });
-    const csv = rows.map((r) => r.join(",")).join("\n");
-    const a = document.createElement("a");
-    a.href = "data:text/csv," + encodeURIComponent(csv);
-    a.download = "study-sessions.csv";
-    a.click();
-  });
+
+  if (statsResetBtn2)
+    statsResetBtn2.addEventListener("click", () => {
+      if (confirm("Reset all statistics? This cannot be undone.")) {
+        resetStats();
+        renderAnalytics();
+      }
+    });
+
+  if (statsExportBtn)
+    statsExportBtn.addEventListener("click", () => {
+      const stats = getStats();
+      const rows = [["Type", "Subject", "Duration (min)", "Date"]];
+      stats.sessions.forEach((s) => {
+        rows.push([
+          s.type,
+          s.subject || "",
+          s.duration,
+          new Date(s.date).toLocaleString(),
+        ]);
+      });
+      const csv = rows.map((r) => r.join(",")).join("\n");
+      const a = document.createElement("a");
+      a.href = "data:text/csv," + encodeURIComponent(csv);
+      a.download = "study-sessions.csv";
+      a.click();
+    });
 
   renderTasks();
   initEnhancedSystem();
+
+  // ── Developer: Toggle update notice popup with Alt+Shift+, (requires ?dev=true) ─────
+  const isDev =
+    new URLSearchParams(window.location.search).get("dev") === "true";
+  if (isDev) {
+    document.addEventListener("keydown", (e) => {
+      if (e.altKey && e.shiftKey && e.key === "<") {
+        e.preventDefault();
+        if (updateNoticePopup && updateNoticePopup.classList.contains("open")) {
+          closeUpdateNoticePopup();
+        } else {
+          openUpdateNoticePopup();
+        }
+      }
+    });
+  }
 });

@@ -41,277 +41,33 @@
     pointer-events: none;
   "
 >
-  <div
-    id="world"
-    style="
-      width: 380px;
-      height: 380px;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -60%);
-      overflow: hidden;
-      border-bottom: 5px solid #7a6021;
-      transition: border-color 1.5s ease;
-    "
-  >
-    <div
-      id="sun"
-      style="
-        width: 180px;
-        height: 180px;
-        background: #f4c042;
-        border-radius: 50%;
-        position: absolute;
-        top: 450px;
-        left: 100px;
-        border: 5px solid #7a6021;
-        transition: top 1.2s ease;
-      "
-    >
-      <div
-        style="
-          width: 230px;
-          height: 230px;
-          position: absolute;
-          top: -25px;
-          left: -25px;
-          animation: spin 28s linear infinite;
-        "
-      >
-        <div
-          style="
-            width: 5px;
-            height: 28px;
-            background: #7a6021;
-            position: absolute;
-            transform: rotate(0deg);
-            top: -18px;
-            left: 112px;
-          "
-        ></div>
-        <div
-          style="
-            width: 5px;
-            height: 28px;
-            background: #7a6021;
-            position: absolute;
-            transform: rotate(45deg);
-            top: 18px;
-            left: 200px;
-          "
-        ></div>
-        <div
-          style="
-            width: 5px;
-            height: 28px;
-            background: #7a6021;
-            position: absolute;
-            transform: rotate(90deg);
-            top: 100px;
-            left: 228px;
-          "
-        ></div>
-        <div
-          style="
-            width: 5px;
-            height: 28px;
-            background: #7a6021;
-            position: absolute;
-            transform: rotate(135deg);
-            top: 182px;
-            left: 200px;
-          "
-        ></div>
-        <div
-          style="
-            width: 5px;
-            height: 28px;
-            background: #7a6021;
-            position: absolute;
-            transform: rotate(180deg);
-            top: 218px;
-            left: 112px;
-          "
-        ></div>
-        <div
-          style="
-            width: 5px;
-            height: 28px;
-            background: #7a6021;
-            position: absolute;
-            transform: rotate(225deg);
-            top: 182px;
-            left: 24px;
-          "
-        ></div>
-        <div
-          style="
-            width: 5px;
-            height: 28px;
-            background: #7a6021;
-            position: absolute;
-            transform: rotate(270deg);
-            top: 100px;
-            left: -4px;
-          "
-        ></div>
-        <div
-          style="
-            width: 5px;
-            height: 28px;
-            background: #7a6021;
-            position: absolute;
-            transform: rotate(315deg);
-            top: 18px;
-            left: 24px;
-          "
-        ></div>
+  <div id="world">
+    <div id="sun">
+      <div class="sunbeams">
+        <div class="beam beam1"></div>
+        <div class="beam beam2"></div>
+        <div class="beam beam3"></div>
+        <div class="beam beam4"></div>
+        <div class="beam beam5"></div>
+        <div class="beam beam6"></div>
+        <div class="beam beam7"></div>
+        <div class="beam beam8"></div>
       </div>
-      <div
-        style="
-          position: absolute;
-          width: 100px;
-          height: 18px;
-          top: 80px;
-          left: 40px;
-        "
-      >
-        <div
-          style="
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            position: absolute;
-            left: 0;
-            animation: blink 7s linear infinite;
-            background: #4f0504;
-          "
-        ></div>
-        <div
-          style="
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            position: absolute;
-            right: 0;
-            animation: blink 7s linear infinite;
-            background: #4f0504;
-          "
-        ></div>
+      <div class="eyes">
+        <div class="eyes-l"></div>
+        <div class="eyes-r"></div>
       </div>
     </div>
-    <div
-      id="moon"
-      style="
-        width: 180px;
-        height: 180px;
-        background: #95c7fa;
-        border-radius: 50%;
-        position: absolute;
-        top: 450px;
-        left: 100px;
-        border: 5px solid #67a8f1;
-        transition: top 1.2s ease;
-      "
-    >
-      <div
-        style="
-          position: absolute;
-          border-radius: 50%;
-          background: #67a8f1;
-          width: 28px;
-          height: 28px;
-          top: 38px;
-          left: 38px;
-        "
-      ></div>
-      <div
-        style="
-          position: absolute;
-          border-radius: 50%;
-          background: #67a8f1;
-          width: 14px;
-          height: 14px;
-          top: 18px;
-          left: 104px;
-        "
-      ></div>
-      <div
-        style="
-          position: absolute;
-          border-radius: 50%;
-          background: #67a8f1;
-          width: 22px;
-          height: 22px;
-          top: 48px;
-          left: 138px;
-        "
-      ></div>
-      <div
-        style="
-          position: absolute;
-          border-radius: 50%;
-          background: #67a8f1;
-          width: 32px;
-          height: 32px;
-          top: 118px;
-          left: 28px;
-        "
-      ></div>
-      <div
-        style="
-          position: absolute;
-          border-radius: 50%;
-          background: #67a8f1;
-          width: 22px;
-          height: 22px;
-          top: 148px;
-          left: 92px;
-        "
-      ></div>
-      <div
-        style="
-          position: absolute;
-          border-radius: 50%;
-          background: #67a8f1;
-          width: 18px;
-          height: 18px;
-          top: 130px;
-          left: 138px;
-        "
-      ></div>
-      <div
-        style="
-          position: absolute;
-          width: 100px;
-          height: 18px;
-          top: 80px;
-          left: 40px;
-        "
-      >
-        <div
-          style="
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            position: absolute;
-            left: 0;
-            animation: blink 7s linear infinite;
-            background: #0f2964;
-          "
-        ></div>
-        <div
-          style="
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            position: absolute;
-            right: 0;
-            animation: blink 7s linear infinite;
-            background: #0f2964;
-          "
-        ></div>
+    <div id="moon">
+      <div class="crater crater1"></div>
+      <div class="crater crater2"></div>
+      <div class="crater crater3"></div>
+      <div class="crater crater4"></div>
+      <div class="crater crater5"></div>
+      <div class="crater crater6"></div>
+      <div class="eyes">
+        <div class="eyes-l"></div>
+        <div class="eyes-r"></div>
       </div>
     </div>
   </div>

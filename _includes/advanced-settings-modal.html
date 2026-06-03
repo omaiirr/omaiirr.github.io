@@ -119,6 +119,26 @@
               </div>
             </label>
           </div>
+
+          <div class="fs-card">
+            <p class="fs-card-label">Picture-in-Picture</p>
+            <label class="fs-toggle-row" style="margin-top: 0">
+              <div class="fs-toggle-info">
+                <span class="fs-toggle-name">Keep PiP on top</span>
+                <span class="fs-toggle-desc"
+                  >Pin the PiP button above other content when enabled.</span
+                >
+              </div>
+              <div class="fs-toggle-wrap">
+                <input
+                  type="checkbox"
+                  id="pipAlwaysOnTopToggle"
+                  class="fs-toggle-input"
+                />
+                <div class="fs-toggle-thumb"></div>
+              </div>
+            </label>
+          </div>
         </div>
 
         <!-- THEME TAB -->
@@ -142,10 +162,10 @@
                 Default
               </button>
               <button
-                class="theme-option theme-disabled"
-                disabled
+                class="theme-option"
                 data-theme="gradient-day-night"
-                title="This theme is disabled (WIP)"
+                disabled
+                title="Work in Progress - Coming Soon!"
                 style="
                   background: linear-gradient(
                     to bottom,
@@ -154,6 +174,9 @@
                     #f97316 68%,
                     #fbbf24 100%
                   );
+                  opacity: 0.5;
+                  cursor: not-allowed;
+                  filter: grayscale(100%);
                 "
               >
                 Day/Night

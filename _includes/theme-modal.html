@@ -62,10 +62,10 @@
             Default
           </button>
           <button
-            class="theme-option theme-disabled"
-            disabled
+            class="theme-option"
             data-theme="gradient-day-night"
-            title="This theme is disabled (WIP)"
+            disabled
+            title="Work in Progress - Coming Soon!"
             style="
               background: radial-gradient(
                 circle at top,
@@ -73,6 +73,9 @@
                 #fd9b3c 45%,
                 #173a7c 100%
               );
+              opacity: 0.5;
+              cursor: not-allowed;
+              filter: grayscale(100%);
             "
           >
             Day / Night
@@ -157,7 +160,11 @@
         "
       >
         <h3>Advanced</h3>
-        <button id="openAdvancedSettingsBtn" class="qs-fullsettings-btn">
+        <button
+          type="button"
+          id="openAdvancedSettingsBtn"
+          class="qs-fullsettings-btn"
+        >
           ⚙️ Expand Settings
         </button>
       </div>
