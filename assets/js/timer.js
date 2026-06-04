@@ -741,7 +741,7 @@
       date: "2026-06-03",
       title: "Added PiP mode, improved UI and animations, and more",
       details:
-        "Added a new Picture-in-Picture mode to better improve your workflow while working on other tabs, along with various UI improvements animations, new wave animation logic and bug fixes.",
+        "Added a new Picture-in-Picture mode to better improve your workflow while working in other tabs, along with various UI improvements animations, new wave animation logic and bug fixes.",
     },
     {
       date: "2026-05-20",
