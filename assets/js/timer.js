@@ -424,10 +424,72 @@
     return theme === "color-light" ? "#111" : "white";
   }
 
+  function getGradientContrastColors(start, end) {
+    const [sr, sg, sb] = parseHexColor(start);
+    const [er, eg, eb] = parseHexColor(end);
+    const luminance = (0.2126 * sr + 0.7152 * sg + 0.0722 * sb) / 255;
+    const endLuminance = (0.2126 * er + 0.7152 * eg + 0.0722 * eb) / 255;
+    const averageLuminance = (luminance + endLuminance) / 2;
+
+    if (averageLuminance > 0.65) {
+      return { name: "#111111", subtitle: "#4b5563" };
+    }
+    return { name: "#ffffff", subtitle: "rgba(255,255,255,0.92)" };
+  }
+
+  // ── logo theme colors ────────────────────────────────────
+  function updateLogoTheme(themeName) {
+    const logoName = document.querySelector(".logo-name");
+    const logoSubtitle = document.querySelector(".logo-subtitle");
+    if (!logoName || !logoSubtitle) return;
+
+    const themeColors = {
+      "gradient-default": {
+        name: "#ffffff",
+        subtitle: "rgba(255,255,255,0.92)",
+      },
+      "gradient-day-night": { name: "#ffffff", subtitle: "#fedc57" },
+      "gradient-ocean": { name: "#ffffff", subtitle: "#00d4ff" },
+      "gradient-deep-ocean": { name: "#ffffff", subtitle: "#00d4ff" },
+      "gradient-forest": { name: "#ffffff", subtitle: "#71b280" },
+      "color-dark": { name: "#ffffff", subtitle: "#888888" },
+      "color-light": { name: "#111111", subtitle: "#6E5191" },
+      "default-purple": { name: "#ffffff", subtitle: "#fb7185" },
+      "ocean-classic": { name: "#ffffff", subtitle: "#7dd3fc" },
+      "sunset-classic": { name: "#ffffff", subtitle: "#fcd34d" },
+      midnight: { name: "#ffffff", subtitle: "#7b82ff" },
+      "preset-midnight": { name: "#ffffff", subtitle: "#7b8fff" },
+      "preset-sunset": { name: "#ffffff", subtitle: "rgba(255,255,255,0.65)" },
+    };
+
+    let colors = themeColors[themeName] || themeColors["gradient-default"];
+    if (themeName === "gradient-default") {
+      const raw = localStorage.getItem("advSettings_gradient-default");
+      const settings = safeJSONParse(raw, {});
+      const start = (settings.start || "").trim().toLowerCase();
+      const end = (settings.end || "").trim().toLowerCase();
+      const presetMap = {
+        "#6366f1|#ec4899": "default-purple",
+        "#0066ff|#00d4ff": "ocean-classic",
+        "#ff6b6b|#feca57": "sunset-classic",
+        "#1a1a2e|#16213e": "midnight",
+      };
+      const presetKey = presetMap[`${start}|${end}`];
+      if (presetKey && themeColors[presetKey]) {
+        colors = themeColors[presetKey];
+      } else if (settings.start && settings.end) {
+        colors = getGradientContrastColors(settings.start, settings.end);
+      }
+    }
+
+    logoName.style.color = colors.name;
+    logoSubtitle.style.color = colors.subtitle;
+  }
+
   function buildPiPDocument(pipDoc) {
     pipDoc.open();
     pipDoc.write(
-      "<!DOCTYPE html><html><head><title>Timer</title></head><body></body></html>",
+      "<!DOCTYPE html><html><head><title>Pomora</title></head><body></body></html>",
     );
     pipDoc.close();
 
@@ -739,6 +801,12 @@
   const PATCH_NOTES = [
     {
       date: "2026-06-03",
+      title: "Branding",
+      details:
+        "Added a new logo and updated the general branding. Also made the new logo the site's favicon which was previously missing",
+    },
+    {
+      date: "2026-06-03",
       title: "Added PiP mode, improved UI and animations, and more",
       details:
         "Added a new Picture-in-Picture mode to better improve your workflow while working in other tabs, along with various UI improvements animations, new wave animation logic and bug fixes.",
@@ -770,7 +838,7 @@
   ];
 
   // Update notice constants (declare before bootstrap to avoid TDZ)
-  const UPDATE_NOTIFICATION_VERSION = "2026-06-03";
+  const UPDATE_NOTIFICATION_VERSION = "2026-06-05";
   const UPDATE_NOTIFICATION_KEY = "timerUpdateNoticeVersion";
   const VISITED_KEY = "timerHasVisited";
 
@@ -784,6 +852,7 @@
     renderPatchNotesPreview();
     renderPatchNotesList();
     initUpdateNotice();
+    updateLogoTheme(savedTheme);
   })();
 
   function refreshBodyOverflow() {
@@ -1729,6 +1798,7 @@
     }
 
     startAnimation(theme);
+    updateLogoTheme(theme);
   }
 
   function startAnimation(theme) {

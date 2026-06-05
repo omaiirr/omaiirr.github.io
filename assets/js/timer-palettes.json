@@ -1,0 +1,89 @@
+{
+  "gradient-default": {
+    "start": "#6366f1",
+    "end": "#ec4899",
+    "pipBackground": "linear-gradient(135deg, #6366f1 0%, #ec4899 50%, #f43f5e 100%)",
+    "pipTextColor": "white",
+    "defaultWaveAccent": "#8b5cf6",
+    "waveColors": [
+      "rgba(99, 102, 241, 0.34)",
+      "rgba(131, 68, 154, 0.26)",
+      "rgba(236, 72, 153, 0.18)"
+    ]
+  },
+
+  "gradient-day-night": {
+    "start": "#ff6b6b",
+    "end": "#fedc57",
+    "pipBackground": "linear-gradient(135deg, #ff6b6b 0%, #fedc57 100%)",
+    "pipTextColor": "white",
+    "waveColors": [
+      "rgba(220, 110, 70, 0.16)",
+      "rgba(190, 95, 40, 0.11)",
+      "rgba(160, 70, 35, 0.07)"
+    ]
+  },
+
+  "gradient-ocean": {
+    "start": "#0066ff",
+    "end": "#00d4ff",
+    "pipBackground": "linear-gradient(135deg, #0066ff 0%, #00d4ff 100%)",
+    "pipTextColor": "white",
+    "waveColors": [
+      "rgba(30, 110, 190, 0.16)",
+      "rgba(10, 70, 140, 0.1)",
+      "rgba(5, 40, 100, 0.06)"
+    ]
+  },
+
+  "gradient-deep-ocean": {
+    "start": "#0066ff",
+    "end": "#00d4ff",
+    "pipBackground": "linear-gradient(135deg, #0066ff 0%, #00d4ff 100%)",
+    "pipTextColor": "white",
+    "waveColors": [
+      "rgba(30, 110, 190, 0.16)",
+      "rgba(10, 70, 140, 0.1)",
+      "rgba(5, 40, 100, 0.06)"
+    ]
+  },
+
+  "gradient-forest": {
+    "start": "#134e5e",
+    "end": "#71b280",
+    "pipBackground": "linear-gradient(135deg, #134e5e 0%, #71b280 100%)",
+    "pipTextColor": "white",
+    "waveColors": [
+      "rgba(70, 160, 120, 0.14)",
+      "rgba(30, 90, 70, 0.1)",
+      "rgba(15, 55, 40, 0.06)"
+    ]
+  },
+
+  "color-dark": {
+    "background": "#000000",
+    "pipTextColor": "white",
+    "waveColors": [
+      "rgba(255, 255, 255, 0.12)",
+      "rgba(255, 255, 255, 0.08)",
+      "rgba(255, 255, 255, 0.05)"
+    ]
+  },
+
+  "color-light": {
+    "background": "#ffffff",
+    "pipTextColor": "#111",
+    "waveColors": [
+      "rgba(50, 50, 50, 0.12)",
+      "rgba(80, 80, 80, 0.08)",
+      "rgba(100, 100, 100, 0.05)"
+    ]
+  },
+
+  "presets": {
+    "default-purple": { "start": "#6366f1", "end": "#ec4899" },
+    "ocean-classic": { "start": "#0066ff", "end": "#00d4ff" },
+    "sunset-classic": { "start": "#ff6b6b", "end": "#feca57" },
+    "midnight": { "start": "#1a1a2e", "end": "#16213e" }
+  }
+}

@@ -2984,6 +2984,77 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator {
     border-radius: 18px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  LOGO  */
+/* ═══════════════════════════════════════════════════════════ */
+
+.logo-container {
+  position: fixed;
+  top: 20px;
+  left: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 100;
+  cursor: pointer;
+  transition: opacity 0.3s ease;
+}
+
+.logo-container:hover {
+  opacity: 0.85;
+}
+
+.logo-mark {
+  height: 32px;
+  width: auto;
+  flex-shrink: 0;
+}
+
+.logo-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.logo-name {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  color: #ffffff;
+  transition: color 0.3s ease;
+}
+
+.logo-subtitle {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #8b5cf6;
+  transition: color 0.3s ease;
+}
+
+@media (max-width: 480px) {
+  .logo-container {
+    top: 12px;
+    left: 12px;
+    gap: 8px;
+  }
+
+  .logo-mark {
+    height: 24px;
+  }
+
+  .logo-name {
+    font-size: 12px;
+  }
+
+  .logo-subtitle {
+    display: none;
+  }
+}
 .fs-col {
   display: flex;
   flex-direction: column;

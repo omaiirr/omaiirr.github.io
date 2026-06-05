@@ -1,6 +1,6 @@
 ---
 layout: default
-title: Timer
+title: Pomora
 permalink: /timer/
 ---
 
