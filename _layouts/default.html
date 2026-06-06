@@ -7,7 +7,12 @@
   <body>
     {% if page.title == "Home" %}{% include particles-home.html %}{% endif %} {%
     if page.title == "404" %}{% include particles-404.html %}{% endif %} {% if
-    page.title == "Pomora" %} {{ content }} {% else %}
+    page.title == "Page Moved" %}
+    <div id="particles-js" class="fullscreen">
+      <div class="jumbotron text-center">{{ content }}</div>
+    </div>
+    {% endif %} {% if page.title == "Pomora" %} {{ content }} {% elsif
+    page.title != "404" and page.title != "Page Moved" %}
     <div class="container">
       <div class="row justify-content-center">
         <div class="col col-sm-10 col-md-8 col-lg-6">{{ content }}</div>
@@ -17,11 +22,12 @@
 
     <script src="{{ '/assets/js/bootstrap.min.js' | relative_url }}"></script>
 
-    {% if page.title != "404" %}
+    {% if page.title != "404" and page.title != "Page Moved" %}
     <script src="{{ '/assets/js/darkmode.js' | relative_url }}"></script>
     {% endif %} {% if page.title == "Pomora" %}
     <script src="{{ '/assets/js/timer.js' | relative_url }}"></script>
-    {% endif %} {% if page.title == "Home" or page.title == "404" %}
+    {% endif %} {% if page.title == "Home" or page.title == "404" or page.title
+    == "Page Moved" %}
     <script src="{{ '/assets/js/particles.min.js' | relative_url }}"></script>
     <script src="{{ '/assets/js/main.js' | relative_url }}"></script>
     {% endif %}
