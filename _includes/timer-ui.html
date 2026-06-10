@@ -1,56 +1,96 @@
 {% include logo.html %}
 
-<div class="timer-modes">
+<div id="timerModeStrip" class="timer-modes">
   <button id="focusMode" class="mode-btn active">Focus</button>
   <button id="shortBreakMode" class="mode-btn">Short Break</button>
   <button id="longBreakMode" class="mode-btn">Long Break</button>
+  <span id="swModeBadge">Stopwatch</span>
 </div>
 
-<div id="display" class="timer-display">25:00</div>
-
-<div class="timer-actions">
-  <button id="startBtn" class="start-btn">Start</button>
-  <button
-    id="pipBtn"
-    class="icon-btn"
-    title="Picture in Picture"
-    aria-label="Picture in Picture"
-  >
-    <svg
-      class="force-fill"
-      width="20"
-      height="20"
-      viewBox="0 -960 960 960"
-      fill="currentColor"
-      xmlns="http://www.w3.org/2000/svg"
+<div id="timerSection" class="timer-section-wrap">
+  <div id="display" class="timer-display">25:00</div>
+  <div class="timer-actions">
+    <button id="startBtn" class="start-btn">Start</button>
+    <button
+      id="pipBtn"
+      class="icon-btn"
+      title="Picture in Picture"
+      aria-label="Picture in Picture"
     >
-      <path
-        d="M80-520v-80h144L52-772l56-56 172 172v-144h80v280H80Zm80 360q-33 0-56.5-23.5T80-240v-200h80v200h320v80H160Zm640-280v-280H440v-80h360q33 0 56.5 23.5T880-720v280h-80ZM560-160v-200h320v200H560Z"
-      />
-    </svg>
-  </button>
-  <button
-    id="resetBtn"
-    class="icon-btn"
-    title="Reset timer"
-    aria-label="Reset timer"
-  >
-    <svg
-      class="force-fill"
-      width="20"
-      height="20"
-      viewBox="0 -960 960 960"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="currentColor"
+      <svg
+        class="force-fill"
+        width="20"
+        height="20"
+        viewBox="0 -960 960 960"
+        fill="currentColor"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M80-520v-80h144L52-772l56-56 172 172v-144h80v280H80Zm80 360q-33 0-56.5-23.5T80-240v-200h80v200h320v80H160Zm640-280v-280H440v-80h360q33 0 56.5 23.5T880-720v280h-80ZM560-160v-200h320v200H560Z"
+        />
+      </svg>
+    </button>
+    <button
+      id="resetBtn"
+      class="icon-btn"
+      title="Reset timer"
+      aria-label="Reset timer"
     >
-      <path
-        d="M440-80q-50-5-96-24.5T256-156l56-58q29 21 61.5 34t66.5 18v82Zm80 0v-82q104-15 172-93.5T760-438q0-117-81.5-198.5T480-718h-8l64 64-56 56-160-160 160-160 56 58-62 62h6q75 0 140.5 28.5t114 77q48.5 48.5 77 114T840-438q0 137-91 238.5T520-80ZM198-214q-32-42-51.5-88T122-398h82q5 34 18 66.5t34 61.5l-58 56Zm-76-264q6-51 25-98t51-86l58 56q-21 29-34 61.5T204-478h-82Z"
-      />
-    </svg>
-  </button>
+      <svg
+        class="force-fill"
+        width="20"
+        height="20"
+        viewBox="0 -960 960 960"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="currentColor"
+      >
+        <path
+          d="M440-80q-50-5-96-24.5T256-156l56-58q29 21 61.5 34t66.5 18v82Zm80 0v-82q104-15 172-93.5T760-438q0-117-81.5-198.5T480-718h-8l64 64-56 56-160-160 160-160 56 58-62 62h6q75 0 140.5 28.5t114 77q48.5 48.5 77 114T840-438q0 137-91 238.5T520-80ZM198-214q-32-42-51.5-88T122-398h82q5 34 18 66.5t34 61.5l-58 56Zm-76-264q6-51 25-98t51-86l58 56q-21 29-34 61.5T204-478h-82Z"
+        />
+      </svg>
+    </button>
+  </div>
+  <div class="timer-settings" style="display: none">
+    <label for="minutes">Minutes</label>
+    <input id="minutes" type="number" min="1" value="25" />
+  </div>
 </div>
 
-<div class="timer-settings" style="display: none">
-  <label for="minutes">Minutes</label>
-  <input id="minutes" type="number" min="1" value="25" />
+<div
+  id="stopwatchSection"
+  class="stopwatch-section"
+  role="region"
+  aria-label="Stopwatch"
+>
+  <div
+    id="swDisplay"
+    class="timer-display sw-display sw-paused"
+    aria-live="polite"
+    aria-atomic="true"
+  >
+    00:00<span class="sw-ms">.00</span>
+  </div>
+  <div class="stopwatch-modes">
+    <button id="swStartBtn" class="start-btn">Start</button>
+    <button
+      id="swResetBtn"
+      class="icon-btn"
+      title="Reset stopwatch"
+      aria-label="Reset stopwatch"
+      disabled
+    >
+      <svg
+        class="force-fill"
+        width="20"
+        height="20"
+        viewBox="0 -960 960 960"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="currentColor"
+      >
+        <path
+          d="M440-80q-50-5-96-24.5T256-156l56-58q29 21 61.5 34t66.5 18v82Zm80 0v-82q104-15 172-93.5T760-438q0-117-81.5-198.5T480-718h-8l64 64-56 56-160-160 160-160 56 58-62 62h6q75 0 140.5 28.5t114 77q48.5 48.5 77 114T840-438q0 137-91 238.5T520-80ZM198-214q-32-42-51.5-88T122-398h82q5 34 18 66.5t34 61.5l-58 56Zm-76-264q6-51 25-98t51-86l58 56q-21 29-34 61.5T204-478h-82Z"
+        />
+      </svg>
+    </button>
+  </div>
 </div>
