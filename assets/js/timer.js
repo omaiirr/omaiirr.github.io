@@ -800,6 +800,11 @@
 
   const PATCH_NOTES = [
     {
+      date: "2026-06-10",
+      title: "Stopwatch mode",
+      details: "Added a stopwatch option for the timer.",
+    },
+    {
       date: "2026-06-03",
       title: "Branding",
       details:
@@ -837,8 +842,8 @@
     },
   ];
 
-  // Update notice constants (declare before bootstrap to avoid TDZ)
-  const UPDATE_NOTIFICATION_VERSION = "2026-06-05";
+  // Update notice constants
+  const UPDATE_NOTIFICATION_VERSION = "2026-06-10";
   const UPDATE_NOTIFICATION_KEY = "timerUpdateNoticeVersion";
   const VISITED_KEY = "timerHasVisited";
 
