@@ -2646,6 +2646,15 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator {
   background: rgba(99, 102, 241, 0.2);
   border-color: rgba(99, 102, 241, 0.45);
 }
+.analytics-btn-import {
+  background: rgba(52, 211, 153, 0.1);
+  border-color: rgba(52, 211, 153, 0.25);
+  color: #a7f3d0;
+}
+.analytics-btn-import:hover {
+  background: rgba(52, 211, 153, 0.2);
+  border-color: rgba(52, 211, 153, 0.45);
+}
 /* ================================================================
    TIMER CSS ADDITIONS v4
    COMPLETELY REPLACES previous timer-css-additions.css

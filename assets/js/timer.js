@@ -40,6 +40,8 @@
   let running = false;
   let remaining = modes.focus;
   let currentSubject = null;
+  let startTime = null;
+  let unloggedSeconds = 0;
   let autoStartBreak = localStorage.getItem("autoStartBreak") !== "false";
 
   function applyAutoBreakToggle() {
@@ -100,6 +102,20 @@
       stats.totalBreakTime += duration;
     }
     saveStats(stats);
+  }
+  function countFocusTime() {
+    if (currentMode !== "focus" || !running || startTime === null) return;
+    const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+    if (elapsedSeconds > 0) {
+      unloggedSeconds += elapsedSeconds;
+      startTime += elapsedSeconds * 1000;
+    }
+  }
+  function flushFocusTime() {
+    countFocusTime();
+    if (unloggedSeconds > 0) logSession("focus", unloggedSeconds / 60);
+    unloggedSeconds = 0;
+    startTime = null;
   }
   function resetStats() {
     localStorage.removeItem("timerStats");
@@ -213,6 +229,7 @@
   }
 
   function setActiveMode(mode) {
+    if (currentMode === "focus") flushFocusTime();
     currentMode = mode;
     focusModeBtn.classList.toggle("active", mode === "focus");
     shortBreakBtn.classList.toggle("active", mode === "short");
@@ -278,6 +295,7 @@
   let warningPlayed = false;
 
   function updateTimerDisplay() {
+    countFocusTime();
     const msLeft = endTime - Date.now();
     const newRemaining = Math.max(0, Math.ceil(msLeft / 1000));
 
@@ -292,17 +310,16 @@
     if (remaining <= 0) {
       clearInterval(timerTick);
       timerTick = null;
-      running = false;
       warningPlayed = false;
 
-      const duration =
-        currentMode === "focus"
-          ? modes.focus / 60
-          : currentMode === "short"
-            ? modes.short / 60
-            : modes.long / 60;
-
-      logSession(currentMode, duration);
+      if (currentMode === "focus") {
+        flushFocusTime();
+      } else {
+        const duration =
+          currentMode === "short" ? modes.short / 60 : modes.long / 60;
+        logSession(currentMode, duration);
+      }
+      running = false;
       remaining = 0;
       render();
 
@@ -331,6 +348,7 @@
       // Pause
       if (timerTick) clearInterval(timerTick);
       timerTick = null;
+      flushFocusTime();
       running = false;
       remaining = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
       render();
@@ -341,6 +359,7 @@
       running = true;
       warningPlayed = false;
       endTime = Date.now() + remaining * 1000;
+      if (currentMode === "focus") startTime = Date.now();
       updateTimerDisplay();
       timerTick = setInterval(updateTimerDisplay, 250);
       startBtn.textContent = "Pause";
@@ -352,6 +371,7 @@
   function resetTimer() {
     if (timerTick) clearInterval(timerTick);
     timerTick = null;
+    if (currentMode === "focus") flushFocusTime();
     running = false;
     warningPlayed = false;
     endTime = null;
@@ -799,6 +819,12 @@
   let statisticsEnabled = localStorage.getItem("statisticsEnabled") !== "false";
 
   const PATCH_NOTES = [
+    {
+      date: "2026-09-16",
+      title: "Bug fixes regarding timer and Statistics",
+      details:
+        "Fixed stopwatch bug where being on a different browser tab stops counting. And bug with the statistics not being logged properly.",
+    },
     {
       date: "2026-06-10",
       title: "Stopwatch mode",
@@ -2972,6 +2998,8 @@
   const analyticsCloseBtn = document.getElementById("statisticsCloseBtn");
   const statsResetBtn2 = document.getElementById("statsResetBtn");
   const statsExportBtn = document.getElementById("statsExportBtn");
+  const statsImportBtn = document.getElementById("statsImportBtn");
+  const statsImportInput = document.getElementById("statsImportInput");
   const toggleSessionBtn = document.getElementById("toggleSessionHistory");
 
   let analyticsRange = "today";
@@ -3382,15 +3410,140 @@
           s.type,
           s.subject || "",
           s.duration,
-          new Date(s.date).toLocaleString(),
+          s.date,
         ]);
       });
-      const csv = rows.map((r) => r.join(",")).join("\n");
+      const csv = rows
+        .map((r) =>
+          r
+            .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+            .join(","),
+        )
+        .join("\n");
       const a = document.createElement("a");
       a.href = "data:text/csv," + encodeURIComponent(csv);
       a.download = "study-sessions.csv";
       a.click();
     });
+
+  function parseCSVLine(line) {
+    const values = [];
+    let value = "";
+    let quoted = false;
+
+    for (let index = 0; index < line.length; index++) {
+      const char = line[index];
+      if (char === '"') {
+        if (quoted && line[index + 1] === '"') {
+          value += '"';
+          index++;
+        } else {
+          quoted = !quoted;
+        }
+      } else if (char === "," && !quoted) {
+        values.push(value.trim());
+        value = "";
+      } else {
+        value += char;
+      }
+    }
+    values.push(value.trim());
+    return values;
+  }
+
+  function parseImportedDate(value) {
+    const text = value.trim();
+    let match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}),\s*(.+)$/);
+    if (match) {
+      const first = Number(match[1]);
+      const second = Number(match[2]);
+      const month = first > 12 ? second : second > 12 ? first : second;
+      const day = first > 12 ? first : second > 12 ? second : first;
+      const time = match[4].match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+      if (time) {
+        let hour = Number(time[1]);
+        if (time[4]) {
+          if (time[4].toUpperCase() === "PM" && hour < 12) hour += 12;
+          if (time[4].toUpperCase() === "AM" && hour === 12) hour = 0;
+        }
+        const date = new Date(Number(match[3]), month - 1, day, hour, Number(time[2]), Number(time[3] || 0));
+        if (!Number.isNaN(date.getTime())) return date;
+      }
+    }
+    const date = new Date(text);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  if (statsImportBtn && statsImportInput) {
+    statsImportBtn.addEventListener("click", () => statsImportInput.click());
+    statsImportInput.addEventListener("change", () => {
+      const file = statsImportInput.files && statsImportInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const lines = String(reader.result || "").split(/\r?\n/).filter((line) => line.trim());
+          if (!lines.length) {
+            alert("This CSV contains no sessions.");
+            return;
+          }
+          const headers = parseCSVLine(lines[0]).map((header) => header.replace(/^\uFEFF/, ""));
+          const typeIndex = headers.indexOf("Type");
+          const subjectIndex = headers.indexOf("Subject");
+          const durationIndex = headers.indexOf("Duration (min)");
+          const dateIndex = headers.indexOf("Date");
+          if ([typeIndex, subjectIndex, durationIndex, dateIndex].some((index) => index < 0)) {
+            alert("CSV is missing one or more required columns: Type, Subject, Duration (min), Date.");
+            return;
+          }
+
+          const imported = [];
+          lines.slice(1).forEach((line) => {
+            const values = parseCSVLine(line);
+            const dateText = values.slice(dateIndex).join(",");
+            const type = values[typeIndex];
+            const duration = Number(values[durationIndex]);
+            const date = parseImportedDate(dateText);
+            if (!["focus", "short", "long"].includes(type) || !Number.isFinite(duration) || duration <= 0 || !date) return;
+            imported.push({
+              type,
+              duration,
+              subject: values[subjectIndex] || null,
+              date: date.toISOString(),
+            });
+          });
+          if (!imported.length) {
+            alert("This CSV contains no valid sessions.");
+            return;
+          }
+
+          const stats = getStats();
+          stats.sessions = (stats.sessions || []).concat(imported);
+          stats.totalStudyTime = stats.sessions
+            .filter((session) => session.type === "focus")
+            .reduce((total, session) => total + Number(session.duration || 0), 0);
+          stats.totalBreakTime = stats.sessions
+            .filter((session) => session.type !== "focus")
+            .reduce((total, session) => total + Number(session.duration || 0), 0);
+          stats.subjectTime = {};
+          stats.sessions
+            .filter((session) => session.type === "focus" && session.subject)
+            .forEach((session) => {
+              stats.subjectTime[session.subject] = (stats.subjectTime[session.subject] || 0) + Number(session.duration || 0);
+            });
+          saveStats(stats);
+          renderAnalytics();
+        } finally {
+          statsImportInput.value = "";
+        }
+      };
+      reader.onerror = () => {
+        statsImportInput.value = "";
+        alert("Unable to read the selected CSV file.");
+      };
+      reader.readAsText(file);
+    });
+  }
 
   renderTasks();
   initEnhancedSystem();

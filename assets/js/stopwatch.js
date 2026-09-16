@@ -4,8 +4,9 @@
   document.addEventListener("DOMContentLoaded", function () {
     var rafId = null;
     var running = false;
-    var startMark = 0;
+    var startTime = null;
     var elapsed = 0;
+    var unloggedSeconds = 0;
 
     var swDisplay = document.getElementById("swDisplay");
     var swStartBtn = document.getElementById("swStartBtn");
@@ -27,13 +28,63 @@
     }
 
     function tick() {
-      render(elapsed + (performance.now() - startMark));
+      countElapsed();
+      render(elapsed + (startTime === null ? 0 : Date.now() - startTime));
       rafId = requestAnimationFrame(tick);
+    }
+
+    function getStats() {
+      try {
+        return JSON.parse(localStorage.getItem("timerStats")) || {
+          totalStudyTime: 0,
+          totalBreakTime: 0,
+          sessions: [],
+        };
+      } catch (error) {
+        return { totalStudyTime: 0, totalBreakTime: 0, sessions: [] };
+      }
+    }
+
+    function saveStats(stats) {
+      localStorage.setItem("timerStats", JSON.stringify(stats));
+    }
+
+    function countElapsed() {
+      if (!running || startTime === null) return;
+      var seconds = Math.floor((Date.now() - startTime) / 1000);
+      if (seconds > 0) {
+        unloggedSeconds += seconds;
+        elapsed += seconds * 1000;
+        startTime += seconds * 1000;
+      }
+    }
+
+    function flushStats() {
+      countElapsed();
+      if (unloggedSeconds > 0 && localStorage.getItem("statisticsEnabled") !== "false") {
+        var stats = getStats();
+        var duration = unloggedSeconds / 60;
+        var subjectSelect = document.getElementById("subjectSelect");
+        var subject = subjectSelect && subjectSelect.value ? subjectSelect.value : null;
+        stats.sessions = stats.sessions || [];
+        stats.sessions.push({
+          type: "focus",
+          duration: duration,
+          subject: subject,
+          date: new Date().toISOString(),
+        });
+        stats.totalStudyTime = (stats.totalStudyTime || 0) + duration;
+        stats.subjectTime = stats.subjectTime || {};
+        if (subject) stats.subjectTime[subject] = (stats.subjectTime[subject] || 0) + duration;
+        saveStats(stats);
+      }
+      unloggedSeconds = 0;
+      startTime = null;
     }
 
     function startStopwatch() {
       running = true;
-      startMark = performance.now();
+      startTime = Date.now();
       swDisplay.classList.remove("sw-paused");
       swStartBtn.textContent = "Pause";
       swStartBtn.classList.add("pause-state");
@@ -42,8 +93,13 @@
     }
 
     function pauseStopwatch() {
+      countElapsed();
+      if (startTime !== null) {
+        elapsed += Date.now() - startTime;
+        startTime = null;
+      }
       running = false;
-      elapsed += performance.now() - startMark;
+      flushStats();
       cancelAnimationFrame(rafId);
       rafId = null;
       swDisplay.classList.add("sw-paused");
@@ -85,7 +141,7 @@
     }
 
     function switchToPomodoro() {
-      if (running) pauseStopwatch();
+      if (running || unloggedSeconds > 0) pauseStopwatch();
 
       document.body.classList.remove("sw-mode-active");
 
@@ -164,12 +220,12 @@
       if (!running) return;
 
       if (document.hidden) {
-        elapsed += performance.now() - startMark;
         cancelAnimationFrame(rafId);
         rafId = null;
       } else {
-        // Reset anchor and restart loop
-        startMark = performance.now();
+        countElapsed();
+        startTime = Date.now();
+        render(elapsed);
         rafId = requestAnimationFrame(tick);
       }
     });
