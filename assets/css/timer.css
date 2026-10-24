@@ -1811,21 +1811,19 @@ body.theme-color-dark .timer-actions .start-btn {
   gap: 8px;
 }
 
-/* Only the list's badges fill the fixed gutter; the same chip in the update
-   notice sits in a flex row and must stay content-sized. */
+/* Badges stay content-sized: a 96px stretch turned each chip into a flat
+   coloured strip. The column is `auto`, so the description begins right after
+   its pill and the right edge of the text runs ragged down the list. A shared
+   fixed gutter lines the text up, but it pushes the prose too far from the
+   pill for such short labels; ragged is the better compromise here. */
 .patch-notes-changes .patch-notes-kind {
-  width: 100%;
+  justify-self: start;
 }
 
-/* Chip in column one, text in column two: the chip is a gutter, so every
-   change's text starts on the same x however wide its label runs. The gutter
-   is a FIXED width, not `auto`: NEW / IMPROVED / FIXED are different lengths,
-   and auto-sizing gave every row its own gutter, so the prose zig-zagged left
-   and right down the list. One shared width makes all three badges identical
-   and puts every description on a single starting grid line. */
+/* Chip in column one, text in column two. */
 .patch-notes-change {
   display: grid;
-  grid-template-columns: var(--rn-chip-width, 96px) 1fr;
+  grid-template-columns: auto 1fr;
   align-items: start;
   gap: 9px;
   font-size: 0.875rem;
@@ -1842,7 +1840,11 @@ body.theme-color-dark .timer-actions .start-btn {
   align-items: center;
   justify-content: flex-start;
   gap: 6px;
-  margin-top: 1px;
+  /* 3px puts the chip's centre on the x-height of the description's first
+     line, which is what the eye reads as level: the line box is 21.7px, cap
+     top sits 7.85px in and much of the prose is lowercase. 2px (cap height)
+     still read a hair high. */
+  margin-top: 3px;
   height: 21px;
   box-sizing: border-box;
   padding: 0 8px;
