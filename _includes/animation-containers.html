@@ -1,4 +1,3 @@
-<!-- Animation Containers -->
 <div id="leaves" style="display: none">
   <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i
   ><i></i><i></i><i></i><i></i>
@@ -30,45 +29,94 @@
   <div id="ocean" class="ocean"></div>
 </div>
 
-<div
-  id="dayNightContainer"
+<video
+  id="bgVideo"
+  muted
+  autoplay
+  loop
+  playsinline
   style="
     display: none;
     position: fixed;
     inset: 0;
-    z-index: 0;
-    overflow: hidden;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
     pointer-events: none;
   "
+></video>
+
+<div
+  id="bgImage"
+  style="
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    pointer-events: none;
+  "
+></div>
+<canvas
+  id="bgCanvas"
+  style="
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  "
+></canvas><div
+  id="overlay"
+  style="
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+  "
+></div><div
+  id="teExitPreviewBar"
+  style="
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10000;
+    background: rgba(10, 18, 34, 0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 10px 20px;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  "
 >
-  <div id="world">
-    <div id="sun">
-      <div class="sunbeams">
-        <div class="beam beam1"></div>
-        <div class="beam beam2"></div>
-        <div class="beam beam3"></div>
-        <div class="beam beam4"></div>
-        <div class="beam beam5"></div>
-        <div class="beam beam6"></div>
-        <div class="beam beam7"></div>
-        <div class="beam beam8"></div>
-      </div>
-      <div class="eyes">
-        <div class="eyes-l"></div>
-        <div class="eyes-r"></div>
-      </div>
-    </div>
-    <div id="moon">
-      <div class="crater crater1"></div>
-      <div class="crater crater2"></div>
-      <div class="crater crater3"></div>
-      <div class="crater crater4"></div>
-      <div class="crater crater5"></div>
-      <div class="crater crater6"></div>
-      <div class="eyes">
-        <div class="eyes-l"></div>
-        <div class="eyes-r"></div>
-      </div>
-    </div>
-  </div>
+  <span style="color:rgba(255,255,255,0.65);font-size:0.82rem;"><svg width="14" height="14" viewBox="0 0 48 48" fill="currentColor" style="margin-right:6px;vertical-align:-2px" aria-hidden="true"><path d="M11.03,42.75C11.04,42.06 12.39,38.36 14.03,34.53C15.66,30.69 17.00,27.43 17.00,27.28C17.00,27.13 15.20,27.00 13.00,27.00C10.80,27.00 9.00,26.53 9.00,25.95C9.00,25.37 11.58,20.20 14.74,14.45L20.48,4.00L28.74,4.00C38.07,4.00 38.31,4.27 34.47,10.50C33.12,12.70 32.01,14.84 32.01,15.25C32.00,15.66 33.58,16.00 35.50,16.00C37.65,16.00 39.00,16.49 39.00,17.26C39.00,18.90 13.87,44.00 12.24,44.00C11.56,44.00 11.01,43.44 11.03,42.75Z M30.04,19.19C26.38,18.81 26.30,17.74 29.53,12.50C30.88,10.30 31.99,8.16 31.99,7.75C32.00,7.34 29.85,7.00 27.23,7.00L22.46,7.00L17.82,15.50L13.17,24.00L17.09,24.00C21.44,24.00 21.65,24.50 19.50,29.65C18.68,31.63 18.00,33.52 18.00,33.85C18.00,34.18 21.39,31.09 25.54,26.97L33.08,19.50L30.04,19.19Z"/></svg>Fullscreen Preview</span>
+  <button
+    id="teExitPreviewBtn"
+    type="button"
+    style="
+      background: rgba(239, 68, 68, 0.85);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 8px 22px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      gap: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+      display: none;
+    "
+    onmouseover="this.style.background='rgba(239,68,68,1)'"
+    onmouseout="this.style.background='rgba(239,68,68,0.85)'"
+  >{% include svg/uo-line-close.svg %} Exit Preview</button>
 </div>

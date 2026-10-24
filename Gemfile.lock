@@ -11,6 +11,7 @@ GEM
     em-websocket (0.5.3)
       eventmachine (>= 0.12.9)
       http_parser.rb (~> 0)
+    erb (6.0.7)
     eventmachine (1.2.7)
     faraday (2.7.10)
       faraday-net_http (>= 2.0, < 3.1)
@@ -95,6 +96,7 @@ DEPENDENCIES
   base64
   bigdecimal
   csv
+  erb (~> 6.0)
   jekyll (~> 4.3, >= 4.3.2)
   jekyll-feed (~> 0.17.0)
   jekyll-gist (~> 1.5)

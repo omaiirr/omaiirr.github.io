@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gate 3 v2 — Surface 3: System Popups (redo: colorful theme-adaptive language + danger variant)</title>
+<style>
+  body { background:#111318; color:#e8eaf0; font:14px/1.5 system-ui,sans-serif; margin:0; padding:24px; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  p.sub { color:#8b90a0; margin:0 0 24px; font-size:13px; max-width:900px; }
+  .pair { margin-bottom:32px; }
+  .pair h2 { font-size:14px; font-weight:600; color:#c7a869; margin:0 0 8px; text-transform:uppercase; letter-spacing:.06em; }
+  .row { display:flex; gap:16px; flex-wrap:wrap; }
+  figure { margin:0; flex:1 1 380px; max-width:640px; }
+  figcaption { font-size:12px; color:#8b90a0; margin-bottom:6px; font-weight:600; }
+  figcaption.before { color:#d0868a; }
+  figcaption.after  { color:#8ad0a5; }
+  img { width:100%; border-radius:8px; border:1px solid #2a2e3a; display:block; background:#fff; }
+  .note { color:#8b90a0; font-size:12px; margin-top:6px; max-width:900px; }
+</style>
+</head>
+<body>
+<h1>Gate 3 v2 — Surface 3: System Popups (redo)</h1>
+<p class="sub">Brought to the approved planner-v3 standard: accent-bounded cards with indigo glow, red danger variant on destructive confirms (task delete + both stats resets — the sanctioned JS-adjacent change from §10.4), tinted secondary Cancel, alto-blue register throughout, and the whole surface theme-adaptive via <code>--s23-*</code> variables that re-map to <code>--th-accent</code> under custom themes. Structure, close chains, stacking order and all JS hooks unchanged.</p>
+
+<div class="pair">
+  <h2>Statistics reset confirm — now with the danger variant</h2>
+  <div class="row">
+    <figure><figcaption class="before">BEFORE (original, tokens-era shell)</figcaption><img src="zz-uo-before-all23-confirm.png" alt="before confirm"></figure>
+    <figure><figcaption class="after">AFTER v2 (danger Reset, accent card)</figcaption><img src="zz-uo-after-confirm.png" alt="after confirm"></figure>
+  </div>
+  <p class="note">The Reset button renders red (.confirm-btn-danger) — destructive actions read as destructive. Battery asserts the class, red paint + glow, and the primary's full structure (radius/padding/transition).</p>
+</div>
+
+<div class="pair">
+  <h2>Task-title error modal (same .confirm-* shell)</h2>
+  <div class="row">
+    <figure><figcaption class="before">BEFORE</figcaption><img src="zz-uo-before-all23-error.png" alt="before error modal"></figure>
+    <figure><figcaption class="after">AFTER v2</figcaption><img src="zz-uo-after-error.png" alt="after error modal"></figure>
+  </div>
+  <p class="note">Non-destructive confirmations keep the indigo primary — danger is reserved for delete/reset.</p>
+</div>
+
+<div class="pair">
+  <h2>Rename prompt (.te-confirm-* shell)</h2>
+  <div class="row">
+    <figure><figcaption class="before">BEFORE</figcaption><img src="zz-uo-before-teprompt.png" alt="before teprompt"></figure>
+    <figure><figcaption class="after">AFTER</figcaption><img src="zz-uo-after-teprompt.png" alt="after teprompt"></figure>
+  </div>
+</div>
+
+<div class="pair">
+  <h2>Delete-theme confirm (.te-confirm-* shell)</h2>
+  <div class="row">
+    <figure><figcaption class="before">BEFORE</figcaption><img src="zz-uo-before-teconfirm.png" alt="before teconfirm"></figure>
+    <figure><figcaption class="after">AFTER</figcaption><img src="zz-uo-after-teconfirm.png" alt="after teconfirm"></figure>
+  </div>
+</div>
+
+<div class="pair">
+  <h2>Alert + choice dialogs (after-only)</h2>
+  <div class="row">
+    <figure><figcaption class="after">AFTER — duplicate-name alert (_showAlert)</figcaption><img src="zz-uo-after-tealert.png" alt="after tealert"></figure>
+    <figure><figcaption class="after">AFTER — import choice (_choiceAction)</figcaption><img src="zz-uo-after-techoice.png" alt="after techoice"></figure>
+  </div>
+  <p class="note">No separate before shots — same te-confirm shell as the pair above.</p>
+</div>
+
+</body>
+</html>

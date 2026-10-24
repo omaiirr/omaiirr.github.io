@@ -30,6 +30,9 @@ social:
 exclude:
   - LICENSE
   - README.md
+  - lab
+  - imgref
+  - ref
 
 plugins:
   - jekyll-feed

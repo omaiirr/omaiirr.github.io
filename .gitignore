@@ -4,6 +4,7 @@ _site
 .ruby-version
 .sass-cache
 .jekyll-cache
+/media/
 
 # Numerous always-ignore extensions
 *.diff
@@ -42,3 +43,6 @@ validation-report.json
 # Folders to ignore
 node_modules
 scripts
+.bundle/
+lab/
+/graft/

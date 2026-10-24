@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Lighthouse — concept stills (pick A / B / C)</title>
+<style>
+  body { background:#101018; color:#e8e8ee; font-family:system-ui; margin:0; padding:20px; display:flex; flex-direction:column; gap:14px; align-items:center; }
+  h1 { font-size:18px; font-weight:600; margin:4px 0 0; }
+  #note { font-size:13px; color:#9aa; max-width:900px; text-align:center; line-height:1.5; }
+  .concept { display:flex; flex-direction:column; gap:6px; align-items:center; }
+  .concept h2 { font-size:14px; font-weight:600; margin:8px 0 0; }
+  .concept p { font-size:12px; color:#889; margin:0; max-width:860px; text-align:center; }
+  canvas { width:min(860px, 92vw); aspect-ratio:16/10; border-radius:10px; display:block; }
+</style>
+</head>
+<body>
+<h1>Lighthouse rework — concept stills</h1>
+<div id="note">Three static composition variations for the realistic-seascape direction.
+Same painter stack as the final scene (layered gradients, additive glow, blurred mist, cached tower render).
+Default palette shown: beam <code>#ffe1a8</code> on <code>#0a0e1a</code>. Pick A, B, or C —
+the winner becomes the baseline the animated scene is built from.</div>
+
+<div class="concept">
+  <h2>A — Moonlit calm</h2>
+  <p>Moon upper-left with layered corona; glassy far sea with a long moon glint column; thin mist band; beam sweeping mid-seaward. The quietest, most hypnotic read.</p>
+  <canvas id="a" width="1280" height="800"></canvas>
+</div>
+
+<div class="concept">
+  <h2>B — Cloud banks</h2>
+  <p>Heavier drifting cloud layers with moonlit rims; the beam catches one cloud's underside with a warm patch; moderate mist; beam framed against open sky right of the tower. Most atmospheric depth.</p>
+  <canvas id="b" width="1280" height="800"></canvas>
+</div>
+
+<div class="concept">
+  <h2>C — Storm hero</h2>
+  <p>Tighter hero crop: bigger tower, rougher foreground sea with foam and rock surf, thicker low mist, darker sky. The beam cuts through haze above the swell. Most dramatic.</p>
+  <canvas id="c" width="1280" height="800"></canvas>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared painter helpers for the three concept stills. Static (t frozen) by
+// design — these preview composition/mood/light, not motion. Seeded RNG keeps
+// every reload identical so the stills can be compared and reviewed.
+// ─────────────────────────────────────────────────────────────────────────────
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const TAU = Math.PI * 2;
+function hexToRgb(hex) {
+  const c = hex.replace('#', '');
+  return [parseInt(c.slice(0, 2), 16), parseInt(c.slice(2, 4), 16), parseInt(c.slice(4, 6), 16)];
+}
+const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+const mixc = (a, b, t) => [
+  Math.round(a[0] + (b[0] - a[0]) * t),
+  Math.round(a[1] + (b[1] - a[1]) * t),
+  Math.round(a[2] + (b[2] - a[2]) * t),
+];
+
+function makeGlowSprite(rgb, inner, mid) {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const x = c.getContext('2d');
+  const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, rgba(rgb, inner));
+  g.addColorStop(0.25, rgba(rgb, mid));
+  g.addColorStop(1, rgba(rgb, 0));
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+  return c;
+}
+
+// Soft pre-blurred cloud sprite: puffy overlapping discs, lit rim on top.
+function makeCloudSprite(rnd, w, h, moonLit) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d');
+  x.filter = 'blur(6px)';
+  const puffs = 7 + Math.floor(rnd() * 5);
+  for (let i = 0; i < puffs; i++) {
+    const px = w * (0.12 + rnd() * 0.76);
+    const py = h * (0.42 + rnd() * 0.4);
+    const pr = h * (0.18 + rnd() * 0.3);
+    const g = x.createRadialGradient(px, py - pr * 0.3, pr * 0.1, px, py, pr);
+    g.addColorStop(0, moonLit ? 'rgba(96,112,140,0.30)' : 'rgba(52,62,84,0.26)');
+    g.addColorStop(1, 'rgba(20,26,40,0)');
+    x.fillStyle = g;
+    x.beginPath(); x.arc(px, py, pr, 0, TAU); x.fill();
+  }
+  x.filter = 'none';
+  return c;
+}
+
+// ── Sky: user-bg night ramp + horizon glow ───────────────────────────────────
+function drawSky(ctx, w, h, opts) {
+  const top = opts.storm ? '#020308' : '#02030a';
+  const mid = opts.storm ? '#060a12' : '#0a1420';
+  const hor = opts.storm ? '#0b141c' : '#0d1e26';
+  const sky = ctx.createLinearGradient(0, 0, 0, h);
+  sky.addColorStop(0, top); sky.addColorStop(0.62, mid); sky.addColorStop(1, hor);
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
+  if (opts.storm) { // storm: pull the whole sky down
+    ctx.fillStyle = 'rgba(0,0,4,0.18)'; ctx.fillRect(0, 0, w, h);
+  }
+}
+
+// ── Stars: moderate field, brighter near top, fade near horizon/moon ────────
+function drawStars(ctx, w, h, rnd, opts) {
+  const n = opts.storm ? 34 : 82;
+  for (let i = 0; i < n; i++) {
+    const x = rnd() * w;
+    const y = Math.pow(rnd(), 1.5) * h * 0.55;
+    const r = 0.5 + rnd() * 1.1;
+    let a = 0.10 + rnd() * 0.34;
+    a *= 1 - Math.min(1, Math.max(0, (y / h - 0.34) * 3));       // fade to horizon
+    if (opts.moon && Math.hypot(x - opts.moon[0], y - opts.moon[1]) < h * 0.16) a *= 0.25;
+    if (a < 0.02) continue;
+    ctx.fillStyle = `rgba(205,216,244,${a.toFixed(3)})`;
+    ctx.fillRect(x, y, r, r);
+    if (rnd() < 0.06 && !opts.storm) { // rare cross-flare on the brightest
+      ctx.strokeStyle = `rgba(205,216,244,${(a * 0.5).toFixed(3)})`;
+      ctx.lineWidth = 0.8;
+      const L = r * 4;
+      ctx.beginPath();
+      ctx.moveTo(x - L, y); ctx.lineTo(x + L, y);
+      ctx.moveTo(x, y - L); ctx.lineTo(x, y + L);
+      ctx.stroke();
+    }
+  }
+}
+
+// ── Moon with layered corona (fireflies pattern) ─────────────────────────────
+function drawMoon(ctx, w, h, mx, my, rnd) {
+  const mr = Math.min(w, h) * 0.062;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const corona = ctx.createRadialGradient(mx, my, 0, mx, my, mr * 6);
+  corona.addColorStop(0, 'rgba(185,205,250,0.15)');
+  corona.addColorStop(0.35, 'rgba(150,178,240,0.055)');
+  corona.addColorStop(1, 'rgba(150,178,240,0)');
+  ctx.fillStyle = corona; ctx.beginPath(); ctx.arc(mx, my, mr * 6, 0, TAU); ctx.fill();
+  const warm = ctx.createRadialGradient(mx, my, mr * 0.8, mx, my, mr * 1.7);
+  warm.addColorStop(0, 'rgba(255,244,214,0.18)');
+  warm.addColorStop(1, 'rgba(255,244,214,0)');
+  ctx.fillStyle = warm; ctx.beginPath(); ctx.arc(mx, my, mr * 1.7, 0, TAU); ctx.fill();
+  ctx.restore();
+  const disc = ctx.createRadialGradient(mx - mr * 0.25, my - mr * 0.25, mr * 0.2, mx, my, mr);
+  disc.addColorStop(0, '#fffdf2'); disc.addColorStop(0.75, '#e8ecf7'); disc.addColorStop(1, '#c3cde0');
+  ctx.fillStyle = disc; ctx.beginPath(); ctx.arc(mx, my, mr, 0, TAU); ctx.fill();
+  for (let i = 0; i < 4; i++) {
+    const a = rnd() * TAU, d = rnd() * mr * 0.6;
+    ctx.fillStyle = 'rgba(160,175,205,0.20)';
+    ctx.beginPath(); ctx.arc(mx + Math.cos(a) * d, my + Math.sin(a) * d, mr * (0.08 + rnd() * 0.12), 0, TAU); ctx.fill();
+  }
+  return mr;
+}
+
+// ── Cloud banks: drifting soft sprites, optional beam catch patch ───────────
+function drawClouds(ctx, w, h, rnd, opts) {
+  const rows = opts.clouds; // [{y, sc, alpha, lit}]
+  for (const r of rows) {
+    const sp = makeCloudSprite(rnd, 460, 150 * r.sc, r.lit);
+    for (let k = 0; k < r.n; k++) {
+      const cx = ((k * 0.37 + r.off) % 1.3 - 0.15) * w;
+      const cy = r.y * h + Math.sin(k * 2.7 + r.off * 9) * h * 0.015;
+      const cw = w * (0.30 + rnd() * 0.22) * r.sc;
+      const ch = cw * (150 * r.sc) / 460;
+      ctx.globalAlpha = r.alpha * (0.8 + rnd() * 0.4);
+      ctx.drawImage(sp, cx, cy, cw, ch);
+    }
+    ctx.globalAlpha = 1;
+  }
+  // beam catch on a cloud underside: warm additive patch where the beam crosses
+  if (opts.cloudCatch) {
+    const [cx, cy, cw] = opts.cloudCatch;
+    const catchRGB = hexToRgb(opts.beamHex);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, cw * 0.5);
+    g.addColorStop(0, rgba(catchRGB, 0.20 * opts.k));
+    g.addColorStop(1, rgba(catchRGB, 0));
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.ellipse(cx, cy, cw * 0.5, cw * 0.10, 0, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+}
+
+// ── Sea: calm-to-rough layered swell bands + shimmer paths ──────────────────
+function drawSea(ctx, w, h, rnd, opts) {
+  const seaY = h * 0.74;
+  const t0 = opts.t ?? 0;
+  // glintsOnly: paint just the shimmer path over already-drawn layers
+  if (!opts.glintsOnly) {
+  // base gradient + seawater veil (any user bg stays a night ocean)
+  const sea = ctx.createLinearGradient(0, seaY, 0, h);
+  sea.addColorStop(0, opts.storm ? '#0a1626' : '#0c1c30');
+  sea.addColorStop(1, opts.storm ? '#04080f' : '#060e1c');
+  ctx.fillStyle = sea;
+  ctx.fillRect(0, seaY, w, h - seaY);
+  const veil = ctx.createLinearGradient(0, seaY, 0, h);
+  veil.addColorStop(0, 'rgba(10,24,44,0.30)');
+  veil.addColorStop(1, 'rgba(4,10,22,0.42)');
+  ctx.fillStyle = veil; ctx.fillRect(0, seaY, w, h - seaY);
+
+  // swell bands far → near, amplitude graded (calm-to-rough)
+  const bands = opts.storm
+    ? [{ f: 0.035, a: 2.5, k: 0.006, ph: 0.0 }, { f: 0.16, a: 5, k: 0.010, ph: 1.7 }, { f: 0.42, a: 9, k: 0.014, ph: 3.1 }]
+    : [{ f: 0.035, a: 1.2, k: 0.005, ph: 0.0 }, { f: 0.16, a: 2.6, k: 0.009, ph: 1.7 }, { f: 0.42, a: 5, k: 0.013, ph: 3.1 }];
+  for (const b of bands) {
+    const y0 = seaY + b.f * (h - seaY);
+    ctx.beginPath();
+    ctx.moveTo(0, h);
+    for (let x = 0; x <= w; x += 8) {
+      const y = y0 + Math.sin(x * b.k + t0 * 1.1 + b.ph) * b.a + Math.sin(x * b.k * 2.3 - t0 * 0.7 + b.ph * 2) * b.a * 0.35;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(w, h); ctx.closePath();
+    ctx.fillStyle = `rgba(16,36,58,${(0.16 + b.f * 0.3).toFixed(3)})`;
+    ctx.fill();
+    // foam crest flecks on the steepest crests (near band, mostly in storm)
+    if (b.f > 0.3) {
+      const flecks = opts.storm ? 90 : 26;
+      for (let i = 0; i < flecks; i++) {
+        const x = rnd() * w;
+        const y = y0 + Math.sin(x * b.k + t0 * 1.1 + b.ph) * b.a;
+        const a = (opts.storm ? 0.16 : 0.07) * (0.4 + rnd() * 0.6) * Math.max(0, Math.sin(x * 0.02 + b.ph * 3));
+        if (a < 0.015) continue;
+        ctx.strokeStyle = `rgba(214,228,240,${a.toFixed(3)})`;
+        ctx.lineWidth = 1 + rnd();
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 6 + rnd() * 14, y - 1); ctx.stroke();
+      }
+    }
+  }
+
+  }
+  // moon glint column: broken shimmering horizontal streaks under the moon
+  if (opts.moonGlint && opts.moon && !opts.glintsOnly) {
+    const mx = opts.moon[0];
+    ctx.save();
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 16; i++) {
+      const f = i / 16;
+      const gy = seaY + 6 + f * (h - seaY) * 0.6;
+      const gx = mx + Math.sin(f * 9 + t0 * 0.9) * w * (0.012 + f * 0.05);
+      const L = w * (0.012 + f * 0.05);
+      const a = 0.22 * (1 - f * 0.5) * (0.5 + 0.5 * Math.sin(t0 * 1.7 + i * 2.4));
+      ctx.strokeStyle = `rgba(198,220,246,${a.toFixed(3)})`;
+      ctx.lineWidth = 1.5 + f * 2;
+      ctx.beginPath(); ctx.moveTo(gx - L, gy); ctx.lineTo(gx + L, gy); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // beam light path: dense warm glint streaks along the beam azimuth on the water
+  if (opts.beamPath) {
+    const [lx, ly, ang] = opts.beamPath;
+    ctx.save();
+    ctx.lineCap = 'round';
+    // path runs along the beam direction across the water
+    const steps = 22;
+    for (let i = 2; i < steps; i++) {
+      const f = i / steps;
+      const d = f * Math.max(w, h) * 0.62;
+      const px = lx + Math.cos(ang) * d;
+      const py = ly + Math.sin(ang) * d;
+      if (py < seaY + 4) continue;                 // only on water
+      const spread = w * (0.008 + f * 0.05);       // widens with distance
+      for (let s = -2; s <= 2; s++) {
+        const gx = px + s * spread * 0.4 + Math.sin(f * 31 + s * 5) * spread * 0.2;
+        const L = (4 + f * 26) * (0.5 + rnd() * 0.7);
+        const a = 0.20 * (1 - f) * (0.35 + 0.65 * Math.abs(Math.sin(f * 47 + s * 2.3 + t0 * 2.1))) * opts.k;
+        if (a < 0.02) continue;
+        ctx.strokeStyle = rgba(opts.beamMix || BEAM_MIX, a);
+        ctx.lineWidth = 1 + f * 2.2;
+        ctx.beginPath(); ctx.moveTo(gx - L, py + Math.sin(gx * 0.05) * 1.5); ctx.lineTo(gx + L, py); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+}
+
+// ── Mist banks: low fog bands, blurred swells (fireflies pattern) ───────────
+function drawMist(ctx, w, h, rnd, opts) {
+  const seaY = h * 0.74;
+  const rows = opts.mist; // [{y, th, a, ph}]
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const m of rows) {
+    const yc = seaY + m.y * (h - seaY);
+    const th = m.th * h;
+    const k1 = TAU / (0.5 * w), k2 = TAU / (0.36 * w);
+    const t0 = opts.t ?? 0;
+    const edge = (x, phOff) =>
+      yc + Math.sin(x * k1 + t0 * 0.4 + m.ph + phOff) * th * 0.34
+        + Math.sin(x * k2 - t0 * 0.3 + m.ph * 2.1 + phOff) * th * 0.2;
+    let minY = Infinity, maxY = -Infinity;
+    for (let x = 0; x <= w; x += 6) {
+      const ty = edge(x, 0), by = edge(x, Math.PI * 0.55);
+      if (ty < minY) minY = ty; if (by > maxY) maxY = by;
+    }
+    const grad = ctx.createLinearGradient(0, minY - th, 0, maxY + th);
+    grad.addColorStop(0, 'rgba(150,190,205,0)');
+    grad.addColorStop(0.5, `rgba(150,190,205,${m.a.toFixed(3)})`);
+    grad.addColorStop(1, 'rgba(150,190,205,0)');
+    ctx.fillStyle = grad;
+    ctx.filter = 'blur(4px)';
+    ctx.beginPath();
+    ctx.moveTo(-6, edge(-6, 0));
+    for (let x = 0; x <= w; x += 6) ctx.lineTo(x, edge(x, 0));
+    ctx.lineTo(w + 6, edge(w + 6, Math.PI * 0.55));
+    for (let x = w; x >= 0; x -= 6) ctx.lineTo(x, edge(x, Math.PI * 0.55));
+    ctx.closePath(); ctx.fill();
+    ctx.filter = 'none';
+  }
+  ctx.restore();
+}
+
+// ── Headland + rocks (two depth layers) ──────────────────────────────────────
+function drawHeadland(ctx, w, h, rnd, opts) {
+  const seaY = h * 0.74;
+  // far edge of the headland (slightly lighter — haze)
+  ctx.fillStyle = opts.storm ? 'rgba(10,14,20,0.88)' : 'rgba(13,18,28,0.85)';
+  ctx.beginPath();
+  ctx.moveTo(-10, h);
+  ctx.lineTo(-10, seaY - h * 0.010);
+  ctx.lineTo(w * 0.055, seaY - h * 0.030);
+  ctx.lineTo(w * 0.115, seaY - h * 0.052);
+  ctx.lineTo(w * 0.175, seaY - h * 0.040);
+  ctx.lineTo(w * 0.235, seaY + h * 0.010);
+  ctx.lineTo(w * 0.26, h); ctx.closePath(); ctx.fill();
+  // near rocks (near-black, craggy)
+  ctx.fillStyle = opts.storm ? '#05070b' : '#070a12';
+  ctx.beginPath();
+  ctx.moveTo(-10, h);
+  ctx.lineTo(-10, seaY + h * 0.012);
+  ctx.lineTo(w * 0.03, seaY - h * 0.006);
+  ctx.lineTo(w * 0.075, seaY - h * 0.026);
+  ctx.lineTo(w * 0.125, seaY - h * 0.058);
+  ctx.lineTo(w * 0.165, seaY - h * 0.046);
+  ctx.lineTo(w * 0.205, seaY + h * 0.014);
+  ctx.lineTo(w * 0.24, h); ctx.closePath(); ctx.fill();
+  // rock surf: foam eddies where sea meets rocks (pulsing soft sprites)
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const foam = makeGlowSprite([220, 232, 242], 0.5, 0.22);
+  const surfClock = opts.t ?? 0;
+  const n = opts.storm ? 12 : 6;
+  for (let i = 0; i < n; i++) {
+    const fx = w * (0.035 + rnd() * 0.20);
+    const fy = seaY + h * (0.004 + rnd() * 0.028);
+    const fr = w * (0.012 + rnd() * 0.022);
+    const pulse = 0.45 + 0.55 * Math.max(0, Math.sin(surfClock * 1.3 + fx * 0.02 + i * 1.9));
+    ctx.globalAlpha = (opts.storm ? 0.42 : 0.20) * pulse;
+    ctx.drawImage(foam, fx - fr, fy - fr * 0.42, fr * 2, fr * 0.84);
+  }
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
+// ── Lighthouse tower: pre-rendered detailed architecture ─────────────────────
+function drawTower(ctx, w, h, rnd, opts) {
+  const S = h / 1080 * (opts.scale ?? 1);
+  const lx = w * (opts.tx ?? 0.165);
+  const baseY = h * (opts.baseY ?? 0.775);
+  const topY = h * (opts.topY ?? 0.295);
+  const wBase = 34 * S, wTop = wBase * 0.55;
+  const moonRGB = [188, 205, 235];
+  const warmRGB = hexToRgb(opts.beamHex);
+
+  // ── offscreen static render ──
+  const off = document.createElement('canvas');
+  off.width = Math.ceil(wBase * 3.2); off.height = Math.ceil(baseY - topY + 68 * S);
+  const o = off.getContext('2d');
+  const ox = wBase * 1.6, oy = 64 * S; // finial tip ~62S above tower top
+  o.translate(ox, oy);
+
+  const stripeW = (y) => wBase - (wBase - wTop) * (y - topY) / (baseY - topY);
+  // body: 5 bands alternating plaster / red, each shaded with moon-side gradient
+  const bands = [[0.00, 0.16, 1], [0.16, 0.30, 0], [0.30, 0.46, 1], [0.46, 0.60, 0], [0.60, 1.0, 1]];
+  for (const [f0, f1, plaster] of bands) {
+    const y0 = topY + (baseY - topY) * f0, y1 = topY + (baseY - topY) * f1;
+    const w0 = stripeW(y0), w1 = stripeW(y1);
+    const g = o.createLinearGradient(-w0, 0, w0, 0);
+    if (plaster) {
+      g.addColorStop(0, '#232830'); g.addColorStop(0.14, '#b9b4ac');
+      g.addColorStop(0.4, '#e9e4da'); g.addColorStop(0.62, '#ddd6cb');
+      g.addColorStop(0.86, '#8d8880'); g.addColorStop(1, '#191d24');
+    } else {
+      g.addColorStop(0, '#201417'); g.addColorStop(0.14, '#8f2f26');
+      g.addColorStop(0.4, '#c04a3a'); g.addColorStop(0.62, '#a83b2e');
+      g.addColorStop(0.86, '#5e1e18'); g.addColorStop(1, '#180f11');
+    }
+    o.fillStyle = g;
+    o.beginPath();
+    o.moveTo(-w0, y0 - topY); o.lineTo(w0, y0 - topY);
+    o.lineTo(w1, y1 - topY); o.lineTo(-w1, y1 - topY);
+    o.closePath(); o.fill();
+    // weather streaks below each band edge
+    o.strokeStyle = 'rgba(30,26,24,0.10)'; o.lineWidth = 1.4 * S;
+    for (let i = 0; i < 4; i++) {
+      const sx = -w0 * 0.7 + (i + rnd() * 0.4) * w0 * 0.45;
+      o.beginPath();
+      o.moveTo(sx, y0 - topY);
+      o.quadraticCurveTo(sx + 2 * S * (rnd() - 0.5), (y1 - topY) * 0.55, sx + 3 * S * (rnd() - 0.5), y1 - topY);
+      o.stroke();
+    }
+  }
+  // string course shadows at band edges (depth)
+  for (const [f0] of [[0.16], [0.30], [0.46], [0.60]]) {
+    const y = topY + (baseY - topY) * f0 - topY;
+    const ws = stripeW(topY + (baseY - topY) * f0);
+    o.fillStyle = 'rgba(0,0,0,0.16)';
+    o.fillRect(-ws, y - 1.2 * S, ws * 2, 2.4 * S);
+  }
+  // cool moon rim on the lit edge + warm bounce near the top
+  o.strokeStyle = rgba(moonRGB, 0.30); o.lineWidth = 1.6 * S;
+  o.beginPath();
+  o.moveTo(-stripeW(topY) * 0.92, 0);
+  o.lineTo(-stripeW(baseY) * 0.92, baseY - topY);
+  o.stroke();
+  const bounce = o.createLinearGradient(0, 0, 0, (baseY - topY) * 0.5);
+  bounce.addColorStop(0, rgba(warmRGB, 0.10)); bounce.addColorStop(1, rgba(warmRGB, 0));
+  o.fillStyle = bounce;
+  o.beginPath();
+  o.moveTo(-stripeW(topY), 0); o.lineTo(stripeW(topY), 0);
+  o.lineTo(stripeW((topY + baseY) / 2), (baseY - topY) * 0.5);
+  o.lineTo(-stripeW((topY + baseY) / 2), (baseY - topY) * 0.5);
+  o.closePath(); o.fill();
+
+  // gallery: corbels, deck slab, railing with balusters
+  const deckY = -6 * S;
+  o.fillStyle = '#10131a';
+  for (let i = -3; i <= 3; i++) o.fillRect(i * wTop * 0.42 - 1.6 * S, deckY + 3 * S, 3.2 * S, 4 * S);
+  o.fillStyle = '#181c26';
+  o.fillRect(-wTop - 6 * S, deckY - 2 * S, wTop * 2 + 12 * S, 5 * S);
+  o.fillStyle = '#232837';
+  o.fillRect(-wTop - 6 * S, deckY - 2.8 * S, wTop * 2 + 12 * S, 1.6 * S);
+  // railing
+  o.strokeStyle = '#2c3140'; o.lineWidth = 1.5 * S;
+  const railTop = deckY - 12 * S;
+  o.beginPath();
+  o.moveTo(-wTop - 4 * S, railTop); o.lineTo(wTop + 4 * S, railTop);
+  o.moveTo(-wTop - 4 * S, deckY + 0.5 * S); o.lineTo(wTop + 4 * S, deckY + 0.5 * S);
+  o.stroke();
+  o.lineWidth = 1 * S;
+  for (let bx = -wTop - 3.5 * S; bx <= wTop + 3.5 * S; bx += 4.4 * S) {
+    o.beginPath(); o.moveTo(bx, railTop); o.lineTo(bx, deckY + 0.5 * S); o.stroke();
+  }
+
+  // lantern room: dark frame, glowing glazing, mullions, dome + finial
+  const lrW = 15 * S, lrH = 20 * S, lrY = deckY - 13 * S - lrH;
+  o.fillStyle = '#11141c';
+  o.fillRect(-lrW - 2 * S, lrY - 2 * S, (lrW + 2 * S) * 2, lrH + 4 * S);
+  const lampX = 0, lampY = lrY + lrH * 0.5;
+  const glass = o.createRadialGradient(lampX, lampY, 1 * S, lampX, lampY, lrW * 1.6);
+  glass.addColorStop(0, 'rgba(255,246,214,0.95)');
+  glass.addColorStop(0.5, 'rgba(255,236,180,0.55)');
+  glass.addColorStop(1, 'rgba(120,110,80,0.16)');
+  o.fillStyle = glass;
+  o.fillRect(-lrW, lrY, lrW * 2, lrH);
+  o.strokeStyle = 'rgba(16,18,26,0.85)'; o.lineWidth = 1.6 * S;
+  for (let i = -2; i <= 2; i++) {
+    o.beginPath(); o.moveTo(i * lrW * 0.42, lrY); o.lineTo(i * lrW * 0.42, lrY + lrH); o.stroke();
+  }
+  o.beginPath(); o.moveTo(-lrW, lampY); o.lineTo(lrW, lampY); o.stroke();
+  // dome roof + finial
+  o.fillStyle = '#171a24';
+  o.beginPath();
+  o.moveTo(-lrW - 2.5 * S, lrY);
+  o.quadraticCurveTo(0, lrY - 15 * S, lrW + 2.5 * S, lrY);
+  o.closePath(); o.fill();
+  o.fillStyle = '#232837';
+  o.beginPath(); o.arc(0, lrY - 15 * S + 1.5 * S, 2.4 * S, 0, TAU); o.fill();
+  o.fillRect(-0.7 * S, lrY - 21 * S, 1.4 * S, 6 * S);
+  o.beginPath(); o.arc(0, lrY - 21.6 * S, 1.2 * S, 0, TAU); o.fill();
+
+  // windows (arched, dark in static render — lit overlay drawn live)
+  for (const wf of [0.36, 0.52, 0.68]) {
+    const wy = topY + (baseY - topY) * wf;
+    const ww = stripeW(wy);
+    o.fillStyle = '#10131b';
+    const r = 3.4 * S;
+    o.beginPath();
+    o.moveTo(-r, wy - topY + r * 1.4);
+    o.arc(0, wy - topY + r * 1.4, r, Math.PI, 0);
+    o.lineTo(r, wy - topY + r * 3.4);
+    o.lineTo(-r, wy - topY + r * 3.4);
+    o.closePath(); o.fill();
+  }
+  // doorway
+  o.fillStyle = '#0c0f16';
+  const drW = 5.5 * S, drH = 11 * S, drY = baseY - drH - 2 * S;
+  o.beginPath();
+  o.moveTo(-drW, drY + drH - topY);
+  o.arc(0, drY + drW - topY, drW, Math.PI, 0);
+  o.lineTo(drW, drY + drH - topY);
+  o.closePath(); o.fill();
+  o.fillStyle = 'rgba(0,0,0,0.28)';
+  o.fillRect(-drW - 2.5 * S, baseY - topY - 1.5 * S, (drW + 2.5 * S) * 2, 3 * S); // step shadow
+
+  // ambient occlusion where tower meets rocks
+  const ao = o.createRadialGradient(0, baseY - topY, 0, 0, baseY - topY, wBase * 1.8);
+  ao.addColorStop(0, 'rgba(0,0,0,0.4)'); ao.addColorStop(1, 'rgba(0,0,0,0)');
+  o.fillStyle = ao;
+  o.fillRect(-wBase * 1.8, baseY - topY - wBase * 0.7, wBase * 3.6, wBase * 0.9);
+
+  // ── blit the static tower ──
+  ctx.drawImage(off, lx - ox, topY - oy);
+
+  // ── live overlays ──
+  const lampYfull = topY - 13 * S - 20 * S + 10 * S;
+  // lit windows (warm, subtle flicker)
+  for (const wf of [0.36, 0.52, 0.68]) {
+    const wy = topY + (baseY - topY) * wf;
+    const r = 3.4 * S;
+    const a = 0.5 + 0.14 * Math.sin(wf * 40 + (opts.t ?? 0) * 2.2);
+    const wg = ctx.createRadialGradient(lx, wy - topY + topY + r * 0.6, 0, lx, wy - topY + topY + r * 0.6, r * 2.2);
+    wg.addColorStop(0, rgba(warmRGB, 0.5 * a)); wg.addColorStop(1, rgba(warmRGB, 0));
+    ctx.fillStyle = wg;
+    ctx.fillRect(lx - r * 2.2, wy + r * 0.6 - r * 2.2, r * 4.4, r * 4.4);
+    ctx.fillStyle = rgba(warmRGB, 0.38 * a);
+    ctx.beginPath();
+    ctx.moveTo(lx - r * 0.7, wy + r * 1.1);
+    ctx.arc(lx, wy + r * 1.1, r * 0.7, Math.PI, 0);
+    ctx.lineTo(lx + r * 0.7, wy + r * 1.9);
+    ctx.lineTo(lx - r * 0.7, wy + r * 1.9);
+    ctx.closePath(); ctx.fill();
+  }
+  // lamp core: bright white-warm center in the lantern
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const core = makeGlowSprite(mixc([255, 252, 236], warmRGB, 0.25), 0.95, 0.5);
+  const cs = 30 * S * opts.k;
+  ctx.drawImage(core, lx - cs / 2, lampYfull - cs / 2, cs, cs);
+  ctx.drawImage(core, lx - cs * 0.25, lampYfull - cs * 0.25, cs * 0.5, cs * 0.5); // hot center
+  ctx.restore();
+  return { lx, lampY: lampYfull };
+}
+
+// ── Beam: layered soft wedges, seaward over sea, landward behind headland ───
+function drawBeam(ctx, w, h, state, opts) {
+  const { lx, lampY } = state;
+  const rgb = hexToRgb(opts.beamHex);
+  const coreRGB = mixc([255, 252, 236], rgb, 0.3);
+  const reach = Math.max(w, h) * 1.15;
+  const ang = opts.azimuth;
+  const k = opts.k;
+
+  const wedge = (halfWidth, grad, blur, alpha) => {
+    ctx.save();
+    ctx.translate(lx, lampY);
+    ctx.rotate(ang);
+    if (blur) ctx.filter = `blur(${blur}px)`;
+    ctx.fillStyle = grad;
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(reach, -reach * Math.tan(halfWidth));
+    ctx.lineTo(reach, reach * Math.tan(halfWidth));
+    ctx.closePath(); ctx.fill();
+    ctx.filter = 'none';
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  };
+  const gFor = (stops) => {
+    const g = ctx.createLinearGradient(0, 0, reach, 0);
+    for (const [p, c, a] of stops) g.addColorStop(p, rgba(c, a * k));
+    return g;
+  };
+  // outer soft pass → mid halo → bright core (fake volumetrics)
+  wedge(0.30, gFor([[0, rgb, 0.10], [0.35, rgb, 0.04], [1, rgb, 0]]), 14, 0.9);
+  wedge(0.17, gFor([[0, rgb, 0.34], [0.3, rgb, 0.12], [1, rgb, 0]]), 6, 1);
+  wedge(0.085, gFor([[0, coreRGB, 0.75], [0.25, rgb, 0.3], [1, rgb, 0]]), 0, 1);
+  // bright center line
+  ctx.save();
+  ctx.translate(lx, lampY); ctx.rotate(ang);
+  const cl = ctx.createLinearGradient(0, 0, reach, 0);
+  cl.addColorStop(0, rgba([255, 252, 235], 0.8 * k));
+  cl.addColorStop(0.3, rgba(rgb, 0.32 * k));
+  cl.addColorStop(1, rgba(rgb, 0));
+  ctx.strokeStyle = cl; ctx.lineWidth = Math.max(1, 2.6 * (h / 1080)); ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(reach, 0); ctx.stroke();
+  ctx.restore();
+
+  // lantern glow (always, brightest light source in frame)
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const glow = makeGlowSprite(mixc([255, 250, 230], rgb, 0.4), 0.9, 0.42);
+  const gs = 92 * (h / 1080) * (0.8 + 0.5 * k);
+  ctx.drawImage(glow, lx - gs / 2, lampY - gs / 2, gs, gs);
+  ctx.restore();
+}
+
+// ── Gulls (tiny dark silhouettes) ────────────────────────────────────────────
+function drawGulls(ctx, w, h, rnd, n) {
+  for (let i = 0; i < n; i++) {
+    const gx = w * (0.42 + rnd() * 0.5);
+    const gy = h * (0.16 + rnd() * 0.3);
+    const s = 5 + rnd() * 5;
+    ctx.strokeStyle = 'rgba(8,10,16,0.75)';
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.moveTo(gx - s, gy);
+    ctx.quadraticCurveTo(gx - s * 0.4, gy - s * 0.42, gx, gy);
+    ctx.quadraticCurveTo(gx + s * 0.4, gy - s * 0.42, gx + s, gy);
+    ctx.stroke();
+  }
+}
+
+// ── Ship lights on the horizon ───────────────────────────────────────────────
+function drawShips(ctx, w, h, rnd, opts) {
+  const seaY = h * 0.74;
+  const warm = hexToRgb(opts.beamHex);
+  for (let i = 0; i < opts.ships; i++) {
+    const sx = w * (0.5 + rnd() * 0.45);
+    const sy = seaY + h * (0.006 + rnd() * 0.012);
+    ctx.fillStyle = 'rgba(6,9,14,0.9)';
+    ctx.fillRect(sx - 4, sy - 1.2, 8, 1.6);           // hull silhouette
+    ctx.fillStyle = rgba(warm, 0.85);
+    ctx.fillRect(sx + 2.4, sy - 2.6, 1.2, 1.2);        // nav light
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(sx + 3, sy - 2, 0, sx + 3, sy - 2, 7);
+    g.addColorStop(0, rgba(warm, 0.35)); g.addColorStop(1, rgba(warm, 0));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx + 3, sy - 2, 7, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+}
+
+// ── Vignette ─────────────────────────────────────────────────────────────────
+function drawVignette(ctx, w, h) {
+  const vg = ctx.createRadialGradient(w / 2, h * 0.46, Math.min(w, h) * 0.36, w / 2, h * 0.5, Math.max(w, h) * 0.76);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, 'rgba(1,2,6,0.5)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
+}
+
+// ── Seeded rocks cluster at the tower foot ───────────────────────────────────
+function drawFootRocks(ctx, w, h, rnd, opts) {
+  const seaY = h * 0.74;
+  const lx = w * (opts.tx ?? 0.165);
+  const baseY = h * (opts.baseY ?? 0.775);
+  const S = h / 1080 * (opts.scale ?? 1);
+  ctx.fillStyle = opts.storm ? '#05070b' : '#070a12';
+  for (let i = 0; i < 9; i++) {
+    const rx = lx + (rnd() - 0.5) * 120 * S;
+    const ry = baseY + (rnd() - 0.3) * 26 * S;
+    const rr = (8 + rnd() * 20) * S;
+    ctx.beginPath();
+    ctx.ellipse(rx, Math.min(ry, h * 0.985), rr, rr * (0.45 + rnd() * 0.3), rnd() * 0.6, 0, TAU);
+    ctx.fill();
+  }
+  // foam where foot rocks meet water
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const foam = makeGlowSprite([220, 232, 242], 0.45, 0.2);
+  for (let i = 0; i < 5; i++) {
+    const fx = lx + (rnd() - 0.5) * 130 * S;
+    const fy = Math.min(h * 0.985, baseY + (8 + rnd() * 20) * S);
+    const fr = (14 + rnd() * 22) * S;
+    ctx.globalAlpha = (opts.storm ? 0.3 : 0.18) * (0.5 + rnd() * 0.5);
+    ctx.drawImage(foam, fx - fr, fy - fr * 0.3, fr * 2, fr * 0.6);
+  }
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Variation drivers — azimuth chosen seaward/landward per composition.
+// ─────────────────────────────────────────────────────────────────────────────
+const BEAM = '#ffe1a8';
+const BEAM_RGB = hexToRgb(BEAM);
+const BEAM_MIX = mixc([255, 252, 236], BEAM_RGB, 0.3); // warm-white glint mix
+
+function paintA() { // Moonlit calm: moon left, glassy sea, thin mist, beam mid-seaward
+  const cv = document.getElementById('a'); const ctx = cv.getContext('2d');
+  const w = cv.width, h = cv.height;
+  const rnd = mulberry32(1101);
+  const opts = {
+    beamHex: BEAM, k: 0.8, t: 1.8, moon: [w * 0.30, h * 0.14], moonGlint: true,
+    clouds: [{ y: 0.10, sc: 0.7, alpha: 0.5, lit: true, n: 2, off: 0.1 }],
+    mist: [{ y: 0.10, th: 0.05, a: 0.10, ph: 0.6 }],
+    beamPath: [0, 0, 0], ships: 1, azimuth: 0.32, beamMix: BEAM_MIX,
+  };
+  drawSky(ctx, w, h, opts);
+  drawStars(ctx, w, h, rnd, opts);
+  drawMoon(ctx, w, h, opts.moon[0], opts.moon[1], rnd);
+  drawClouds(ctx, w, h, rnd, opts);
+  drawSea(ctx, w, h, rnd, { ...opts, beamPath: null });
+  drawShips(ctx, w, h, rnd, opts);
+  // landward beam segment first (occluded by headland+tower painted next)
+  drawBeam(ctx, w, h, { lx: w * 0.165, lampY: h * 0.295 - 43 * (h / 1080) }, { ...opts, azimuth: Math.PI - 0.5, k: 0.5 });
+  drawHeadland(ctx, w, h, rnd, opts);
+  drawTower(ctx, w, h, rnd, opts);
+  const state = towerState(w, h, opts);
+  drawFootRocks(ctx, w, h, rnd, opts);
+  drawMist(ctx, w, h, rnd, opts);
+  drawBeam(ctx, w, h, state, opts);
+  drawSea(ctx, w, h, rnd, { ...opts, beamPath: [state.lx, state.lampY, opts.azimuth], moonGlint: false, glintsOnly: true });
+  drawGulls(ctx, w, h, rnd, 3);
+  drawVignette(ctx, w, h);
+}
+// helper: recompute tower lamp position without repainting
+function towerState(w, h, opts) {
+  const S = h / 1080 * (opts.scale ?? 1);
+  return { lx: w * (opts.tx ?? 0.165), lampY: h * (opts.topY ?? 0.295) - 13 * S - 20 * S + 10 * S };
+}
+
+function paintB() { // Cloud banks: moon right-of-clouds, beam catch on cloud underside
+  const cv = document.getElementById('b'); const ctx = cv.getContext('2d');
+  const w = cv.width, h = cv.height;
+  const rnd = mulberry32(2202);
+  const opts = {
+    beamHex: BEAM, k: 0.9, t: 3.4, moon: [w * 0.74, h * 0.15], moonGlint: true,
+    clouds: [
+      { y: 0.07, sc: 1.0, alpha: 0.75, lit: true, n: 3, off: 0.05 },
+      { y: 0.20, sc: 0.8, alpha: 0.6, lit: true, n: 3, off: 0.5 },
+      { y: 0.33, sc: 0.65, alpha: 0.45, lit: false, n: 2, off: 0.8 },
+    ],
+    cloudCatch: [w * 0.52, h * 0.26, w * 0.24],
+    mist: [{ y: 0.08, th: 0.06, a: 0.13, ph: 1.2 }, { y: 0.22, th: 0.05, a: 0.10, ph: 3.0 }],
+    beamPath: [0, 0, 0], ships: 2, azimuth: 0.35, storm: false, beamMix: BEAM_MIX,
+  };
+  drawSky(ctx, w, h, opts);
+  drawStars(ctx, w, h, rnd, opts);
+  drawClouds(ctx, w, h, rnd, { ...opts }); // clouds before moon → moonlit rims overlap
+  drawMoon(ctx, w, h, opts.moon[0], opts.moon[1], rnd);
+  drawClouds(ctx, w, h, rnd, { ...opts, clouds: [opts.clouds[2]], cloudCatch: null });
+  drawSea(ctx, w, h, rnd, { ...opts, beamPath: null });
+  drawShips(ctx, w, h, rnd, opts);
+  drawBeam(ctx, w, h, { lx: w * 0.165, lampY: h * 0.295 - 43 * (h / 1080) }, { ...opts, azimuth: Math.PI - 0.42, k: 0.5 });
+  drawHeadland(ctx, w, h, rnd, opts);
+  drawTower(ctx, w, h, rnd, opts);
+  const state = towerState(w, h, opts);
+  drawFootRocks(ctx, w, h, rnd, opts);
+  drawMist(ctx, w, h, rnd, opts);
+  drawBeam(ctx, w, h, state, opts);
+  drawSea(ctx, w, h, rnd, { ...opts, beamPath: [state.lx, state.lampY, opts.azimuth], moonGlint: false, glintsOnly: true });
+  drawGulls(ctx, w, h, rnd, 2);
+  drawVignette(ctx, w, h);
+}
+
+function paintC() { // Storm hero: tighter crop, rough sea, thicker mist, darker sky
+  const cv = document.getElementById('c'); const ctx = cv.getContext('2d');
+  const w = cv.width, h = cv.height;
+  const rnd = mulberry32(3303);
+  const opts = {
+    beamHex: BEAM, k: 1.0, t: 5.2, moon: null, moonGlint: false, storm: true,
+    scale: 1.35, tx: 0.185, topY: 0.26, baseY: 0.78,
+    clouds: [
+      { y: 0.06, sc: 1.1, alpha: 0.8, lit: false, n: 3, off: 0.3 },
+      { y: 0.22, sc: 0.9, alpha: 0.7, lit: false, n: 3, off: 0.7 },
+    ],
+    cloudCatch: [w * 0.5, h * 0.24, w * 0.28],
+    mist: [{ y: 0.06, th: 0.075, a: 0.17, ph: 0.4 }, { y: 0.20, th: 0.06, a: 0.14, ph: 2.2 }, { y: 0.36, th: 0.05, a: 0.11, ph: 4.1 }],
+    beamPath: [0, 0, 0], ships: 1, azimuth: 0.38, beamMix: BEAM_MIX,
+  };
+  drawSky(ctx, w, h, opts);
+  drawStars(ctx, w, h, rnd, opts);
+  drawClouds(ctx, w, h, rnd, opts);
+  drawSea(ctx, w, h, rnd, { ...opts, beamPath: null });
+  drawShips(ctx, w, h, rnd, opts);
+  drawBeam(ctx, w, h, towerState(w, h, opts), { ...opts, azimuth: Math.PI - 0.45, k: 0.45 });
+  drawHeadland(ctx, w, h, rnd, opts);
+  drawTower(ctx, w, h, rnd, opts);
+  const state = towerState(w, h, opts);
+  drawFootRocks(ctx, w, h, rnd, opts);
+  drawMist(ctx, w, h, rnd, opts);
+  drawBeam(ctx, w, h, state, opts);
+  drawSea(ctx, w, h, rnd, { ...opts, beamPath: [state.lx, state.lampY, opts.azimuth], glintsOnly: true });
+  drawGulls(ctx, w, h, rnd, 0);
+  drawVignette(ctx, w, h);
+}
+
+// Per-variation tower params so the verification harness can probe the right
+// regions on each canvas (C uses a different crop/scale).
+window.__CONCEPT_PARAMS = {
+  a: { tx: 0.165, topY: 0.295, baseY: 0.775, scale: 1 },
+  b: { tx: 0.165, topY: 0.295, baseY: 0.775, scale: 1 },
+  c: { tx: 0.185, topY: 0.26, baseY: 0.78, scale: 1.35 },
+};
+
+try { paintA(); paintB(); paintC(); } catch (e) {
+  document.title = 'CONCEPT-ERROR: ' + e.message;
+  throw e;
+}
+</script>
+</body>
+</html>

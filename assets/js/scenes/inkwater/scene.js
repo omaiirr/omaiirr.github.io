@@ -1,0 +1,628 @@
+(() => {
+  function _hexToRgb(hex) {
+    if (!hex || typeof hex !== "string") return [56, 189, 248];
+    const clean = hex.replace("#", "");
+    if (clean.length < 6) return [56, 189, 248];
+    return [parseInt(clean.slice(0, 2), 16), parseInt(clean.slice(2, 4), 16), parseInt(clean.slice(4, 6), 16)];
+  }
+  function _rgba(c, a) {
+    return `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+  }
+  function _mix(t, a, b) {
+    return [
+      Math.round(a[0] + (b[0] - a[0]) * t),
+      Math.round(a[1] + (b[1] - a[1]) * t),
+      Math.round(a[2] + (b[2] - a[2]) * t),
+    ];
+  }
+  function _bilin(g, gw, gh, x, y) {
+    x = x < 0 ? 0 : x > gw - 1.001 ? gw - 1.001 : x;
+    y = y < 0 ? 0 : y > gh - 1.001 ? gh - 1.001 : y;
+    const x0 = x | 0, y0 = y | 0;
+    const x1 = x0 + 1 < gw ? x0 + 1 : x0;
+    const y1 = y0 + 1 < gh ? y0 + 1 : y0;
+    const fx = x - x0, fy = y - y0;
+    const i00 = y0 * gw + x0, i10 = y0 * gw + x1;
+    const i01 = y1 * gw + x0, i11 = y1 * gw + x1;
+    return (g[i00] * (1 - fx) + g[i10] * fx) * (1 - fy) + (g[i01] * (1 - fx) + g[i11] * fx) * fy;
+  }
+
+  function _makeCausticTile(size) {
+    const c = document.createElement("canvas");
+    c.width = c.height = size;
+    const x = c.getContext("2d");
+    x.strokeStyle = "rgba(190,215,255,0.07)";
+    x.lineWidth = 5;
+    for (let b = 0; b < 3; b++) {
+      const y0 = (b / 3) * size;
+      x.beginPath();
+      for (let px = 0; px <= size; px += 6) {
+        const yy = y0 + Math.sin(px * 0.055 + b * 2.4) * 9 + Math.sin(px * 0.15 + b * 1.7) * 4;
+        if (px === 0) x.moveTo(px, yy);
+        else x.lineTo(px, yy);
+      }
+      x.stroke();
+    }
+    for (let i = 0; i < 6; i++) {
+      const bx = Math.random() * size, by = Math.random() * size, br = 22 + Math.random() * 38;
+      const g = x.createRadialGradient(bx, by, 0, bx, by, br);
+      g.addColorStop(0, "rgba(190,215,255,0.2)");
+      g.addColorStop(1, "rgba(190,215,255,0)");
+      x.fillStyle = g;
+      x.beginPath();
+      x.arc(bx, by, br, 0, Math.PI * 2);
+      x.fill();
+    }
+    return { canvas: c, size, pattern: null };
+  }
+
+  function _makeMoteSprite(level) {
+    const c = document.createElement("canvas");
+    c.width = c.height = 24;
+    const x = c.getContext("2d");
+    const g = x.createRadialGradient(12, 12, 0, 12, 12, 12);
+    const core = 0.85 - level * 0.28;
+    g.addColorStop(0, `rgba(215,228,248,${core})`);
+    g.addColorStop(level === 2 ? 0.5 : 0.3, `rgba(215,228,248,${core * 0.35})`);
+    g.addColorStop(1, "rgba(215,228,248,0)");
+    x.fillStyle = g;
+    x.fillRect(0, 0, 24, 24);
+    return c;
+  }
+
+  function _makeVignette(w, h) {
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.ceil(w / 2));
+    c.height = Math.max(1, Math.ceil(h / 2));
+    const x = c.getContext("2d");
+    const g = x.createRadialGradient(c.width / 2, c.height * 0.45, Math.min(c.width, c.height) * 0.42, c.width / 2, c.height * 0.5, Math.max(c.width, c.height) * 0.85);
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(1, "rgba(0,0,0,0.42)");
+    x.fillStyle = g;
+    x.fillRect(0, 0, c.width, c.height);
+    return c;
+  }
+
+  const PH_F = 0, PH_FALL = 1, PH_STRIKE = 2, PH_BLOOM = 3, PH_DISS = 4;
+
+  function _newPlume(state, w, h, i, first) {
+    const S = state.S;
+    return {
+      x: w * (0.16 + Math.random() * 0.68),
+      y: h * (0.05 + Math.random() * 0.05),
+      r: (5 + Math.random() * 3.4) * S,
+      vy: 0,
+      strikeY: h * (0.36 + Math.random() * 0.26),
+      formT: 0.8 + Math.random() * 0.7,
+      phase: PH_F,
+      phaseT: 0,
+      age: 0,
+      delay: first ? i * 1.6 + Math.random() * 1.8 : 1.2 + Math.random() * 2.6,
+      seed: Math.random() * Math.PI * 2,
+      fallV: (150 + Math.random() * 80) * S,
+      sink: (5 + Math.random() * 5) * S,
+      ringX: 0,
+      ringY: 0,
+      ringR: 0,
+      maxR: (88 + Math.random() * 68) * S,
+      grow: 0,
+      rise: (4.5 + Math.random() * 5) * S,
+      gamma: 0,
+      dissT: 4.4 + Math.random() * 3.0,
+    };
+  }
+
+  function _resetPlume(p, state, w, h) {
+    const S = state.S;
+    p.x = w * (0.16 + Math.random() * 0.68);
+    p.y = h * (0.05 + Math.random() * 0.05);
+    p.r = (5 + Math.random() * 3.4) * S;
+    p.vy = 0;
+    p.strikeY = h * (0.36 + Math.random() * 0.26);
+    p.formT = 0.8 + Math.random() * 0.7;
+    p.phase = PH_F;
+    p.phaseT = 0;
+    p.age = 0;
+    p.delay = 1.2 + Math.random() * 2.6;
+    p.seed = Math.random() * Math.PI * 2;
+    p.fallV = (150 + Math.random() * 80) * S;
+    p.sink = (5 + Math.random() * 5) * S;
+    p.maxR = (88 + Math.random() * 68) * S;
+    p.grow = 0;
+    p.rise = (4.5 + Math.random() * 5) * S;
+    p.gamma = 0;
+    p.dissT = 4.4 + Math.random() * 3.0;
+  }
+
+  function _updatePlumes(state, t, dtm, S) {
+    const plumes = state.plumes;
+    const w = state.w, h = state.h;
+    for (const p of plumes) {
+      if (p.delay > 0) { p.delay -= dtm; continue; }
+      p.age += dtm;
+      if (p.phase === PH_F) {
+        p.phaseT += dtm;
+        p.x += Math.sin(t * 2.1 + p.seed * 7) * 3 * S * dtm;
+        if (p.phaseT >= p.formT) { p.phase = PH_FALL; p.phaseT = 0; p.vy = 0; }
+      } else if (p.phase === PH_FALL) {
+        p.phaseT += dtm;
+        p.vy = Math.min(p.fallV, p.vy + 300 * S * dtm);
+        p.y += p.vy * dtm;
+        const sway = 0.35 + 0.65 * (p.vy / p.fallV);
+        p.x += (Math.sin(t * 0.8 + p.seed) * 12 + Math.sin(t * 1.7 + p.seed * 3) * 5) * S * sway * dtm;
+        if (p.y >= p.strikeY) {
+          p.phase = PH_STRIKE;
+          p.phaseT = 0;
+          p.ringX = p.x;
+          p.ringY = p.y;
+          p.ringR = Math.max(6 * S, p.r * 1.3);
+          p.grow = 66 * S;
+          p.gamma = 0;
+        }
+      } else if (p.phase === PH_STRIKE) {
+        p.phaseT += dtm;
+        p.grow = Math.max(9 * S, p.grow - 100 * S * dtm);
+        p.ringR += p.grow * dtm;
+        p.ringY += 6 * S * dtm;
+        p.gamma = p.ringR * 60;
+        if (p.phaseT >= 0.6) { p.phase = PH_BLOOM; p.phaseT = 0; }
+      } else if (p.phase === PH_BLOOM) {
+        p.phaseT += dtm;
+        p.grow = Math.max(6 * S, p.grow - 13 * S * dtm);
+        p.ringR = Math.min(p.maxR, p.ringR + p.grow * dtm);
+        p.ringY -= p.rise * dtm;
+        p.ringX += Math.sin(t * 0.42 + p.seed * 2) * 10 * S * dtm;
+        p.gamma *= Math.exp(-0.85 * dtm);
+        if (p.phaseT >= 3.0) { p.phase = PH_DISS; p.phaseT = 0; }
+      } else {
+        p.phaseT += dtm;
+        p.gamma *= Math.exp(-0.5 * dtm);
+        p.ringY -= p.rise * 0.7 * dtm;
+        if (p.phaseT >= p.dissT) _resetPlume(p, state, w, h);
+      }
+    }
+  }
+
+  function _inject(state, dtm) {
+    const { bw, bh, cw, ch, fieldB } = state;
+    const S = state.S;
+    for (const p of state.plumes) {
+      if (p.phase === PH_FALL) {
+        const trailLen = 42 * S, trailW = 3 * S;
+        const y0 = Math.max(0, Math.floor((p.y - trailLen) / ch));
+        const y1 = Math.min(bh - 1, Math.ceil((p.y + 3 * S) / ch));
+        const rate = 2.6 * dtm;
+        for (let j = y0; j <= y1; j++) {
+          const wy = (j + 0.5) * ch;
+          const fadeUp = Math.max(0, 1 - (p.y - wy) / trailLen);
+          const meander = Math.sin((p.y - wy) * 0.12 + p.seed * 4) * 6 * S * (0.35 + 0.65 * fadeUp);
+          const cx0 = Math.max(0, Math.floor((p.x + meander - trailW) / cw));
+          const cx1 = Math.min(bw - 1, Math.ceil((p.x + meander + trailW) / cw));
+          const row = j * bw;
+          for (let i = cx0; i <= cx1; i++) {
+            const d = fieldB[row + i] + rate * fadeUp;
+            fieldB[row + i] = d > 1.5 ? 1.5 : d;
+          }
+        }
+      } else if (p.phase === PH_STRIKE || p.phase === PH_BLOOM) {
+        const rateScale =
+          p.phase === PH_STRIKE ? 1 : Math.max(0, 1.3 - p.phaseT * 0.45);
+        if (rateScale <= 0.01) continue;
+        const R = p.ringR, cx = p.ringX, cy = p.ringY;
+        const reach = R * 1.6 + 12 * S;
+        const i0 = Math.max(0, Math.floor((cx - reach) / cw));
+        const i1 = Math.min(bw - 1, Math.ceil((cx + reach) / cw));
+        const j0 = Math.max(0, Math.floor((cy - reach) / ch));
+        const j1 = Math.min(bh - 1, Math.ceil((cy + reach) / ch));
+        const ringAmt = 4.6 * dtm * rateScale;
+        const fillAmt = 0.18 * dtm * rateScale;
+        const bandW = Math.max(6 * S, R * 0.24);
+        for (let j = j0; j <= j1; j++) {
+          const wy = (j + 0.5) * ch;
+          const row = j * bw;
+          for (let i = i0; i <= i1; i++) {
+            const wx = (i + 0.5) * cw;
+            const dx = wx - cx, dy = wy - cy;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const idx = row + i;
+            let d = fieldB[idx];
+            const band = (dist - R) / bandW;
+            d += ringAmt * Math.exp(-band * band);
+            if (dist < R * 1.15) {
+              const q = dist / (R * 1.35);
+              d += fillAmt * Math.exp(-(q * q) * 2.4);
+            }
+            fieldB[idx] = d > 1.5 ? 1.5 : d;
+          }
+        }
+      }
+    }
+  }
+
+  function _buildVel(state, w, h, t) {
+    const { tw, th, vw, vh } = state;
+    const tu = state.turbU, tv = state.turbV;
+    const w16 = w / tw, h16 = h / th;
+    for (let j = 0; j < th; j++) {
+      const wy = (j + 0.5) * h16;
+      const row = j * tw;
+      for (let i = 0; i < tw; i++) {
+        const wx = (i + 0.5) * w16;
+        const idx = row + i;
+        let u = 0, v = 0;
+        for (let o = 0; o < state.turb.length; o++) {
+          const tb = state.turb[o];
+          const X = wx * tb.f + t * tb.w1 + tb.p1;
+          const Y = wy * tb.g + t * tb.w2 + tb.p2;
+          u -= tb.a * tb.g * Math.sin(X) * Math.cos(Y);
+          v += tb.a * tb.f * Math.cos(X) * Math.sin(Y);
+        }
+        tu[idx] = u;
+        tv[idx] = v;
+      }
+    }
+    const w8 = w / vw, h8 = h / vh;
+    for (let j = 0; j < vh; j++) {
+      const wy = (j + 0.5) * h8;
+      const ty = wy / h16 - 0.5;
+      const row = j * vw;
+      for (let i = 0; i < vw; i++) {
+        const wx = (i + 0.5) * w8;
+        const tx = wx / w16 - 0.5;
+        const idx = row + i;
+        let u = _bilin(tu, tw, th, tx, ty);
+        let v = _bilin(tv, tw, th, tx, ty);
+        for (const p of state.plumes) {
+          if (p.phase < PH_STRIKE || p.gamma < 1) continue;
+          const g = p.gamma;
+          const sep = p.ringR * 0.42;
+          const cut = p.ringR * 3.8;
+          const cut2 = cut * cut;
+          for (let k = 0; k < 2; k++) {
+            const vx = p.ringX + (k === 0 ? -sep : sep);
+            const dx = wx - vx, dy = wy - p.ringY;
+            const r2 = dx * dx + dy * dy;
+            if (r2 > cut2) continue;
+            const sg = k === 0 ? -g : g;
+            const inv = sg / (r2 + 32);
+            u += -dy * inv;
+            v += dx * inv;
+          }
+        }
+        state.velU[idx] = u;
+        state.velV[idx] = v;
+      }
+    }
+  }
+
+  function _advect(state, w, h, dtm) {
+    const { bw, bh, cw, ch, vw, vh } = state;
+    const A = state.fieldA, B = state.fieldB;
+    const vU = state.velU, vV = state.velV;
+    const w8 = w / vw, h8 = h / vh;
+    const sink = 10 * state.S;
+    for (let j = 0; j < bh; j++) {
+      const wy = (j + 0.5) * ch;
+      const ty = wy / h8 - 0.5;
+      const row = j * bw;
+      for (let i = 0; i < bw; i++) {
+        const wx = (i + 0.5) * cw;
+        const tx = wx / w8 - 0.5;
+        const idx = row + i;
+        const d0 = A[idx];
+        const u = _bilin(vU, vw, vh, tx, ty);
+        const v = _bilin(vV, vw, vh, tx, ty) + sink * d0;
+        B[idx] = _bilin(A, bw, bh, (wx - u * dtm) / cw - 0.5, (wy - v * dtm) / ch - 0.5);
+      }
+    }
+  }
+
+  function _diffuseDecay(state, dtm) {
+    const { bw, bh } = state;
+    const A = state.fieldA, B = state.fieldB;
+    const dec = Math.exp(-0.12 * dtm);
+    for (let j = 0; j < bh; j++) {
+      const row = j * bw;
+      for (let i = 0; i < bw; i++) {
+        const l = B[row + (i > 0 ? i - 1 : 0)];
+        const r = B[row + (i < bw - 1 ? i + 1 : bw - 1)];
+        B[row + i] = B[row + i] * 0.55 + l * 0.225 + r * 0.225;
+      }
+    }
+    for (let j = 0; j < bh; j++) {
+      const row = j * bw;
+      const rowU = (j > 0 ? j - 1 : 0) * bw;
+      const rowD = (j < bh - 1 ? j + 1 : bh - 1) * bw;
+      for (let i = 0; i < bw; i++) {
+        A[row + i] = (B[row + i] * 0.55 + B[rowU + i] * 0.225 + B[rowD + i] * 0.225) * dec;
+      }
+    }
+  }
+
+  function _renderField(ctx, state, w, h, body, rim) {
+    const { bw, bh } = state;
+    const A = state.fieldA;
+    const data = state.imgData;
+    const br = body[0], bg = body[1], bb = body[2];
+    const rr = rim[0], rg = rim[1], rb = rim[2];
+    for (let j = 0; j < bh; j++) {
+      const row = j * bw;
+      const rowU = (j > 0 ? j - 1 : 0) * bw;
+      const rowD = (j < bh - 1 ? j + 1 : bh - 1) * bw;
+      for (let i = 0; i < bw; i++) {
+        const idx = row + i;
+        const d = A[idx];
+        const p = idx * 4;
+        if (d < 0.005) {
+          data[p] = 0; data[p + 1] = 0; data[p + 2] = 0; data[p + 3] = 0;
+          continue;
+        }
+        const gx = (A[row + (i < bw - 1 ? i + 1 : bw - 1)] - A[row + (i > 0 ? i - 1 : 0)]) * 0.5;
+        const gy = (A[rowD + i] - A[rowU + i]) * 0.5;
+        const grad = Math.sqrt(gx * gx + gy * gy);
+        const a = Math.min(1, d * 1.3);
+        const core = Math.min(1, d * 0.8);
+        const rimK = Math.min(1, grad * 2.6) * (1 - core * 0.75);
+        const alpha = Math.max(a, rimK * 0.95);
+        data[p] = br + (rr - br) * rimK;
+        data[p + 1] = bg + (rg - bg) * rimK;
+        data[p + 2] = bb + (rb - bb) * rimK;
+        data[p + 3] = Math.round(alpha * 255);
+      }
+    }
+    state.fieldCtx.putImageData(state.img, 0, 0);
+    const bctx = state.blurCtx;
+    bctx.filter = "blur(0.6px)"; 
+    bctx.drawImage(state.fieldCanvas, 0, 0);
+    bctx.filter = "none";
+    ctx.drawImage(state.blurCanvas, 0, 0, w, h);
+  }
+
+  function _drawDrops(ctx, state, ink, t) {
+    const S = state.S;
+    for (const p of state.plumes) {
+      if (p.delay > 0) continue;
+      let x, y, r, alpha, forming = false, k = 0;
+      if (p.phase === PH_F) {
+        x = p.x; y = p.y; r = p.r * (0.8 + 0.5 * (p.phaseT / p.formT));
+        forming = true;
+        k = p.phaseT / p.formT;
+        alpha = 0.65 + 0.35 * k;
+      } else if (p.phase === PH_FALL) {
+        x = p.x; y = p.y; r = p.r; alpha = 1;
+      } else if (p.phase === PH_STRIKE) {
+        x = p.ringX; y = p.ringY; r = p.r; alpha = Math.max(0, 1 - p.phaseT * 2.2);
+      } else {
+        continue;
+      }
+      if (alpha <= 0.01) continue;
+      const bodyC = _mix(0.3, ink, [8, 10, 18]);
+      const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.35, r * 0.1, x, y, r * (forming ? 1.6 : 1.45));
+      g.addColorStop(0, _rgba(_mix(0.55, ink, [235, 240, 255]), alpha));
+      g.addColorStop(0.5, _rgba(bodyC, alpha * 0.95));
+      g.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = g;
+      ctx.save();
+      ctx.translate(x, y);
+      if (forming) ctx.scale(1, 1.35 * (0.75 + k * 0.5) + Math.sin(t * 4.2 + p.seed * 7) * 0.06 * k);
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = `rgba(255,252,244,${0.5 * alpha})`;
+      ctx.beginPath();
+      ctx.arc(x - r * 0.32, y - r * 0.38, r * 0.26, 0, Math.PI * 2);
+      ctx.fill();
+      if (forming) {
+        const stretch = 1.35 * (0.75 + k * 0.5) + Math.sin(t * 4.2 + p.seed * 7) * 0.06 * k;
+        ctx.strokeStyle = _rgba(ink, 0.5 * alpha);
+        ctx.lineWidth = Math.max(0.8, r * 0.26);
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(x, y - r * stretch);
+        ctx.lineTo(x, y - r * stretch - r * (1.1 + k * 0.9));
+        ctx.stroke();
+      }
+    }
+  }
+
+  ThemeScenes.register("inkwater", {
+    label: "Ink in Water",
+    hidden: true,
+    defaults: { density: 6, speed: 1, color: "#38bdf8" },
+    presetBgColors: ["#020617", "#000000", "#0a0a1a", "#0f172a", "#1a0a2e", "#0d1117"],
+    presetCombos: [
+      { color: "#38bdf8", bg: "#0a0a1a" }, 
+      { color: "#06b6d4", bg: "#0a1a2e" }, 
+      { color: "#f472b6", bg: "#1a0a2e" }, 
+      { color: "#34d399", bg: "#0a1a0a" }, 
+      { color: "#fbbf24", bg: "#1a1208" }, 
+      { color: "#f87171", bg: "#1c0c10" }, 
+    ],
+    options: [
+      { key: "density", label: "Ink Drops", type: "range", min: 2, max: 15, step: 1 },
+      { key: "speed", label: "Speed", type: "range", min: 0.3, max: 3, step: 0.1 },
+      { key: "color", label: "Ink Color", type: "color" },
+    ],
+
+    init(state, w, h, opts) {
+      state.t = 0;
+      state.S = h / 1080;
+      state.w = w;
+      state.h = h;
+      const S = state.S;
+
+      const bw = Math.max(48, Math.ceil(w / 4));
+      const bh = Math.max(30, Math.ceil(h / 4));
+      state.bw = bw; state.bh = bh;
+      state.cw = w / bw; state.ch = h / bh;
+      const vw = Math.max(16, Math.ceil(w / 8));
+      const vh = Math.max(12, Math.ceil(h / 8));
+      state.vw = vw; state.vh = vh;
+      const tw = Math.max(10, Math.ceil(w / 16));
+      const th = Math.max(8, Math.ceil(h / 16));
+      state.tw = tw; state.th = th;
+
+      state.fieldA = new Float32Array(bw * bh);
+      state.fieldB = new Float32Array(bw * bh);
+      state.velU = new Float32Array(vw * vh);
+      state.velV = new Float32Array(vw * vh);
+      state.turbU = new Float32Array(tw * th);
+      state.turbV = new Float32Array(tw * th);
+
+      const fc = document.createElement("canvas");
+      fc.width = bw;
+      fc.height = bh;
+      state.fieldCanvas = fc;
+      state.fieldCtx = fc.getContext("2d");
+      state.img = state.fieldCtx.createImageData(bw, bh);
+      state.imgData = state.img.data;
+
+      state.turb = [
+        { a: 320, f: (Math.PI * 2 * 1.7) / w, g: (Math.PI * 2 * 2.3) / h, w1: 0.21, w2: 0.15, p1: Math.random() * 6.283, p2: Math.random() * 6.283 },
+        { a: 110, f: (Math.PI * 2 * 3.4) / w, g: (Math.PI * 2 * 4.7) / h, w1: 0.34, w2: 0.27, p1: Math.random() * 6.283, p2: Math.random() * 6.283 },
+      ];
+
+      state.caustic = _makeCausticTile(192);
+
+      state.moteSprites = [_makeMoteSprite(0), _makeMoteSprite(1), _makeMoteSprite(2)];
+      state.motes = [];
+      const nMot = 24 + Math.floor(Math.random() * 14);
+      for (let i = 0; i < nMot; i++) {
+        state.motes.push({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          s: (1 + Math.random() * 2.2) * S,
+          a: 0.05 + Math.random() * 0.12,
+          vx: (Math.random() - 0.5) * 9 * S,
+          vy: (-4 + Math.random() * 6) * S,
+          sw: 0.4 + Math.random() * 0.9,
+          ph: Math.random() * Math.PI * 2,
+          depth: Math.random() < 0.4 ? 0 : Math.random() < 0.5 ? 1 : 2,
+        });
+      }
+
+      state.vignette = _makeVignette(w, h);
+
+      const count = Math.max(2, Math.min(15, Math.round(opts.density ?? 6)));
+      state.plumes = [];
+      for (let i = 0; i < count; i++) {
+        state.plumes.push(_newPlume(state, w, h, i, true));
+      }
+    },
+
+    draw(ctx, w, h, state, opts, dt) {
+      const speed = opts.speed ?? 1;
+      const color = opts.color || "#38bdf8";
+      const bgColor = opts.bgColor || null;
+      state.t += dt;
+      const t = state.t * speed; 
+      const dtm = dt * speed; 
+      const S = state.S;
+
+      const ink = _hexToRgb(color);
+      const body = _mix(0.5, ink, [10, 8, 20]); 
+      const rim = [255, 244, 226]; 
+
+    const bw = state.bw, bh = state.bh;
+    if (!state.blurCanvas || state.blurCanvas.width !== bw) {
+      const bc = document.createElement("canvas");
+      bc.width = bw;
+      bc.height = bh;
+      state.blurCanvas = bc;
+      state.blurCtx = bc.getContext("2d");
+    }
+    const bctx = state.blurCtx;
+    const kx = bw / w, ky = bh / h;
+    bctx.clearRect(0, 0, bw, bh);
+    if (bgColor) {
+      bctx.fillStyle = bgColor;
+      bctx.fillRect(0, 0, bw, bh);
+    } else {
+      const wg = bctx.createLinearGradient(0, 0, 0, bh);
+      wg.addColorStop(0, "#0d1322");
+      wg.addColorStop(0.45, "#090e1b");
+      wg.addColorStop(1, "#04060d");
+      bctx.fillStyle = wg;
+      bctx.fillRect(0, 0, bw, bh);
+    }
+
+    const sh = bctx.createLinearGradient(0, 0, 0, bh * 0.08);
+    sh.addColorStop(0, "rgba(190,215,255,0.07)");
+    sh.addColorStop(1, "rgba(190,215,255,0)");
+    bctx.fillStyle = sh;
+    bctx.fillRect(0, 0, bw, bh * 0.08);
+
+    const ca = state.caustic;
+    if (!ca.pattern) ca.pattern = ctx.createPattern(ca.canvas, "repeat");
+    const causticH = Math.ceil(h * 0.62); 
+    if (!state.causticScratch || state.causticScratch.width !== Math.ceil(w / 2)) {
+      const cs = document.createElement("canvas");
+      cs.width = Math.ceil(w / 2);
+      cs.height = Math.ceil(causticH / 2);
+      state.causticScratch = cs;
+      state.causticCtx = cs.getContext("2d");
+    }
+    const csc = state.causticCtx;
+    csc.save();
+    csc.globalCompositeOperation = "screen";
+    csc.scale(0.5, 0.5);
+    csc.translate(-((t * 3.4) % ca.size), -((t * 2.2) % ca.size));
+    csc.fillStyle = ca.pattern;
+    csc.fillRect(-ca.size, -ca.size, w + ca.size * 2, causticH + ca.size * 2);
+    csc.restore();
+    bctx.save();
+    bctx.globalAlpha = 0.05;
+    bctx.globalCompositeOperation = "screen";
+    bctx.drawImage(state.causticScratch, 0, 0, bw, causticH * ky);
+    bctx.restore();
+
+    if (!state.poolSprite || state.poolSpriteFor !== color) {
+      const ps = document.createElement("canvas");
+      ps.width = ps.height = 64;
+      const px = ps.getContext("2d");
+      const pg = px.createRadialGradient(32, 32, 0, 32, 32, 32);
+      pg.addColorStop(0, _rgba(ink, 0.07));
+      pg.addColorStop(1, "rgba(0,0,0,0)");
+      px.fillStyle = pg;
+      px.fillRect(0, 0, 64, 64);
+      state.poolSprite = ps;
+      state.poolSpriteFor = color;
+    }
+    bctx.save();
+    bctx.globalCompositeOperation = "screen";
+    for (const p of state.plumes) {
+      if (p.phase < PH_STRIKE) continue;
+      const pr = p.ringR * 1.7 * kx;
+      const py = (p.ringY + p.ringR * 1.2) * ky;
+      bctx.drawImage(state.poolSprite, p.ringX * kx - pr, py - pr, pr * 2, pr * 2);
+    }
+    bctx.restore();
+
+      _updatePlumes(state, t, dtm, S);
+      _buildVel(state, w, h, t);
+      _advect(state, w, h, dtm);
+      _inject(state, dtm);
+      _diffuseDecay(state, dtm);
+      _renderField(ctx, state, w, h, body, rim);
+
+      _drawDrops(ctx, state, ink, t);
+
+      for (const m of state.motes) {
+        m.x += (m.vx + Math.sin(t * m.sw + m.ph) * 2) * dtm;
+        m.y += m.vy * dtm;
+        if (m.y > h + 4) { m.y = -4; m.x = Math.random() * w; }
+        if (m.y < -4) { m.y = h + 4; m.x = Math.random() * w; }
+        ctx.globalAlpha = m.a;
+        ctx.drawImage(state.moteSprites[m.depth], m.x - m.s, m.y - m.s, m.s * 2, m.s * 2);
+      }
+      ctx.globalAlpha = 1;
+
+      ctx.drawImage(state.vignette, 0, 0);
+      ctx.fillStyle = "rgba(255,255,255,0.02)";
+      for (let i = 0; i < 46; i++) {
+        ctx.fillRect(Math.random() * w, Math.random() * h, 1 + Math.random() * 1.2, 1 + Math.random() * 1.2);
+      }
+    },
+  });
+})();

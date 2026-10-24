@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Asset drop contact sheet</title>
+<style>
+  body { background:#0d1322; color:#e8eaf0; font:13px/1.5 system-ui,sans-serif; padding:24px; }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:#8fa4d4; margin:20px 0 8px; }
+  .r { display:flex; gap:18px; flex-wrap:wrap; align-items:center; }
+  .cell { display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:10px; background:rgba(123,139,178,.08); border:1px solid rgba(123,139,178,.2); }
+  .lbl { font-size:11px; color:#8fa4d4; }
+  img.ic, svg.ic { display:block; }
+  /* context mocks */
+  .btn { display:inline-flex; align-items:center; gap:6px; border-radius:9px; padding:6px 10px; font-size:.74rem; font-weight:600; }
+  .btn-primary { background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; border:none; }
+  .btn-secondary { background:rgba(123,139,178,.12); border:1px solid rgba(123,139,178,.25); color:#b9c8ea; }
+  .tabbar { display:flex; gap:4px; background:rgba(123,139,178,.08); padding:6px; border-radius:12px; width:fit-content; }
+  .tab { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:9px; font-size:.74rem; font-weight:600; color:#8fa4d4; }
+  .tab.active { background:rgba(99,102,241,.2); color:#a5b4fc; }
+  .badge-mock { display:inline-flex; align-items:center; gap:6px; font-size:.75rem; color:#a5b4fc; background:rgba(99,102,241,.14); border:1px solid rgba(99,102,241,.4); border-radius:999px; padding:4px 10px; }
+  .chip { color:rgba(255,255,255,.65); font-size:.82rem; display:inline-flex; align-items:center; gap:6px; }
+  .onaccent { display:inline-flex; align-items:center; gap:6px; background:#6366f1; color:#fff; border-radius:9px; padding:6px 10px; font-size:.74rem; font-weight:600; }
+</style></head>
+<body>
+<h1 style="font-size:16px;margin:0 0 4px">Asset drop — 11 slots</h1>
+<div class="lbl" style="margin-bottom:14px">Each icon at 14 / 16 / 24px, then in its real context. White-on-accent row checks contrast on filled buttons.</div>
+
+<h2>1 · palette (theme badge + auto-detect ×3)</h2>
+<div class="r">
+  <span class="cell"><img class="ic" src="zz-assets-tmp/1. palette.svg" width="14"><img class="ic" src="zz-assets-tmp/1. palette.svg" width="16"><img class="ic" src="zz-assets-tmp/1. palette.svg" width="24"><span class="lbl">1</span></span>
+  <span class="badge-mock"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" data-slot="palette"></svg>Custom theme active</span>
+</div>
+
+<h2>2 · picture (Background tab)</h2>
+<div class="r">
+  <span class="cell"><img class="ic" src="zz-assets-tmp/2. picture.svg" width="14"><img class="ic" src="zz-assets-tmp/2. picture.svg" width="16"><img class="ic" src="zz-assets-tmp/2. picture.svg" width="24"><span class="lbl">2</span></span>
+  <span class="tabbar"><span class="tab active" data-slot-img="2">Background</span></span>
+</div>
+
+<h2>3 · wheel (Colors tab)</h2>
+<div class="r">
+  <span class="cell"><img class="ic" src="zz-assets-tmp/3-wheel.svg" width="14"><img class="ic" src="zz-assets-tmp/3-wheel.svg" width="16"><img class="ic" src="zz-assets-tmp/3-wheel.svg" width="24"><span class="lbl">3 (traced)</span></span>
+  <span class="tabbar"><span class="tab" data-slot-img="3">Colors</span></span>
+</div>
+
+<h2>4 · layers (Overlay tab)</h2>
+<div class="r">
+  <span class="cell"><img class="ic" src="zz-assets-tmp/4. layers (3 layers).svg" width="14"><img class="ic" src="zz-assets-tmp/4. layers (3 layers).svg" width="16"><img class="ic" src="zz-assets-tmp/4. layers (3 layers).svg" width="24"><span class="lbl">4 · 3-layer</span></span>
+  <span class="cell"><img class="ic" src="zz-assets-tmp/4. layers (two layers) .svg" width="14"><img class="ic" src="zz-assets-tmp/4. layers (two layers) .svg" width="16"><span class="lbl">4 · 2-layer alt</span></span>
+  <span class="tabbar"><span class="tab" data-slot-img="4">Overlay</span></span>
+</div>
+
+<h2>5 · disk (Save ×2)</h2>
+<div class="r">
+  <span class="cell"><img class="ic" src="zz-assets-tmp/5. disk.svg" width="14"><img class="ic" src="zz-assets-tmp/5. disk.svg" width="16"><img class="ic" src="zz-assets-tmp/5. disk.svg" width="24"><span class="lbl">5</span></span>
+  <span class="onaccent"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" data-slot="5"></svg>Save</span>
+  <span class="btn btn-secondary" data-slot-img="5b">Save</span>
+</div>
+
+<h2>6 · export / 7 · import</h2>
+<div class="r">
+  <span class="cell"><img class="ic" src="zz-assets-tmp/6-export.svg" width="14"><img class="ic" src="zz-assets-tmp/6-export.svg" width="16"><img class="ic" src="zz-assets-tmp/6-export.svg" width="24"><span class="lbl">6 (traced)</span></span>
+  <span class="cell"><img class="ic" src="zz-assets-tmp/7-import.svg" width="14"><img class="ic" src="zz-assets-tmp/7-import.svg" width="16"><img class="ic" src="zz-assets-tmp/7-import.svg" width="24"><span class="lbl">7 (traced)</span></span>
+  <span class="btn btn-secondary" data-slot-img="6">Export</span>
+  <span class="btn btn-secondary" data-slot-img="7">Import</span>
+</div>
+
+<h2>8 · eye (Preview)</h2>
+<div class="r">
+  <span class="cell"><img class="ic" src="zz-assets-tmp/8. eye.svg" width="14"><img class="ic" src="zz-assets-tmp/8. eye.svg" width="16"><img class="ic" src="zz-assets-tmp/8. eye.svg" width="24"><span class="lbl">8</span></span>
+  <span class="btn btn-secondary" data-slot-img="8">Preview</span>
+</div>
+
+<h2>9 · bolt (fullscreen chip)</h2>
+<div class="r">
+  <span class="cell"><img class="ic" src="zz-assets-tmp/9. bolt.svg" width="14"><img class="ic" src="zz-assets-tmp/9. bolt.svg" width="16"><img class="ic" src="zz-assets-tmp/9. bolt.svg" width="24"><span class="lbl">9</span></span>
+  <span class="chip"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" data-slot="9"></svg>Fullscreen Preview</span>
+</div>
+
+<h2>10 · pencil (Rename)</h2>
+<div class="r">
+  <span class="cell"><img class="ic" src="zz-assets-tmp/10-pencil.svg" width="14"><img class="ic" src="zz-assets-tmp/10-pencil.svg" width="16"><img class="ic" src="zz-assets-tmp/10-pencil.svg" width="24"><span class="lbl">10 (traced)</span></span>
+  <span class="btn btn-secondary" data-slot-img="10">Rename</span>
+</div>
+
+<h2>11 · gear (Expand Settings)</h2>
+<div class="r">
+  <span class="cell"><img class="ic" src="zz-assets-tmp/11-gear.svg" width="14"><img class="ic" src="zz-assets-tmp/11-gear.svg" width="16"><img class="ic" src="zz-assets-tmp/11-gear.svg" width="24"><span class="lbl">11 · Material</span></span>
+  <span class="btn btn-primary" data-slot-img="11">Expand Settings</span>
+</div>
+
+<script>
+// inject inline copies (fill currentColor) into context mocks + white-on-accent cells
+const slots = {
+  '1': '1-palette.svg', '2': '2-picture.svg', '3': '3-wheel.svg', '4': '4-layers.svg',
+  '5': '5-disk.svg', '5b': '5-disk.svg', '6': '6-export.svg', '7': '7-import.svg',
+  '8': '8-eye.svg', '9': '9-bolt.svg', '10': '10-pencil.svg',
+  '11': '11-gear.svg'
+};
+const cache = {};
+async function inline(slot, host, size) {
+  const f = slots[slot];
+  if (!f || !host) return;
+  if (!cache[f]) cache[f] = await (await fetch('zz-assets-tmp/' + encodeURIComponent(f))).text();
+  const doc = new DOMParser().parseFromString(cache[f], 'image/svg+xml');
+  const svg = doc.documentElement;
+  svg.setAttribute('width', size); svg.setAttribute('height', size);
+  svg.setAttribute('fill', 'currentColor');
+  svg.removeAttribute('id');
+  host.prepend(svg);
+}
+document.querySelectorAll('[data-slot-img]').forEach(el => {
+  const slot = el.dataset.slotImg;
+  inline(slot, el, 14);
+});
+document.querySelectorAll('svg[data-slot]').forEach(el => {
+  const slot = el.dataset.slot;
+  const f = slots[slot];
+  if (!f) return;
+  fetch('zz-assets-tmp/' + encodeURIComponent(f)).then(r => r.text()).then(t => {
+    const doc = new DOMParser().parseFromString(t, 'image/svg+xml');
+    el.innerHTML = doc.documentElement.innerHTML;
+  });
+});
+</script>
+</body></html>

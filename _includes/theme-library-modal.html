@@ -1,0 +1,67 @@
+<div id="tlModal" class="tl-modal">
+  <div id="tlBackdrop" class="tl-backdrop"></div>
+  <div class="tl-panel">
+    <div class="tl-header">
+      <div>
+        <p class="tl-eyebrow">Animated themes</p>
+        <h3 class="tl-title">Theme Library</h3>
+      </div>
+      <button
+        id="tlClose"
+        class="tl-close"
+        type="button"
+        title="Close"
+        aria-label="Close theme library"
+      >
+        {% include svg/uo-line-close.svg %}
+      </button>
+    </div>
+
+    <div class="tl-body">
+      <section class="tl-browse">
+        <input
+          id="tlSearch"
+          class="tl-search"
+          type="search"
+          placeholder="Search themes…"
+          autocomplete="off"
+        />
+        <div id="tlFilters" class="tl-filters"></div>
+        <div id="tlGrid" class="te-scene-grid tl-grid"></div>
+        <div id="tlCount" class="tl-count"></div>
+      </section>
+
+      <section class="tl-scene-panel" id="tlScenePanel">
+        <div class="tl-panel-head">
+          <p class="tl-section-label" id="tlEditorTitle">Customize theme</p>
+        </div>
+        <div class="tl-preview-stage" id="tlPreviewStage">
+          <canvas id="tlPreviewCanvas" class="te-preview-canvas"></canvas>
+          <span class="tl-preview-empty" id="tlPreviewEmpty">
+            Pick a preset to preview it here and tune it live.
+          </span>
+        </div>
+        <div class="tl-panel-fields" id="tlPanelFields">
+          {% include scene-panel.html prefix="tl" shelf="false" %}
+        </div>
+      </section>
+    </div>
+
+    <div class="tl-footer" id="tlFooter" hidden>
+      <div class="tl-footer-actions">
+        <button type="button" id="tlEditorReset" class="tl-editor-reset">
+          Reset
+        </button>
+        <button
+          type="button"
+          id="tlApplyBtn"
+          class="tl-apply-btn"
+          disabled
+          title="Pick a theme first"
+        >
+          Apply
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

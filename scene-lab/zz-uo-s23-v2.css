@@ -1,0 +1,246 @@
+/*._UO-S23-START_*/
+/* ═══════════════════════════════════════════════════════════
+   Surfaces 2+3 — release notes + system popups + task-popup shell
+   (2026-10-07 v2, planner-v3 language COLORIZED + THEME-ADAPTIVE).
+   Doctrine (§10.4): Refined structure, COLORFUL; no low-alpha white
+   text/chrome tiers where the original was colored; theme-adaptive
+   via local --s23-* vars re-mapped under body.custom-theme-active.
+   GLOW DOCTRINE (user, gate-3-v2 round): cards carry the add-task modal's
+   NEUTRAL elevation only — no accent halo; colored glow lives on primary
+   buttons at the S4 recipe (0 6px 18px @ 45%).
+   JS hooks untouched; restyle only. Strip via zz-uo-remove-uos.mjs.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── local register (default palette; re-mapped under custom themes).
+   Defined on body so consumers inside ANY shell inherit — including the
+   advanced-settings modal's extras previews, which live outside overlays. ── */
+body {
+  --s23-accent: #6366f1;
+  --s23-accent-contrast: #ffffff;
+  --s23-accent-text: #a5b4fc;
+  --s23-accent-border: rgba(99, 102, 241, 0.35);
+  --s23-accent-glow: rgba(99, 102, 241, 0.45);
+  --s23-chip-soft: rgba(99, 102, 241, 0.16);
+  --s23-danger: #f87171;
+  --s23-danger-contrast: #ffffff;
+  --s23-overlay: rgba(3, 11, 32, 0.75);
+  --s23-label: #8fa4d4;
+  --s23-secondary: #b9c8ea;
+  --s23-secondary-bg: rgba(123, 139, 178, 0.12);
+  --s23-secondary-border: rgba(123, 139, 178, 0.25);
+  --s23-body: #d0def2;
+  --s23-hairline: rgba(123, 139, 178, 0.22);
+}
+
+body.custom-theme-active {
+  --s23-accent: var(--th-accent, #6366f1);
+  --s23-accent-soft: color-mix(in srgb, var(--th-accent, #6366f1) 16%, transparent);
+  --s23-accent-border: color-mix(in srgb, var(--th-accent, #6366f1) 35%, transparent);
+  --s23-accent-glow: color-mix(in srgb, var(--th-accent, #6366f1) 45%, transparent);
+  --s23-label: color-mix(in srgb, var(--th-accent, #6366f1) 55%, var(--th-surface-text, #e8eefc));
+  --s23-body: color-mix(in srgb, var(--th-accent, #6366f1) 12%, var(--th-surface-text, #e8eefc));
+  --s23-hairline: color-mix(in srgb, var(--th-accent, #6366f1) 22%, transparent);
+}
+
+/* ── overlay backdrop tints ── */
+.patch-notes-popup,
+.update-notice-popup,
+.confirm-backdrop,
+.task-popup {
+  background: var(--s23-overlay);
+}
+
+/* ── SURFACE 2: release notes + update notice ── */
+.patch-notes-card,
+.update-notice-card {
+  border-color: var(--s23-accent-border);
+  box-shadow:
+    0 18px 50px rgba(0, 0, 0, 0.35),
+    0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.patch-notes-eyebrow {
+  color: var(--s23-label);
+}
+
+.patch-notes-title {
+  color: #ffffff;
+}
+
+.patch-notes-close {
+  background: var(--s23-secondary-bg, rgba(255, 255, 255, 0.06));
+  border-color: var(--s23-secondary-border, rgba(255, 255, 255, 0.1));
+  color: var(--s23-secondary, rgba(255, 255, 255, 0.65));
+}
+
+.patch-notes-close:hover {
+  background: var(--s23-chip-soft);
+  border-color: var(--s23-accent-border);
+  color: var(--s23-accent-text);
+}
+
+.patch-note-preview {
+  background: var(--s23-secondary-bg, rgba(255, 255, 255, 0.04));
+  border-color: var(--s23-hairline);
+  color: var(--s23-body);
+}
+
+.patch-note-preview:hover {
+  background: var(--s23-chip-soft);
+  border-color: var(--s23-accent-border);
+}
+
+.patch-note-preview small,
+.patch-notes-entry-header span {
+  color: var(--s23-label);
+}
+
+.patch-note-preview p,
+.patch-notes-entry p {
+  color: var(--s23-body);
+}
+
+.patch-notes-entry {
+  border-bottom-color: var(--s23-hairline);
+}
+
+.patch-notes-entry h4 {
+  color: #ffffff;
+}
+
+.patch-notes-primary-btn {
+  border-radius: var(--uo-radius-md, 10px);
+  background: linear-gradient(135deg, var(--s23-accent), color-mix(in srgb, var(--s23-accent) 78%, #000));
+  box-shadow: 0 6px 18px var(--s23-accent-glow);
+  transition:
+    transform 0.18s var(--uo-spring, ease),
+    filter 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.patch-notes-primary-btn:hover {
+  box-shadow: 0 10px 26px var(--s23-accent-glow);
+}
+
+body.custom-theme-active .patch-notes-primary-btn {
+  background: var(--s23-accent);
+}
+
+/* extras preview (advanced settings) follows the same register */
+.advanced-settings-modal .patch-note-preview {
+  background: var(--s23-secondary-bg, rgba(255, 255, 255, 0.04));
+  border-color: var(--s23-hairline);
+}
+.advanced-settings-modal .patch-note-preview:hover {
+  background: var(--s23-chip-soft);
+  border-color: var(--s23-accent-border);
+}
+
+/* ── SURFACE 3: confirm/notice system popups ── */
+.confirm-card {
+  border-color: var(--s23-accent-border);
+  box-shadow:
+    0 18px 50px rgba(0, 0, 0, 0.35),
+    0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.confirm-message {
+  color: var(--s23-body);
+}
+
+.confirm-btn-cancel {
+  background: var(--s23-secondary-bg);
+  border-color: var(--s23-secondary-border);
+  color: var(--s23-secondary);
+}
+
+.confirm-btn-cancel:hover {
+  background: color-mix(in srgb, var(--s23-secondary-bg) 60%, transparent), rgba(255, 255, 255, 0.04);
+  border-color: var(--s23-secondary-border);
+  color: #ffffff;
+}
+
+.confirm-btn-primary {
+  background: linear-gradient(135deg, var(--s23-accent), color-mix(in srgb, var(--s23-accent) 78%, #000));
+  box-shadow: 0 6px 18px var(--s23-accent-glow);
+}
+
+.confirm-btn-primary:hover {
+  box-shadow: 0 10px 26px var(--s23-accent-glow);
+}
+
+body.custom-theme-active .confirm-btn-primary {
+  background: var(--s23-accent);
+}
+
+/* danger variant — destructive confirms (task delete, stats reset).
+   Carries the primary's full structure (the original .confirm-btn-primary
+   rule no longer matches this class) with red paint. */
+.confirm-btn-danger {
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--uo-radius-sm);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: linear-gradient(135deg, var(--s23-danger), color-mix(in srgb, var(--s23-danger) 78%, #000));
+  color: var(--s23-danger-contrast);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--s23-danger) 45%, transparent);
+  transition:
+    filter var(--uo-motion-fast) ease-out,
+    transform 180ms var(--uo-spring);
+}
+
+.confirm-btn-danger:active {
+  transform: scale(0.97);
+}
+
+.confirm-btn-danger:hover {
+  filter: brightness(1.12);
+}
+
+body.custom-theme-active .confirm-btn-danger {
+  background: var(--s23-danger);
+}
+
+/* ── task-popup shell (add/edit task) to benchmark register ── */
+.task-popup-card {
+  border-color: var(--s23-accent-border);
+  box-shadow:
+    0 18px 50px rgba(0, 0, 0, 0.35),
+    0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.task-popup-header h3 {
+  color: #ffffff;
+}
+
+.cancel-task-btn {
+  background: var(--s23-secondary-bg);
+  border-color: var(--s23-secondary-border);
+  color: var(--s23-secondary);
+}
+
+.cancel-task-btn:hover {
+  background: var(--s23-chip-soft);
+  border-color: var(--s23-accent-border);
+  color: #ffffff;
+}
+
+.save-task-btn {
+  background: linear-gradient(135deg, var(--s23-accent), color-mix(in srgb, var(--s23-accent) 78%, #000));
+}
+
+.save-task-btn:hover {
+  box-shadow: 0 10px 26px var(--s23-accent-glow);
+}
+
+body.custom-theme-active .save-task-btn {
+  background: var(--s23-accent);
+}
+
+/* form labels in the popup go alto-blue (S4 parity) */
+.task-popup .form-label {
+  color: var(--s23-label);
+}
+/*._UO-S23-END_*/

@@ -1,0 +1,18 @@
+<!doctype html><html><head><meta charset="utf-8"><title>trace ref1</title></head>
+<body>
+<img id="img" src="imgref/ref1.png" style="width:1908px;height:1140px">
+<canvas id="cv" width="1908" height="1140"></canvas>
+<pre id="out"></pre>
+<script>
+window.__trace = { img: null, cv: null, ctx: null, data: null, w: 0, h: 0 };
+const img = document.getElementById('img');
+img.onload = () => {
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  const d = ctx.getImageData(0, 0, cv.width, cv.height).data;
+  window.__trace = { img, cv, ctx, data: d, w: cv.width, h: cv.height };
+  document.getElementById('out').textContent = 'loaded ' + cv.width + 'x' + cv.height;
+};
+</script>
+</body></html>

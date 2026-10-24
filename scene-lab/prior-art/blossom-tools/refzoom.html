@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>ref1 zoom</title>
+<style>
+  body { background:#000; color:#eee; font-family:system-ui; margin:0; }
+  #wrap { position:fixed; inset:0; overflow:hidden; }
+  img { position:absolute; left:0; top:0; transform-origin:0 0; image-rendering:auto; }
+  #ctl { position:fixed; top:8px; left:8px; z-index:10; background:rgba(0,0,0,.75); border:1px solid #333; border-radius:8px; padding:8px 12px; font-size:13px; display:flex; gap:8px; align-items:center; }
+  button { background:#333; color:#fff; border:1px solid #555; border-radius:6px; padding:3px 10px; cursor:pointer; }
+  #pos { color:#ffd27d; }
+</style>
+</head>
+<body>
+<div id="ctl">
+  <button id="zin">+</button>
+  <button id="zout">−</button>
+  <button id="reset">reset</button>
+  <span id="pos"></span>
+</div>
+<div id="wrap">
+  <img id="img" src="imgref/ref1.png">
+</div>
+<script>
+  const img = document.getElementById('img');
+  const wrap = document.getElementById('wrap');
+  const pos = document.getElementById('pos');
+  let scale = 1, tx = 0, ty = 0, drag = null;
+  function apply() {
+    img.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`;
+    pos.textContent = `${Math.round(scale*100)}% · ${Math.round(-tx/scale)} ${Math.round(-ty/scale)}`;
+  }
+  function zoom(f, cx, cy) {
+    const nx = Math.max(0.2, Math.min(40, scale * f));
+    const k = nx / scale;
+    tx = cx - (cx - tx) * k;
+    ty = cy - (cy - ty) * k;
+    scale = nx;
+    apply();
+  }
+  document.getElementById('zin').onclick = () => zoom(1.6, wrap.clientWidth/2, wrap.clientHeight/2);
+  document.getElementById('zout').onclick = () => zoom(1/1.6, wrap.clientWidth/2, wrap.clientHeight/2);
+  document.getElementById('reset').onclick = () => { scale=1; tx=0; ty=0; apply(); };
+  wrap.addEventListener('mousedown', e => { drag = { x: e.clientX, y: e.clientY, tx, ty }; });
+  window.addEventListener('mousemove', e => { if (drag) { tx = drag.tx + (e.clientX - drag.x); ty = drag.ty + (e.clientY - drag.y); apply(); } });
+  window.addEventListener('mouseup', () => { drag = null; });
+  wrap.addEventListener('wheel', e => { e.preventDefault(); zoom(e.deltaY < 0 ? 1.15 : 1/1.15, e.clientX, e.clientY); }, { passive:false });
+  apply();
+</script>
+</body>
+</html>

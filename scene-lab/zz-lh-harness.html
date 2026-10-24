@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>zz harness — lighthouse</title></head>
+<body>
+<canvas id="host" width="390" height="244" style="width:390px;height:244px;"></canvas>
+<script src="../assets/js/scenes/core.js"></script>
+<script src="../assets/js/scenes/lighthouse/scene.js"></script>
+<script>
+// zz-lh-harness.html — throwaway battery for the reworked lighthouse scene.
+// Underscore-free name (Jekyll drops underscore-prefixed files from static dirs).
+const DEF = (() => {
+  const captured = {};
+  const orig = ThemeScenes.register.bind(ThemeScenes);
+  ThemeScenes.register = (id, def) => { captured[id] = def; orig(id, def); };
+  // scene file already executed above (registered before wrap) — grab it directly
+  return ThemeScenes.get("lighthouse");
+})();
+
+function mkCanvas(w, h, readback) {
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  if (readback) c.getContext("2d", { willReadFrequently: true });
+  return c;
+}
+function snap(ctx, w, h) {
+  return ctx.getImageData(0, 0, w, h).data;
+}
+function meanAbs(a, b) {
+  let s = 0;
+  for (let i = 0; i < a.length; i += 4) {
+    s += Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]);
+  }
+  return s / (a.length / 4) / 3;
+}
+function frameLum(data) {
+  let s = 0;
+  for (let i = 0; i < data.length; i += 4) s += 0.5 * data[i] + 0.5 * data[i + 2];
+  return s / (data.length / 4);
+}
+function regionMean(data, w, x0, y0, x1, y1) {
+  let r = 0, g = 0, b = 0, n = 0;
+  for (let y = Math.floor(y0); y < y1; y += 2)
+    for (let x = Math.floor(x0); x < x1; x += 2) {
+      const i = (y * w + x) * 4;
+      r += data[i]; g += data[i + 1]; b += data[i + 2]; n++;
+    }
+  return [r / n, g / n, b / n];
+}
+
+const W = 480, H = 300;
+const tests = {};
+
+// ── 1. host integration: real start/stop path ──
+tests.host = () => {
+  const c = document.getElementById("host");
+  const ok = ThemeScenes.start("lighthouse", { ...DEF.defaults }, c);
+  ThemeScenes.stop();
+  return { ok };
+};
+
+// ── 2. motion on fresh canvases ──
+tests.motion = () => {
+  const c1 = mkCanvas(W, H, true), c2 = mkCanvas(W, H, true);
+  const x1 = c1.getContext("2d"), x2 = c2.getContext("2d");
+  const st1 = {}, st2 = {};
+  const opts = { ...DEF.defaults };
+  DEF.init(st1, W, H, opts);
+  DEF.draw(x1, W, H, st1, opts, 1 / 60);
+  const a = snap(x1, W, H);
+  // advance time (draw again with dt) on a second fresh scene
+  DEF.init(st2, W, H, opts);
+  DEF.draw(x2, W, H, st2, opts, 1 / 60);
+  DEF.draw(x2, W, H, st2, opts, 0.9);
+  const b = snap(x2, W, H);
+  // same-canvas frame pair for a true temporal diff
+  const c3 = mkCanvas(W, H, true), x3 = c3.getContext("2d");
+  const st3 = {};
+  DEF.init(st3, W, H, opts);
+  DEF.draw(x3, W, H, st3, opts, 1 / 60);
+  const d1 = snap(x3, W, H);
+  DEF.draw(x3, W, H, st3, opts, 0.9);
+  const d2 = snap(x3, W, H);
+  return { temporalMeanAbs: meanAbs(d1, d2), freshMeanAbs: meanAbs(a, b) };
+};
+
+// ── 3. option effects: intensity + color + speed ──
+tests.options = () => {
+  const out = {};
+  const draw1 = (over) => {
+    const c = mkCanvas(W, H, true), x = c.getContext("2d");
+    const st = {};
+    const o = { ...DEF.defaults, ...over };
+    DEF.init(st, W, H, o);
+    DEF.draw(x, W, H, st, o, 1 / 60);
+    DEF.draw(x, W, H, st, o, 0.5);
+    return snap(x, W, H);
+  };
+  const beamLow = draw1({ intensity: 20 });
+  const beamHigh = draw1({ intensity: 100 });
+  out.intensityMeanAbs = meanAbs(beamLow, beamHigh);
+  const cWarm = draw1({ color: "#ffe1a8" });
+  const cIce = draw1({ color: "#7dd3fc" });
+  out.colorMeanAbs = meanAbs(cWarm, cIce);
+  const dCold = draw1({ color: "#7dd3fc" });
+  out.colorRepeatMeanAbs = meanAbs(cIce, dCold);
+  // speed: beam azimuth advance proportional to speed (drive with az override
+  // so the 0.32 seed doesn't mask the measured advance)
+  const azAt = (speed) => {
+    const st = {};
+    const o = { ...DEF.defaults, speed };
+    DEF.init(st, W, H, o);
+    st.az = 4.0;
+    st.flashE = 0;
+    DEF.draw(mkCanvas(W, H).getContext("2d"), W, H, st, o, 0.5);
+    return (st.az - 4.0 + Math.PI * 2) % (Math.PI * 2);
+  };
+  out.azSlow = azAt(0.2);
+  out.azFast = azAt(3);
+  out.azRatio = out.azFast / Math.max(1e-6, out.azSlow);
+  // weather: storm sky darker than clear sky
+  const skyAt = (weather) => {
+    const c = mkCanvas(W, H, true), x = c.getContext("2d");
+    const st = {};
+    const o = { ...DEF.defaults, weather };
+    DEF.init(st, W, H, o);
+    DEF.draw(x, W, H, st, o, 1 / 60);
+    return regionMean(snap(x, W, H), W, W * 0.55, H * 0.05, W * 0.9, H * 0.2);
+  };
+  out.skyClear = skyAt("clear");
+  out.skyStorm = skyAt("storm");
+  out.stormDarker = out.skyStorm[0] < out.skyClear[0];
+  return out;
+};
+
+// ── 4. every presetCombo renders sanely (as bgColor pairs) ──
+tests.combos = () => {
+  const results = [];
+  for (const combo of DEF.presetCombos) {
+    const c = mkCanvas(W, H, true), x = c.getContext("2d");
+    const st = {};
+    const o = { ...DEF.defaults, color: combo.color, bgColor: combo.bg };
+    DEF.init(st, W, H, o);
+    DEF.draw(x, W, H, st, o, 1 / 60);
+    DEF.draw(x, W, H, st, o, 0.4);
+    const d = snap(x, W, H);
+    results.push({ combo, sky: regionMean(d, W, W * 0.55, H * 0.05, W * 0.9, H * 0.2), sea: regionMean(d, W, W * 0.55, H * 0.8, W * 0.9, H * 0.95) });
+  }
+  return results;
+};
+
+// ── 5. flash: single toward-viewer peak + toggle comparison ──
+tests.flash = () => {
+  const N = 72;
+  const curve = (flashOn) => {
+    const lums = [];
+    const c = mkCanvas(W, H, true), x = c.getContext("2d");
+    const st = {};
+    const o = { ...DEF.defaults, flash: flashOn };
+    DEF.init(st, W, H, o);
+    for (let i = 0; i < N; i++) {
+      st.az = (i / N) * Math.PI * 2;
+      st.flashE = 0; // steady-state sample per azimuth
+      DEF.draw(x, W, H, st, o, 0.016);
+      lums.push(frameLum(snap(x, W, H)));
+    }
+    return lums;
+  };
+  const on = curve(true);
+  const off = curve(false);
+  // global argmax of the ON curve should sit near the toward-viewer azimuth
+  let argmax = 0;
+  for (let i = 0; i < N; i++) if (on[i] > on[argmax]) argmax = i;
+  const peakAz = (argmax / N) * Math.PI * 2;
+  const lift = on[argmax] - off[argmax]; // same geometry, flash is the only diff
+  return { peakAz: +peakAz.toFixed(2), lift: +lift.toFixed(3), lumOnPeak: +on[argmax].toFixed(2), lumOffSameAz: +off[argmax].toFixed(2), p25Lum: +on.slice().sort((a, b) => a - b)[Math.floor(N * 0.25)].toFixed(2) };
+};
+
+// ── 6. beam occlusion: landward beam hidden behind the headland ──
+tests.occlusion = () => {
+  // Two probes: (a) the sky beyond the headland crest must stay dark when the
+  // beam points up-left (landward, occluded); (b) the OPEN water right of the
+  // headland (x ≥ 0.30w — the rocks span the lower-left) must light up when
+  // the wedge sweeps the near water at az 1.3 (at exactly π/2 the beam points
+  // into the foreground rocks and is rightly occluded).
+  const probe = (az, left) => {
+    const c = mkCanvas(W, H, true), x = c.getContext("2d");
+    const st = {};
+    const o = { ...DEF.defaults };
+    DEF.init(st, W, H, o);
+    st.az = az; st.flashE = 0;
+    DEF.draw(x, W, H, st, o, 0.016);
+    const d = snap(x, W, H);
+    return left
+      ? regionMean(d, W, W * 0.01, H * 0.04, W * 0.10, H * 0.16) // sky, left of tower, off the moon
+      : regionMean(d, W, W * 0.30, H * 0.76, W * 0.42, H * 0.90); // open near water
+  };
+  const landward = probe(Math.PI - 0.35, true);   // beam behind the land
+  const waterBase = probe(Math.PI - 0.35, false); // landward: no wedge over that water
+  const flashWater = probe(1.3, false);           // steep seaward sweep, near water
+  return {
+    landward, waterBase, flashWater,
+    landwardCold: landward[0] < 26,
+    seawardWarm: flashWater[0] > waterBase[0] + 8,
+    warmFracLandward: 0,
+  };
+};
+
+// ── 7. organic pacing: rate modulates (never constant) ──
+tests.pacing = () => {
+  const st = {};
+  const o = { ...DEF.defaults };
+  DEF.init(st, W, H, o);
+  const x = mkCanvas(W, H).getContext("2d");
+  const rates = [];
+  let prev = st.az;
+  for (let i = 0; i < 1600; i++) {
+    DEF.draw(x, W, H, st, o, 1 / 60);
+    if (i > 300) {
+      // unwrap across the %TAU boundary so the wrap doesn't read as negative
+      let d = st.az - prev;
+      if (d < -Math.PI) d += Math.PI * 2;
+      rates.push(d);
+    }
+    prev = st.az;
+  }
+  const min = Math.min(...rates), max = Math.max(...rates);
+  return { min: +min.toExponential(2), max: +max.toExponential(2), modulates: max > min * 1.02, allPositive: min > 0 };
+};
+
+// ── 8. DPR: host path; the host's DPR transform must survive the draw, and
+// repeated init/draw on the same canvas must not compound the transform ──
+tests.dpr = async () => {
+  const out = {};
+  const c = document.createElement("canvas");
+  c.style.width = "390px"; c.style.height = "844px";
+  document.body.appendChild(c);
+  const okStart = ThemeScenes.start("lighthouse", { ...DEF.defaults }, c);
+  const ctx = c.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  const aBefore = ctx.getTransform().a;
+  await new Promise((r) => setTimeout(r, 120)); // several frames
+  const aAfter = ctx.getTransform().a;
+  out.dpr = {
+    okStart,
+    devicePixelRatio: dpr,
+    surface: c.width + "x" + c.height,
+    surfaceMatchesDpr1: Math.abs(c.width - 390 * dpr) <= 1 && Math.abs(c.height - 844 * dpr) <= 1,
+    transformSurvivesDpr1: Math.abs(aBefore - dpr) < 0.01 && Math.abs(aAfter - dpr) < 0.01,
+  };
+  ThemeScenes.stop();
+  c.remove();
+  return out;
+};
+
+// ── 9. reinit cycles: init/draw ×12 + destroy resilience ──
+tests.reinit = () => {
+  let errs = 0;
+  const x = mkCanvas(W, H).getContext("2d");
+  const st = {};
+  try {
+    for (let i = 0; i < 12; i++) {
+      DEF.init(st, W, H, { ...DEF.defaults });
+      DEF.draw(x, W, H, st, { ...DEF.defaults }, 1 / 60);
+      DEF.draw(x, W, H, st, { ...DEF.defaults, weather: i % 3 === 0 ? "storm" : "hazy" }, 1 / 60);
+    }
+    DEF.destroy(st);
+    DEF.draw(x, W, H, st, { ...DEF.defaults }, 1 / 60); // draw after destroy must not crash (rebuilds lazily is NOT required — but must not throw)
+  } catch (e) {
+    errs++;
+    return { errs, error: String(e) };
+  }
+  return { errs };
+};
+
+// ── 10. perf: 300 frames @960×600 (no willReadFrequently) ──
+tests.perf = () => {
+  const PW = 960, PH = 600;
+  const c = mkCanvas(PW, PH, false);
+  const x = c.getContext("2d");
+  const st = {};
+  const o = { ...DEF.defaults };
+  DEF.init(st, PW, PH, o);
+  // warmup
+  for (let i = 0; i < 30; i++) DEF.draw(x, PW, PH, st, o, 1 / 60);
+  const t0 = performance.now();
+  const N = 300;
+  for (let i = 0; i < N; i++) DEF.draw(x, PW, PH, st, o, 1 / 60);
+  const ms = (performance.now() - t0) / N;
+  return { msPerFrame: +ms.toFixed(2) };
+};
+
+window.__RUN = async (names) => {
+  const out = {};
+  for (const n of names) {
+    try {
+      out[n] = await tests[n]();
+    } catch (e) {
+      out[n] = { error: String(e) };
+    }
+  }
+  return out;
+};
+</script>
+</body>
+</html>

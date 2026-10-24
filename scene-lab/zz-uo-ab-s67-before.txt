@@ -1,0 +1,35 @@
+probe editor panel: {"w":1300,"h":599,"display":"flex","opacity":"1","radius":"22px","borderTop":"rgba(255, 255, 255, 0.07)","borderBottom":"1px rgba(255, 255, 255, 0.07)","bg":"rgba(10, 18, 34, 0.98)","fg":"rgb(52, 58, 64)","shadow":"rgba(0, 0, 0, 0.4) 0px 30px 80px 0px"}
+probe editor header: {"w":1242,"h":43,"display":"flex","opacity":"1","radius":"0px","borderTop":"rgb(52, 58, 64)","borderBottom":"0px rgb(52, 58, 64)","bg":"rgba(0, 0, 0, 0)","fg":"rgb(52, 58, 64)","shadow":"none"}
+probe editor tab (active): {"w":140,"h":41,"display":"block","opacity":"1","radius":"9px","borderTop":"rgba(99, 102, 241, 0.4)","borderBottom":"1px rgba(99, 102, 241, 0.4)","bg":"rgba(99, 102, 241, 0.2)","fg":"rgb(199, 210, 254)","shadow":"none"}
+probe editor footer: {"w":1242,"h":85,"display":"flex","opacity":"1","radius":"0px","borderTop":"rgba(255, 255, 255, 0.06)","borderBottom":"0px rgb(52, 58, 64)","bg":"rgba(0, 0, 0, 0)","fg":"rgb(52, 58, 64)","shadow":"none"}
+probe editor preview area: {"w":742,"h":389,"display":"flex","opacity":"1","radius":"14px","borderTop":"rgba(255, 255, 255, 0.07)","borderBottom":"1px rgba(255, 255, 255, 0.07)","bg":"rgba(255, 255, 255, 0.03)","fg":"rgb(52, 58, 64)","shadow":"none"}
+probe editor save btn: {"w":69,"h":68,"display":"block","opacity":"1","radius":"10px","borderTop":"rgb(255, 255, 255)","borderBottom":"0px rgb(255, 255, 255)","bg":"rgba(0, 0, 0, 0)","fg":"rgb(255, 255, 255)","shadow":"none"}
+probe editor cancel btn: {"w":82,"h":68,"display":"block","opacity":"1","radius":"10px","borderTop":"rgba(255, 255, 255, 0.1)","borderBottom":"1px rgba(255, 255, 255, 0.1)","bg":"rgba(255, 255, 255, 0.06)","fg":"rgba(255, 255, 255, 0.7)","shadow":"none"}
+wrote scene-lab/zz-uo-before-s67-editor.png
+probe footer menu: {"w":175,"h":540,"display":"flex","opacity":"1","radius":"12px","borderTop":"rgba(255, 255, 255, 0.1)","borderBottom":"1px rgba(255, 255, 255, 0.1)","bg":"rgba(10, 18, 34, 0.98)","fg":"rgb(52, 58, 64)","shadow":"rgba(0, 0, 0, 0.45) 0px 16px 48px 0px"}
+wrote scene-lab/zz-uo-before-s67-footermenu.png
+probe adv modal: {"w":1440,"h":1000,"display":"flex","opacity":"1","radius":"0px","borderTop":"rgb(52, 58, 64)","borderBottom":"0px rgb(52, 58, 64)","bg":"rgba(0, 0, 0, 0)","fg":"rgb(52, 58, 64)","shadow":"none"}
+probe adv panel: {"w":780,"h":795,"display":"block","opacity":"1","radius":"22px","borderTop":"rgba(255, 255, 255, 0.07)","borderBottom":"1px rgba(255, 255, 255, 0.07)","bg":"rgb(11, 17, 31)","fg":"rgb(52, 58, 64)","shadow":"none"}
+probe adv header: {"w":714,"h":47,"display":"flex","opacity":"1","radius":"0px","borderTop":"rgb(52, 58, 64)","borderBottom":"0px rgb(52, 58, 64)","bg":"rgba(0, 0, 0, 0)","fg":"rgb(52, 58, 64)","shadow":"none"}
+probe adv eyebrow: {"w":191,"h":15,"display":"block","opacity":"1","radius":"0px","borderTop":"rgba(99, 102, 241, 0.85)","borderBottom":"0px rgba(99, 102, 241, 0.85)","bg":"rgba(0, 0, 0, 0)","fg":"rgba(99, 102, 241, 0.85)","shadow":"none"}
+probe adv tab (active): {"w":123,"h":42,"display":"block","opacity":"1","radius":"9px","borderTop":"rgba(99, 102, 241, 0.4)","borderBottom":"1px rgba(99, 102, 241, 0.4)","bg":"rgba(99, 102, 241, 0.2)","fg":"rgb(199, 210, 254)","shadow":"none"}
+probe adv card: {"w":538,"h":101,"display":"block","opacity":"1","radius":"13px","borderTop":"rgba(255, 255, 255, 0.07)","borderBottom":"1px rgba(255, 255, 255, 0.07)","bg":"rgba(255, 255, 255, 0.03)","fg":"rgb(52, 58, 64)","shadow":"none"}
+probe adv card label: {"w":502,"h":15,"display":"block","opacity":"1","radius":"0px","borderTop":"rgba(255, 255, 255, 0.38)","borderBottom":"0px rgba(255, 255, 255, 0.38)","bg":"rgba(0, 0, 0, 0)","fg":"rgba(255, 255, 255, 0.38)","shadow":"none"}
+probe adv toggle track: {"w":40,"h":22,"display":"block","opacity":"1","radius":"11px","borderTop":"rgb(52, 58, 64)","borderBottom":"0px rgb(52, 58, 64)","bg":"rgb(99, 102, 241)","fg":"rgb(52, 58, 64)","shadow":"none"}
+wrote scene-lab/zz-uo-before-s67-general.png
+probe adv clock input (focused): {"w":162,"h":35,"display":"block","opacity":"1","radius":"7px","borderTop":"rgba(99, 102, 241, 0.5)","borderBottom":"1px rgba(99, 102, 241, 0.5)","bg":"rgba(255, 255, 255, 0.1)","fg":"rgb(255, 255, 255)","shadow":"none"}
+wrote scene-lab/zz-uo-before-s67-general-focus.png
+probe adv tab theme active: {"w":123,"h":42,"display":"block","opacity":"1","radius":"9px","borderTop":"rgba(99, 102, 241, 0.4)","borderBottom":"1px rgba(99, 102, 241, 0.4)","bg":"rgba(99, 102, 241, 0.2)","fg":"rgb(199, 210, 254)","shadow":"none"}
+probe adv library btn: {"w":502,"h":41,"display":"flex","opacity":"1","radius":"10px","borderTop":"rgba(255, 255, 255, 0.22)","borderBottom":"1px rgba(255, 255, 255, 0.22)","bg":"rgba(255, 255, 255, 0.04)","fg":"rgba(255, 255, 255, 0.82)","shadow":"none"}
+probe adv new-theme btn: {"w":502,"h":42,"display":"inline-block","opacity":"1","radius":"12px","borderTop":"rgba(255, 255, 255, 0.25)","borderBottom":"1px rgba(255, 255, 255, 0.25)","bg":"rgba(255, 255, 255, 0.04)","fg":"rgba(255, 255, 255, 0.7)","shadow":"none"}
+probe adv mode btn active: {"w":0,"h":0,"display":"block","opacity":"1","radius":"8px","borderTop":"rgba(99, 102, 241, 0.5)","borderBottom":"1px rgba(99, 102, 241, 0.5)","bg":"rgba(99, 102, 241, 0.22)","fg":"rgb(199, 210, 254)","shadow":"none"}
+wrote scene-lab/zz-uo-before-s67-theme.png
+probe theme library panel: {"w":720,"h":840,"display":"flex","opacity":"1","radius":"22px","borderTop":"rgba(255, 255, 255, 0.07)","borderBottom":"1px rgba(255, 255, 255, 0.07)","bg":"rgb(11, 17, 31)","fg":"rgb(52, 58, 64)","shadow":"rgba(0, 0, 0, 0.4) 0px 30px 80px 0px"}
+probe theme library header: {"w":662,"h":43,"display":"flex","opacity":"1","radius":"0px","borderTop":"rgb(52, 58, 64)","borderBottom":"0px rgb(52, 58, 64)","bg":"rgba(0, 0, 0, 0)","fg":"rgb(52, 58, 64)","shadow":"none"}
+probe theme library close: {"w":30,"h":30,"display":"flex","opacity":"1","radius":"9px","borderTop":"rgba(255, 255, 255, 0.7)","borderBottom":"0px rgba(255, 255, 255, 0.7)","bg":"rgba(255, 255, 255, 0.06)","fg":"rgba(255, 255, 255, 0.7)","shadow":"none"}
+wrote scene-lab/zz-uo-before-s67-tllib.png
+probe adv view-updates btn: {"w":502,"h":41,"display":"inline-block","opacity":"1","radius":"10px","borderTop":"rgb(143, 143, 157)","borderBottom":"2px rgb(143, 143, 157)","bg":"rgb(43, 42, 51)","fg":"rgb(251, 251, 254)","shadow":"none"}
+probe adv save btn: {"w":110,"h":37,"display":"flex","opacity":"1","radius":"8px","borderTop":"rgba(99, 102, 241, 0.4)","borderBottom":"1px rgba(99, 102, 241, 0.4)","bg":"rgba(99, 102, 241, 0.2)","fg":"rgb(199, 210, 254)","shadow":"none"}
+probe adv footer: {"w":714,"h":54,"display":"flex","opacity":"1","radius":"0px","borderTop":"rgba(255, 255, 255, 0.06)","borderBottom":"0px rgb(52, 58, 64)","bg":"rgba(0, 0, 0, 0)","fg":"rgb(52, 58, 64)","shadow":"none"}
+wrote scene-lab/zz-uo-before-s67-extras.png
+page errors: none

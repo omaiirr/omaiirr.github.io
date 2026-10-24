@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>CTA colour on a solid theme — pick one</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; padding: 28px 24px 48px;
+    background: #0b111f; color: #cfd8ee;
+    font: 14px/1.5 "Plus Jakarta Sans", system-ui, sans-serif;
+  }
+  h1 { font-size: 19px; margin: 0 0 6px; color: #fff; letter-spacing: -0.01em; }
+  p.lede { margin: 0 0 22px; color: #8fa4d4; max-width: 70ch; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  @media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } }
+  .card {
+    background: #121b2e; border: 1px solid rgba(255,255,255,.1);
+    border-radius: 14px; overflow: hidden;
+  }
+  .card.pick { border-color: rgba(126,231,135,.55); box-shadow: 0 0 0 1px rgba(126,231,135,.25); }
+  .card header { padding: 14px 16px 12px; border-bottom: 1px solid rgba(255,255,255,.08); }
+  .card h2 { margin: 0 0 4px; font-size: 15px; color: #fff; }
+  .card h2 span { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #8fa4d4; display: block; margin-bottom: 3px; }
+  .card p { margin: 0; font-size: 12.5px; color: #a8b6d8; }
+  .card p b { color: #fff; font-weight: 600; }
+  .card img { display: block; width: 100%; height: auto; }
+  .swatch { display: inline-flex; align-items: center; gap: 7px; margin-top: 8px; font-size: 12px; color: #cfd8ee; }
+  .dot { width: 15px; height: 15px; border-radius: 4px; border: 1px solid rgba(255,255,255,.35); }
+  code { background: rgba(255,255,255,.08); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+</style>
+</head>
+<body>
+  <h1>Which CTA colour on a solid background?</h1>
+  <p class="lede">
+    The theme background is <code>#d94f2b</code>. A solid theme's accent is its own background colour,
+    so a literal match paints <b>Start</b> and the active mode pill in the same colour as the page.
+    Each column below is the real app (header, mode pills, Start, subject dropdown, FABs).
+  </p>
+  <div class="grid">
+    <div class="card">
+      <header>
+        <h2><span>A</span>Literal match</h2>
+        <p>Accent = the background colour exactly. Buttons nearly vanish; only the drop shadow hints at the shape.</p>
+        <div class="swatch"><i class="dot" style="background:#d94f2b"></i> #d94f2b on #d94f2b</div>
+      </header>
+      <img src="zz-accent-A_literal.png" alt="Literal match: Start button the same colour as the background" />
+    </div>
+    <div class="card">
+      <header>
+        <h2><span>B</span>Lifted</h2>
+        <p>Same hue, a shade lighter. Buttons pop — but the white label on the button drops to about <b>2.3:1</b> contrast.</p>
+        <div class="swatch"><i class="dot" style="background:#e78a71"></i> #e78a71 on #d94f2b</div>
+      </header>
+      <img src="zz-accent-B_lifted.png" alt="Lifted accent: pale salmon Start button on an orange background" />
+    </div>
+    <div class="card pick">
+      <header>
+        <h2><span>C — shipped</span>Deepened (recommended)</h2>
+        <p>Same hue, a shade deeper. Reads as a real button, and the white label keeps <b>≥4.5:1</b> contrast. This is what is in the working tree now.</p>
+        <div class="swatch"><i class="dot" style="background:#772b18"></i> #772b18 on #d94f2b</div>
+      </header>
+      <img src="zz-accent-C_deepened.png" alt="Deepened accent: deep rust Start button on an orange background" />
+    </div>
+  </div>
+</body>
+</html>

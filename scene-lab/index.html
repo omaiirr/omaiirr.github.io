@@ -1,0 +1,279 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Scene Lab</title>
+    <style>
+      body {
+        background: #15151c;
+        color: #eee;
+        font-family: system-ui;
+        margin: 0;
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        align-items: center;
+      }
+      canvas {
+        width: min(960px, 94vw);
+        aspect-ratio: 16/10;
+        background: #000;
+        border-radius: 10px;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      select,
+      input,
+      button {
+        font-size: 13px;
+        padding: 3px 6px;
+        border-radius: 6px;
+        border: 1px solid #444;
+        background: #26262e;
+        color: #eee;
+      }
+      label {
+        font-size: 12px;
+        color: #bbb;
+      }
+      #opts {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+      }
+      #info {
+        font-size: 12px;
+        color: #999;
+      }
+      textarea {
+        font-size: 11px;
+        width: 92vw;
+        height: 60px;
+        background: #111;
+        color: #8f8;
+        border: 1px solid #333;
+        border-radius: 6px;
+        font-family: monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+  Scene Lab — modular harness (Stage 1, 2026-09-04).
+  Successor to .freebuff/scene-lab/lab.template.html + build.js: instead of
+  inlining one monolithic scene file, it loads assets/js/scenes/core.js plus
+  one module per scene. Controls mirror the original lab UI.
+-->
+    <div class="row">
+      <select id="scene"></select>
+      <label
+        >W
+        <input type="range" id="w" min="640" max="1600" step="40" value="1280"
+      /></label>
+      <label
+        >speed
+        <input
+          type="range"
+          id="timescale"
+          min="0.2"
+          max="3"
+          step="0.1"
+          value="1"
+      /></label>
+      <button id="reinit">Re-init</button>
+      <label><input type="checkbox" id="loop" checked /> loop t</label>
+    </div>
+    <div id="opts"></div>
+    <canvas id="c" width="1280" height="800"></canvas>
+    <div id="info"></div>
+    <textarea id="log" readonly></textarea>
+    <script src="../assets/js/scenes/core.js"></script>
+    <script src="../assets/js/scenes/particles/scene.js"></script>
+    <script src="../assets/js/scenes/aurora/scene.js"></script>
+    <script src="../assets/js/scenes/rain/scene.js"></script>
+    <script src="../assets/js/scenes/bubbles/scene.js"></script>
+    <script src="../assets/js/scenes/starfield/scene.js"></script>
+    <script src="../assets/js/scenes/embers/scene.js"></script>
+    <script src="../assets/js/scenes/ripples/scene.js"></script>
+    <script src="../assets/js/scenes/comets/scene.js"></script>
+    <script src="../assets/js/scenes/galaxy/scene.js"></script>
+    <script src="../assets/js/scenes/snow/scene.js"></script>
+    <script src="../assets/js/scenes/thunderstorm/scene.js"></script>
+    <script src="../assets/js/scenes/blossomstorm/scene.js"></script>
+    <script src="../assets/js/scenes/butterflies/scene.js"></script>
+    <script src="../assets/js/scenes/campfire/scene.js"></script>
+    <script src="../assets/js/scenes/fireflies/scene.js"></script>
+    <script src="../assets/js/scenes/ocean/scene.js"></script>
+    <script src="../assets/js/scenes/koi/scene.js"></script>
+    <script src="../assets/js/scenes/lanterns/scene.js"></script>
+    <script src="../assets/js/scenes/leaves/scene.js"></script>
+    <script src="../assets/js/scenes/meteor/scene.js"></script>
+    <script src="../assets/js/scenes/condensation/scene.js"></script>
+    <script src="../assets/js/scenes/grass/scene.js"></script>
+    <script src="../assets/js/scenes/jellyfish/scene.js"></script>
+    <script src="../assets/js/scenes/neoncity/scene.js"></script>
+    <script src="../assets/js/scenes/eclipse/scene.js"></script>
+    <script src="../assets/js/scenes/blackhole/scene.js"></script>
+    <script src="../assets/js/scenes/inkwater/scene.js"></script>
+    <script src="../assets/js/scenes/confetti/scene.js"></script>
+    <script src="../assets/js/scenes/balloon/scene.js"></script>
+    <script src="../assets/js/scenes/dandelion/scene.js"></script>
+    <script src="../assets/js/scenes/cloudsea/scene.js"></script>
+    <script src="../assets/js/scenes/mistysunrise/scene.js"></script>
+    <script src="../assets/js/scenes/lighthouse/scene.js"></script>
+    <script src="../assets/js/scenes/starorbit/scene.js"></script>
+    <script src="../assets/js/scenes/caustics/scene.js"></script>
+    <script src="../assets/js/scenes/lighttunnel/scene.js"></script>
+    <script src="../assets/js/scenes/origami/scene.js"></script>
+    <script src="../assets/js/scenes/dunes/scene.js"></script>
+    <script src="../assets/js/scenes/zengarden/scene.js"></script>
+    <script src="../assets/js/scenes/ornate/scene.js"></script>
+    <script>
+      const canvas = document.getElementById("c");
+      const sel = document.getElementById("scene");
+      const optsRow = document.getElementById("opts");
+      const log = document.getElementById("log");
+      const info = document.getElementById("info");
+      let sceneId = "particles";
+      let activeScene = null;
+      let state = {};
+      let currentOpts = {};
+      let t = 0;
+      let last = performance.now();
+      let running = false;
+
+      function populate() {
+        sel.innerHTML = "";
+        ThemeScenes.list().forEach((s) => {
+          const o = document.createElement("option");
+          o.value = s.id;
+          o.textContent = s.label;
+          sel.appendChild(o);
+        });
+        sel.value = sceneId;
+      }
+      function buildOpts() {
+        const scene = ThemeScenes.get(sceneId);
+        optsRow.innerHTML = "";
+        currentOpts = { ...scene.defaults };
+        scene.options.forEach((opt) => {
+          const lab = document.createElement("label");
+          lab.textContent = opt.label + " ";
+          if (opt.type === "range") {
+            const inp = document.createElement("input");
+            inp.type = "range";
+            inp.min = opt.min;
+            inp.max = opt.max;
+            inp.step = opt.step;
+            inp.value = currentOpts[opt.key];
+            inp.oninput = () => {
+              currentOpts[opt.key] = parseFloat(inp.value);
+              lab.textContent = opt.label + " " + inp.value + " ";
+              lab.appendChild(inp);
+              reinit();
+            };
+            lab.appendChild(inp);
+          } else if (opt.type === "color") {
+            const inp = document.createElement("input");
+            inp.type = "color";
+            inp.value = currentOpts[opt.key];
+            inp.oninput = () => {
+              currentOpts[opt.key] = inp.value;
+              reinit();
+            };
+            lab.appendChild(inp);
+          } else if (opt.type === "checkbox") {
+            const inp = document.createElement("input");
+            inp.type = "checkbox";
+            inp.checked = !!currentOpts[opt.key];
+            inp.onchange = () => {
+              currentOpts[opt.key] = inp.checked;
+              reinit();
+            };
+            lab.appendChild(inp);
+          } else if (opt.type === "select") {
+            const s2 = document.createElement("select");
+            opt.choices.forEach(([v, l]) => {
+              const o = document.createElement("option");
+              o.value = v;
+              o.textContent = l;
+              if (String(currentOpts[opt.key]) === String(v)) o.selected = true;
+              s2.appendChild(o);
+            });
+            s2.onchange = () => {
+              currentOpts[opt.key] = s2.value;
+              reinit();
+            };
+            lab.appendChild(s2);
+          }
+          optsRow.appendChild(lab);
+        });
+      }
+      function reinit() {
+        if (activeScene && typeof activeScene.destroy === "function")
+          activeScene.destroy(state);
+        state = {};
+        t = 0;
+        const scene = ThemeScenes.get(sceneId);
+        activeScene = scene;
+        scene.init(state, canvas.width, canvas.height, { ...currentOpts });
+        info.textContent =
+          scene.label + " @ " + canvas.width + "x" + canvas.height;
+      }
+      function frame(now) {
+        if (!running) return;
+        const dt =
+          Math.min(0.05, (now - last) / 1000) *
+          parseFloat(document.getElementById("timescale").value);
+        last = now;
+        t += dt;
+        const scene = ThemeScenes.get(sceneId);
+        const ctx = canvas.getContext("2d");
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        try {
+          scene.draw(
+            ctx,
+            canvas.width,
+            canvas.height,
+            state,
+            { ...currentOpts },
+            dt,
+          );
+        } catch (e) {
+          log.value =
+            "ERROR: " +
+            e.message +
+            "\n" +
+            (e.stack || "").split("\n").slice(0, 4).join("\n");
+        }
+        if (document.getElementById("loop").checked && t > 6) t = 0;
+        requestAnimationFrame(frame);
+      }
+      sel.onchange = () => {
+        sceneId = sel.value;
+        buildOpts();
+        reinit();
+      };
+      document.getElementById("reinit").onclick = reinit;
+      document.getElementById("w").oninput = () => {
+        const v = parseInt(document.getElementById("w").value);
+        canvas.width = v;
+        canvas.height = Math.round((v * 10) / 16);
+        reinit();
+      };
+      populate();
+      buildOpts();
+      reinit();
+      running = true;
+      requestAnimationFrame(frame);
+    </script>
+  </body>
+</html>

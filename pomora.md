@@ -8,8 +8,13 @@ permalink: /pomora/
   {% include timer-ui.html %}
 
   <div id="subjectSelector" style="margin-top:15px;display:block;position:relative;z-index:20;">
-    <select id="subjectSelect" class="form-input" style="max-width:300px;margin:0 auto;display:block;">
-      <option value="">📚 Select Subject (Optional)</option>
+    <select
+      id="subjectSelect"
+      class="form-input"
+      aria-label="Study subject"
+      style="max-width:300px;margin:0 auto;display:block;"
+    >
+      <option value="">Select Subject (Optional)</option>
       <option value="Computer Science">Computer Science</option>
       <option value="Mathematics">Mathematics</option>
       <option value="Biology">Biology</option>
@@ -29,6 +34,8 @@ permalink: /pomora/
 {% include advanced-settings-modal.html %}
 {% include patch-notes-popup.html %}
 {% include statistics-popup.html %}
+{% include theme-editor-modal.html %}
+{% include theme-library-modal.html %}
 
 </div>
 

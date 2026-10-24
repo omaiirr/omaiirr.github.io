@@ -2,7 +2,9 @@
   <div class="task-popup-card">
     <div class="task-popup-header">
       <h3>Add Task</h3>
-      <button class="task-popup-close" id="taskPopupClose">×</button>
+      <button class="task-popup-close" id="taskPopupClose" aria-label="Close">
+        {% include svg/uo-line-close.svg %}
+      </button>
     </div>
     <div class="task-popup-body">
       <div class="form-section full-width">
@@ -24,12 +26,26 @@
 
       <div class="form-row">
         <div class="form-section">
-          <label for="taskSubject" class="form-label">Subject</label>
-          <input id="taskSubject" type="text" placeholder="e.g Chemistry" class="form-input">
+          <label for="taskSubjectSelect" class="form-label">Subject</label>
+          <select id="taskSubjectSelect" class="form-input settings-select">
+            <option value="">No subject</option>
+            <option>Maths</option>
+            <option>English</option>
+            <option>Physics</option>
+            <option>Chemistry</option>
+            <option>Biology</option>
+            <option>History</option>
+            <option>Geography</option>
+            <option>Computer Science</option>
+            <option>Economics</option>
+            <option value="__other__">Other…</option>
+          </select>
+          <input id="taskSubjectCustom" type="text" class="form-input" placeholder="e.g. Economics" autocomplete="off" style="display:none">
+          <input id="taskSubject" type="hidden">
         </div>
         <div class="form-section">
           <label for="taskPriority" class="form-label">Priority</label>
-          <select id="taskPriority" class="form-input">
+          <select id="taskPriority" class="form-input settings-select">
             <option value="">Normal</option>
             <option value="High">High</option>
             <option value="Urgent">Urgent</option>
@@ -55,7 +71,7 @@
     </div>
     <div class="task-popup-actions">
       <button class="cancel-task-btn" id="taskPopupCancelBtn">Cancel</button>
-      <button class="save-task-btn" id="saveTaskBtn">💾 Save</button>
+      <button class="save-task-btn" id="saveTaskBtn">{% include svg/uo-line-save.svg %}Save</button>
     </div>
   </div>
 </div>

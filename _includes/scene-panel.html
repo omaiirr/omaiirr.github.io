@@ -1,0 +1,66 @@
+{% assign sp = include.prefix | default: "te" %}
+<div
+  class="te-field te-scene-panel"
+  id="{{ sp }}BgSceneGroup"
+  data-sp="SceneGroup"
+  data-scene-prefix="{{ sp }}"
+  {% if include.hidden == "true" %}style="display: none"{% endif %}
+>
+  {% if include.shelf != "false" %}
+  <label class="te-label">Theme</label>
+  <div class="te-featured-shelf" id="{{ sp }}FeaturedShelf" data-sp="FeaturedShelf"></div>
+  <button type="button" class="te-view-all-btn" id="{{ sp }}ViewAllBtn" data-sp="ViewAllBtn">
+    View all themes
+  </button>
+  {% endif %}
+
+  <div class="te-scene-options" id="{{ sp }}SceneOptions" data-sp="SceneOptions"></div>
+
+  <label class="te-label" style="margin-top: 12px">Background Color</label>
+  <div
+    class="te-color-picker"
+    id="{{ sp }}SceneBgPicker"
+    data-sp="SceneBgPicker"
+    data-for="{{ sp }}SceneBgColor"
+    role="button"
+    tabindex="0"
+    title="Click to choose a custom color"
+  >
+    <div
+      class="te-color-picker-swatch"
+      id="{{ sp }}SceneBgPreviewSwatch"
+      data-sp="SceneBgPreviewSwatch"
+      style="background: #020617"
+    ></div>
+    <div class="te-color-picker-info">
+      <span class="te-color-picker-label">Current</span>
+      <span class="te-color-picker-hex" id="{{ sp }}SceneBgHex" data-sp="SceneBgHex">#020617</span>
+    </div>
+    <span class="te-color-picker-arrow">{% include svg/uo-line-chevron-down.svg %}</span>
+  </div>
+  <input
+    type="color"
+    id="{{ sp }}SceneBgColor"
+    data-sp="SceneBgColor"
+    class="te-color-input-hidden"
+    value="#020617"
+  />
+
+  <div class="te-scene-bg-label-row" id="{{ sp }}SceneBgLabelRow" data-sp="SceneBgLabelRow">
+    <div class="te-scene-bg-label" id="{{ sp }}SceneBgLabel" data-sp="SceneBgLabel">Suggested</div>
+    <span
+      class="te-tooltip-trigger"
+      id="{{ sp }}SceneBgComboTip"
+      data-sp="SceneBgComboTip"
+      tabindex="0"
+      role="tooltip"
+      aria-label="Each tile pairs a colour with a background, click one half to apply just that colour, or click the middle to apply both. The halves are independent and can be mixed so you are not locked to just that pair."
+    >
+      {% include svg/uo-line-info.svg %}
+    </span>
+    <div class="te-tooltip" id="{{ sp }}SceneBgComboTipText" data-sp="SceneBgComboTipText">
+      Each tile pairs a colour with a background, click one half to apply just that colour, or click the middle to apply both. The halves are independent and can be mixed so you are not locked to just that pair.
+    </div>
+  </div>
+  <div class="te-scene-bg-presets" id="{{ sp }}SceneBgPresets" data-sp="SceneBgPresets"></div>
+</div>

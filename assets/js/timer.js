@@ -1,6 +1,5 @@
-﻿document.addEventListener("DOMContentLoaded", function () {
-  // ─── SECURITY: HTML Sanitization Utilities ───────────────────────
-  // Prevents XSS attacks by escaping HTML special characters and creating safe DOM nodes
+// Timer UI, settings, and session flow logic.
+document.addEventListener("DOMContentLoaded", function () {
   function escapeHTML(str) {
     if (!str) return "";
     const div = document.createElement("div");
@@ -11,7 +10,7 @@
   function createSafeElement(tagName, attrs = {}, textContent = "") {
     const el = document.createElement(tagName);
     Object.entries(attrs).forEach(([key, value]) => {
-      if (key.startsWith("on")) return; // Prevent event handler injection
+      if (key.startsWith("on")) return; 
       el.setAttribute(key, String(value));
     });
     if (textContent) el.textContent = textContent;
@@ -21,13 +20,12 @@
   function sanitizeInput(str, maxLength = 500) {
     if (!str) return "";
     return String(str)
+      .replace(/[\u0000-\u001F\u007F]/g, "")
       .trim()
-      .substring(0, maxLength)
-      .replace(
-        /[<>\"']/g,
-        (m) => ({ "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[m],
-      );
+      .substring(0, maxLength);
   }
+
+  const UNSPECIFIED_LABEL = "Unspecified";
 
   let modes = {
     focus: 25 * 60,
@@ -63,7 +61,6 @@
     }
   }
 
-  // Stats functions
   function getStats() {
     return (
       safeJSONParse(localStorage.getItem("timerStats"), {
@@ -80,6 +77,26 @@
   function saveStats(stats) {
     localStorage.setItem("timerStats", JSON.stringify(stats));
   }
+  function formatStudyMinutes(total) {
+    if (typeof StatsMetrics !== "undefined")
+      return StatsMetrics.formatMinutes(total);
+    const mins = Math.max(0, Math.round(total || 0));
+    if (mins < 60) return `${mins} min`;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m ? `${h}h ${m}m` : `${h}h`;
+  }
+  function subjectTotals(sessions) {
+    const totals = {};
+    (sessions || [])
+      .filter((s) => s.type === "focus")
+      .forEach((s) => {
+        const key = String(s.subject || "").trim() || UNSPECIFIED_LABEL;
+        totals[key] = (totals[key] || 0) + s.duration;
+      });
+    return totals;
+  }
+
   function logSession(type, duration) {
     if (!statisticsEnabled) return;
     const stats = getStats();
@@ -91,11 +108,8 @@
     });
     if (type === "focus") {
       stats.totalStudyTime += duration;
-      if (currentSubject) {
-        if (!stats.subjectTime) stats.subjectTime = {};
-        stats.subjectTime[currentSubject] =
-          (stats.subjectTime[currentSubject] || 0) + duration;
-      }
+
+      stats.subjectTime = subjectTotals(stats.sessions);
     } else {
       stats.totalBreakTime += duration;
     }
@@ -104,59 +118,114 @@
   function resetStats() {
     localStorage.removeItem("timerStats");
   }
+  const RANGE_LABELS = {
+    today: "Today",
+    week: "This week",
+    month: "This month",
+    all: "All time",
+  };
+
+  const EMPTY_SUBJECTS = {
+    today: "No subject data today",
+    week: "No subject data this week",
+    month: "No subject data this month",
+    all: "No subject data yet",
+  };
+
+  const EMPTY_SESSIONS = {
+    today: "No sessions today",
+    week: "No sessions this week",
+    month: "No sessions this month",
+    all: "No sessions yet",
+  };
+
   function updateStatsDisplay() {
-    const stats = getStats();
+    const range = getQuickStatsRange();
+    const stats = getFilteredStats(range, getStats());
     const elem1 = document.getElementById("totalStudyTime");
     const elem2 = document.getElementById("totalBreakTime");
     const elem3 = document.getElementById("totalSessions");
-    if (elem1) elem1.textContent = stats.totalStudyTime;
-    if (elem2) elem2.textContent = stats.totalBreakTime;
+    if (elem1)
+      elem1.textContent = formatStudyMinutes(stats.totalStudyTime || 0);
+    if (elem2)
+      elem2.textContent = formatStudyMinutes(stats.totalBreakTime || 0);
     if (elem3)
-      elem3.textContent = stats.sessions.filter(
-        (s) => s.type === "focus",
-      ).length;
 
-    // Subject time breakdown
+      elem3.textContent = String(
+        stats.sessions.filter((s) => s.type === "focus").length,
+      );
+
+    const scope = document.getElementById("qsStatsScope");
+    if (scope) scope.textContent = RANGE_LABELS[range] || RANGE_LABELS.all;
+
     const subjectBreakdown = document.getElementById("subjectBreakdown");
     if (subjectBreakdown) {
-      const st = stats.subjectTime || {};
-      const entries = Object.entries(st);
+      const entries = Object.entries(subjectTotals(stats.sessions)).sort(
+        (a, b) => b[1] - a[1],
+      );
       subjectBreakdown.innerHTML = "";
-      if (entries.length === 0) {
-        const emptyDiv = createSafeElement(
-          "div",
-          {
-            style:
-              "color:rgba(255,255,255,0.4);font-size:0.85rem;text-align:center;padding:8px 0;",
-          },
-          "No subject data yet",
+      if (!entries.length) {
+
+        subjectBreakdown.appendChild(
+          createSafeElement(
+            "p",
+            { class: "qs-empty" },
+            EMPTY_SUBJECTS[range] || EMPTY_SUBJECTS.all,
+          ),
         );
-        subjectBreakdown.appendChild(emptyDiv);
-      } else {
-        entries.forEach(([subj, mins]) => {
-          const itemDiv = createSafeElement("div", {
-            style:
-              "display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);",
-          });
-
-          const subjSpan = createSafeElement(
-            "span",
-            { style: "color:rgba(255,255,255,0.75);font-size:0.9rem;" },
-            sanitizeInput(subj),
-          );
-          itemDiv.appendChild(subjSpan);
-
-          const minsSpan = createSafeElement(
-            "span",
-            { style: "color:white;font-weight:600;" },
-            `${mins} min`,
-          );
-          itemDiv.appendChild(minsSpan);
-
-          subjectBreakdown.appendChild(itemDiv);
-        });
+        applyAnalyticsCount(0);
+        return;
       }
+
+      const capped = entries.slice(0, 3);
+      const peak = capped.length ? capped[0][1] : 0;
+      capped.forEach(([subj, mins]) => {
+        const itemDiv = createSafeElement("div", { class: "qs-subject" });
+        itemDiv.appendChild(
+          createSafeElement(
+            "span",
+            { class: "qs-subject-name" },
+            sanitizeInput(subj),
+          ),
+        );
+        const bar = createSafeElement("span", { class: "qs-subject-bar" });
+        const share = peak ? Math.max(4, Math.round((mins / peak) * 100)) : 0;
+        bar.appendChild(createSafeElement("i", { style: `width:${share}%` }));
+        itemDiv.appendChild(bar);
+        itemDiv.appendChild(
+          createSafeElement(
+            "span",
+            { class: "qs-subject-amt" },
+            formatStudyMinutes(mins),
+          ),
+        );
+        subjectBreakdown.appendChild(itemDiv);
+      });
+
+      applyAnalyticsCount(entries.length);
     }
+  }
+
+  function applyAnalyticsCount(totalSubjects) {
+    const hidden = Math.max(0, (totalSubjects || 0) - 3);
+    const count = document.getElementById("qsAnalyticsCount");
+    const cta = document.getElementById("qsOpenAnalyticsBtn");
+    if (count) {
+      count.textContent = hidden ? `+${hidden} more` : "";
+      count.hidden = !hidden;
+    }
+    if (cta)
+      cta.setAttribute(
+        "aria-label",
+        hidden
+          ? `Open Study Analytics, ${hidden} more subject${hidden === 1 ? "" : "s"}`
+          : "Open Study Analytics",
+      );
+  }
+
+  function getQuickStatsRange() {
+    const stored = localStorage.getItem("quickStatsRange");
+    return RANGE_LABELS[stored] ? stored : "all";
   }
 
   const display = document.getElementById("display");
@@ -179,10 +248,25 @@
     jsize: 1,
   };
 
+  /* A duration field is a number of minutes between 1 and 999. Anything else
+     (empty, "abc", -5, 0) used to reach the timer as 0 or NaN and render a
+     00:00 or "-5 : 00" clock that could be started. */
+  const MIN_MINUTES = 1;
+  const MAX_MINUTES = 999;
+
+  function clampMinutes(raw, fallback) {
+    const n = Math.round(Number(raw));
+    if (!Number.isFinite(n) || n < MIN_MINUTES) return fallback;
+    return Math.min(n, MAX_MINUTES);
+  }
+
   function updateModes() {
-    modes.focus = Number(customFocusInput.value) * 60;
-    modes.short = Number(customShortInput.value) * 60;
-    modes.long = Number(customLongInput.value) * 60;
+    modes.focus = clampMinutes(customFocusInput.value, 25) * 60;
+    modes.short = clampMinutes(customShortInput.value, 5) * 60;
+    modes.long = clampMinutes(customLongInput.value, 15) * 60;
+    customFocusInput.value = modes.focus / 60;
+    customShortInput.value = modes.short / 60;
+    customLongInput.value = modes.long / 60;
     localStorage.setItem(
       "timerModes",
       JSON.stringify({
@@ -233,9 +317,11 @@
     timerTick = null;
     running = false;
     render();
+    
+    if (typeof window.restoreActiveTheme === "function")
+      window.restoreActiveTheme();
   }
 
-  // Sound helpers using Web Audio API
   function playBeep(freq, duration, vol) {
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -253,24 +339,44 @@
   }
   function playWarningSound() {
     if (!timerSoundEnabled) return;
-    // 3 quick beeps — "almost done"
+    
     playBeep(880, 0.15, 0.25);
     setTimeout(() => playBeep(880, 0.15, 0.25), 200);
     setTimeout(() => playBeep(880, 0.15, 0.25), 400);
   }
   function playBreakStartSound() {
     if (!breakSoundEnabled) return;
-    // Rising tone — "break time"
+    
     playBeep(440, 0.3, 0.3);
     setTimeout(() => playBeep(523, 0.3, 0.3), 320);
     setTimeout(() => playBeep(659, 0.5, 0.3), 640);
   }
   function playFocusStartSound() {
     if (!breakSoundEnabled) return;
-    // Descending — "back to work"
+    
     playBeep(659, 0.3, 0.3);
     setTimeout(() => playBeep(523, 0.3, 0.3), 320);
     setTimeout(() => playBeep(440, 0.5, 0.3), 640);
+  }
+
+  /* A finished block used to change the mode silently — heard only if sound
+     was on. The toast is the app's existing non-blocking notice surface, and
+     it is announced to screen readers, so the switch is obvious either way. */
+  function announceSessionEnd(nextMode) {
+    let message;
+    if (nextMode === "focus") {
+      message = "Break over — back to focus.";
+    } else if (nextMode === "short" || nextMode === "long") {
+      const minutes = Math.round((modes[nextMode] || 0) / 60);
+      message = `Focus session complete — ${minutes}-minute break starting.`;
+    } else {
+      message = "Focus session complete — take a break when you are ready.";
+    }
+    if (typeof ThemeEngine !== "undefined" && ThemeEngine._showNotice) {
+      ThemeEngine._showNotice(message, "success", 6000);
+      return;
+    }
+    if (typeof window.showToast === "function") window.showToast(message);
   }
 
   let endTime = null;
@@ -290,6 +396,12 @@
     render();
 
     if (remaining <= 0) {
+      /* Two tick sources can see the end at once (this document and the mini
+         player). Handling a finished session exactly once keeps the log and
+         the break start from doubling up. */
+      if (endTime === null) return;
+      endTime = null;
+
       clearInterval(timerTick);
       timerTick = null;
       running = false;
@@ -311,15 +423,18 @@
           if (autoStartBreak) {
             setActiveMode("short");
             playBreakStartSound();
+            announceSessionEnd("short");
             setTimeout(() => toggleTimer(), 800);
           } else {
             remaining = modes.focus;
             warningPlayed = false;
             render();
+            announceSessionEnd(null);
           }
         } else {
           setActiveMode("focus");
           playFocusStartSound();
+          announceSessionEnd("focus");
           setTimeout(() => toggleTimer(), 800);
         }
       }, 500);
@@ -328,7 +443,7 @@
 
   function toggleTimer() {
     if (running) {
-      // Pause
+      
       if (timerTick) clearInterval(timerTick);
       timerTick = null;
       running = false;
@@ -337,7 +452,7 @@
       startBtn.textContent = "Start";
       startBtn.classList.remove("pause-state");
     } else {
-      // Start
+      if (!(remaining > 0)) return;
       running = true;
       warningPlayed = false;
       endTime = Date.now() + remaining * 1000;
@@ -348,6 +463,10 @@
     }
   }
   window.toggleTimer = toggleTimer;
+
+  document.addEventListener("visibilitychange", () => {
+    if (running && !document.hidden) updateTimerDisplay();
+  });
 
   function resetTimer() {
     if (timerTick) clearInterval(timerTick);
@@ -369,31 +488,216 @@
     startBtn.classList.remove("pause-state");
   }
 
-  // Picture in Picture functionality
-  let pipWindow = null;
-  let pipStayOnTopInterval = null;
-  const pipToggle = document.getElementById("pipBtn");
+  /* ── Picture-in-Picture ───────────────────────────────────────────────
+     One window, driven from this document.
 
-  function clearPipStayOnTopInterval() {
-    if (pipStayOnTopInterval) {
-      clearInterval(pipStayOnTopInterval);
-      pipStayOnTopInterval = null;
+     The previous version injected a <script> into the PiP document that
+     reached back through window.opener on a 250ms interval, and a second
+     interval called pipWindow.focus() every 1.2s to fake "always on top".
+     That stole keyboard focus from whatever the user was typing in, and
+     because Document PiP windows do not reliably fire `beforeunload`,
+     closing the mini player with its own X left the toggle lit and the loop
+     running.
+
+     Now the PiP DOM is built once, wired from this window, and updated by a
+     single interval that also watches `.closed` — which every API reports.
+     Closing is idempotent, so the in-window X, the toolbar button, the OS
+     close or a crashed window all land in the same clean state.
+  */
+  let pipWindow = null;
+  let pipSyncTimer = null;
+  let pipRefs = null;
+  let pipOpening = false;
+  let pipThemeKey = "";
+
+  const PIP_ICON_PLAY = "M8 5v14l11-7z";
+  const PIP_ICON_PAUSE = "M7 5h4v14H7zM13 5h4v14h-4z";
+  const PIP_ICON_RESET =
+    "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5";
+  const PIP_ICON_CLOSE = "M6 6 18 18M18 6 6 18";
+
+  const pipToggles = Array.from(
+    document.querySelectorAll("#pipBtn, #swPipBtn"),
+  );
+
+  function supportsDocumentPiP() {
+    return !!(
+      typeof window !== "undefined" &&
+      window.documentPictureInPicture &&
+      typeof window.documentPictureInPicture.requestWindow === "function"
+    );
+  }
+
+  function setPipToggleActive(on) {
+    pipToggles.forEach((b) => {
+      b.classList.toggle("active", !!on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
+
+  function pipIsStopwatch() {
+    return !!(
+      document.body && document.body.classList.contains("sw-mode-active")
+    );
+  }
+
+  function pipClockText(raw) {
+    const digits = String(raw || "").replace(/[^0-9:]/g, "");
+    const parts = digits.split(":");
+    const mm = (parts[0] || "").slice(-2);
+    const ss = (parts[1] || "").slice(0, 2);
+    if (!mm) return "00:00";
+    return mm.padStart(2, "0") + ":" + (ss || "00").padStart(2, "0");
+  }
+
+  function pipTimeToSeconds(text) {
+    const parts = String(text).split(":");
+    return (Number(parts[0]) || 0) * 60 + (Number(parts[1]) || 0);
+  }
+
+  function pipModeTotalSeconds() {
+    const key =
+      currentMode === "short"
+        ? "short"
+        : currentMode === "long"
+          ? "long"
+          : "focus";
+    return modes[key] || 0;
+  }
+
+  // Read the live page once so the mini player stays in sync.
+  function readPipState() {
+    const stopwatch = pipIsStopwatch();
+    let clock = "";
+    let label = "Study";
+    let playing = false;
+    let progress = null;
+    let resetDisabled = false;
+
+    if (stopwatch) {
+      /* Prefer the live elapsed value: the stopwatch DOM only advances when
+         its own 50ms interval runs, which browsers throttle on a hidden tab. */
+      const swMs =
+        typeof window.getStopwatchMs === "function"
+          ? window.getStopwatchMs()
+          : null;
+      if (typeof swMs === "number" && isFinite(swMs)) {
+        const totalSec = Math.max(0, Math.floor(swMs / 1000));
+        clock =
+          String(Math.floor(totalSec / 60)).padStart(2, "0") +
+          ":" +
+          String(totalSec % 60).padStart(2, "0");
+      } else {
+        clock = pipClockText(
+          (document.getElementById("swDisplay") || {}).textContent,
+        );
+      }
+      label = "Stopwatch";
+      playing = /pause/i.test(
+        (document.getElementById("swStartBtn") || {}).textContent || "",
+      );
+      resetDisabled = !!(document.getElementById("swResetBtn") || {}).disabled;
+    } else {
+      clock = pipClockText(display ? display.textContent : "");
+      const active = document.querySelector(".mode-btn.active");
+      if (active) label = String(active.textContent || "").trim() || label;
+      playing = /pause/i.test((startBtn && startBtn.textContent) || "");
+      // Use endTime while running so throttled tabs do not freeze the PiP clock.
+      if (running && endTime) {
+        const left = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+        clock =
+          String(Math.floor(left / 60)).padStart(2, "0") +
+          ":" +
+          String(left % 60).padStart(2, "0");
+      }
+      const total = pipModeTotalSeconds();
+      if (total > 0) {
+        const left = pipTimeToSeconds(clock);
+        progress = Math.max(0, Math.min(1, (total - left) / total));
+      }
+    }
+
+    const rootStyle = getComputedStyle(document.documentElement);
+    return {
+      clock: clock || "00:00",
+      label,
+      playing,
+      progress,
+      resetDisabled,
+      accent: (rootStyle.getPropertyValue("--th-accent") || "").trim(),
+    };
+  }
+
+  function applyPiPState() {
+    if (!pipWindow) return;
+    if (pipWindow.closed) {
+      handlePiPClosed();
+      return;
+    }
+    if (!pipRefs) return;
+
+    // If the hidden tab missed the end, finish the session here before the break starts.
+    if (!pipIsStopwatch() && running && endTime && Date.now() >= endTime) {
+      updateTimerDisplay();
+    }
+    const s = readPipState();
+    const refs = pipRefs;
+
+    if (refs.display && refs.display.textContent !== s.clock)
+      refs.display.textContent = s.clock;
+    if (refs.chipText && refs.chipText.textContent !== s.label)
+      refs.chipText.textContent = s.label;
+
+    if (s.progress === null) {
+      if (refs.track) refs.track.classList.add("is-hidden");
+    } else {
+      if (refs.track) refs.track.classList.remove("is-hidden");
+      if (refs.fill)
+        refs.fill.style.width = (s.progress * 100).toFixed(1) + "%";
+    }
+
+    const iconPath = s.playing ? PIP_ICON_PAUSE : PIP_ICON_PLAY;
+    if (refs.controlIcon && refs.controlIcon.getAttribute("d") !== iconPath)
+      refs.controlIcon.setAttribute("d", iconPath);
+    const controlLabel = s.playing ? "Pause" : "Start";
+    if (refs.controlLabel && refs.controlLabel.textContent !== controlLabel)
+      refs.controlLabel.textContent = controlLabel;
+
+    if (refs.resetBtn) refs.resetBtn.disabled = s.resetDisabled;
+    if (refs.card && s.accent)
+      refs.card.style.setProperty("--pip-accent", s.accent);
+
+    // Keep the PiP backdrop border in sync when the app theme changes.
+    const themeKey =
+      savedTheme + "|" + (localStorage.getItem("activeCustomThemeId") || "");
+    if (themeKey !== pipThemeKey) {
+      pipThemeKey = themeKey;
+      const pipDoc = pipWindow.document;
+      if (pipDoc && pipDoc.body)
+        pipDoc.body.style.background = getPiPThemeBackground(savedTheme);
     }
   }
 
-  function refreshPipStayOnTop() {
-    clearPipStayOnTopInterval();
-    if (!pipWindow || pipWindow.closed) return;
-    pipStayOnTopInterval = setInterval(() => {
-      if (pipWindow && !pipWindow.closed) {
-        pipWindow.focus();
-      } else {
-        clearPipStayOnTopInterval();
-      }
-    }, 1200);
-  }
 
   function getPiPThemeBackground(theme) {
+    const custom =
+      typeof ThemeEngine !== "undefined"
+        ? ThemeEngine.getActiveCustomThemeConfig()
+        : null;
+    if (custom && custom.bg) {
+      if (custom.bg.type === "solid" && custom.bg.color) {
+        return custom.bg.color;
+      }
+      if (custom.bg.type === "gradient" && custom.bg.gradStops?.length >= 2) {
+        const angle = custom.bg.gradAngle ?? 135;
+        const stops = custom.bg.gradStops
+          .map((stop) => `${stop.color} ${stop.pos}%`)
+          .join(", ");
+        return `linear-gradient(${angle}deg, ${stops})`;
+      }
+      return custom.colors?.surface || custom.colors?.accent || "#2d2d2d";
+    }
+
     const raw = localStorage.getItem("advSettings_" + theme);
     if (theme === "gradient-default") {
       const saved = safeJSONParse(raw, {});
@@ -402,26 +706,22 @@
       }
       return "linear-gradient(135deg, #6366f1 0%, #ec4899 50%, #f43f5e 100%)";
     }
-    if (theme === "gradient-day-night") {
-      return "linear-gradient(135deg, #ff6b6b 0%, #fedc57 100%)";
-    }
     if (theme === "gradient-deep-ocean" || theme === "gradient-ocean") {
       return "linear-gradient(135deg, #0066ff 0%, #00d4ff 100%)";
     }
     if (theme === "gradient-forest") {
       return "linear-gradient(135deg, #134e5e 0%, #71b280 100%)";
     }
-    if (theme === "color-light") {
-      return "#ffffff";
+    if (theme === "gradient-glow") {
+      return "linear-gradient(135deg, #ff9a56 0%, #ff6b6b 50%, #f43f5e 100%)";
+    }
+    if (theme === "gradient-bloom") {
+      return "linear-gradient(135deg, #1e1b4b 0%, #6d28d9 50%, #ec4899 100%)";
     }
     if (theme === "color-dark") {
       return "#000000";
     }
     return "linear-gradient(135deg, #6366f1 0%, #ec4899 50%, #f43f5e 100%)";
-  }
-
-  function getPiPTextColor(theme) {
-    return theme === "color-light" ? "#111" : "white";
   }
 
   function getGradientContrastColors(start, end) {
@@ -437,23 +737,44 @@
     return { name: "#ffffff", subtitle: "rgba(255,255,255,0.92)" };
   }
 
-  // ── logo theme colors ────────────────────────────────────
   function updateLogoTheme(themeName) {
     const logoName = document.querySelector(".logo-name");
     const logoSubtitle = document.querySelector(".logo-subtitle");
     if (!logoName || !logoSubtitle) return;
+
+    const custom =
+      typeof ThemeEngine !== "undefined"
+        ? ThemeEngine.getActiveCustomThemeConfig()
+        : null;
+    if (custom && custom.colors) {
+      const surface =
+        custom.colors.surface || custom.colors.accent || "#000000";
+      const [r, g, b] = parseHexColor(surface);
+      const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+      const nameColor =
+        luminance > 0.65
+          ? "#111111"
+          : custom.colors.surfaceText || custom.colors.text || "#ffffff";
+      const subtitleColor =
+        custom.colors.focusMode ||
+        custom.colors.accent ||
+        (luminance > 0.65 ? "#4b5563" : "rgba(255,255,255,0.86)");
+      logoName.style.color = nameColor;
+      logoSubtitle.style.color = subtitleColor;
+      return;
+    }
 
     const themeColors = {
       "gradient-default": {
         name: "#ffffff",
         subtitle: "rgba(255,255,255,0.92)",
       },
-      "gradient-day-night": { name: "#ffffff", subtitle: "#fedc57" },
       "gradient-ocean": { name: "#ffffff", subtitle: "#00d4ff" },
       "gradient-deep-ocean": { name: "#ffffff", subtitle: "#00d4ff" },
       "gradient-forest": { name: "#ffffff", subtitle: "#71b280" },
+      "gradient-glow": { name: "#ffffff", subtitle: "#ffd27f" },
+      "gradient-bloom": { name: "#ffffff", subtitle: "#f0abfc" },
       "color-dark": { name: "#ffffff", subtitle: "#888888" },
-      "color-light": { name: "#111111", subtitle: "#6E5191" },
       "default-purple": { name: "#ffffff", subtitle: "#fb7185" },
       "ocean-classic": { name: "#ffffff", subtitle: "#7dd3fc" },
       "sunset-classic": { name: "#ffffff", subtitle: "#fcd34d" },
@@ -486,194 +807,430 @@
     logoSubtitle.style.color = colors.subtitle;
   }
 
-  function buildPiPDocument(pipDoc) {
-    pipDoc.open();
-    pipDoc.write(
-      "<!DOCTYPE html><html><head><title>Pomora</title></head><body></body></html>",
-    );
-    pipDoc.close();
 
-    const pipBackground = getPiPThemeBackground(savedTheme);
-    const pipColor = getPiPTextColor(savedTheme);
-    const style = pipDoc.createElement("style");
+  function pipIcon(doc, d, size, stroked) {
+    const SVG_NS = "http://www.w3.org/2000/svg";
+    const svg = doc.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("width", String(size));
+    svg.setAttribute("height", String(size));
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    if (stroked) {
+      svg.setAttribute("fill", "none");
+      svg.setAttribute("stroke", "currentColor");
+      svg.setAttribute("stroke-width", "2");
+      svg.setAttribute("stroke-linecap", "round");
+      svg.setAttribute("stroke-linejoin", "round");
+    } else {
+      svg.setAttribute("fill", "currentColor");
+    }
+    const path = doc.createElementNS(SVG_NS, "path");
+    path.setAttribute("d", d);
+    svg.appendChild(path);
+    return svg;
+  }
+
+  function buildPiPDocument(doc) {
+    doc.open();
+    doc.write(
+      "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>Pomora</title></head><body></body></html>",
+    );
+    doc.close();
+
+    const root = doc.documentElement;
+    if (root) root.style.colorScheme = "dark";
+
+    const style = doc.createElement("style");
     style.textContent = `
-      @import url('https://fonts.googleapis.com/css2?family=Piazzolla:wght@300;400;500;700;800&display=swap');
+      html, body { height: 100%; }
       body {
         margin: 0;
-        padding: 18px;
-        background: ${pipBackground};
-        color: ${pipColor};
-        font-family: 'Piazzolla', serif;
+        padding: 10px;
+        background: ${getPiPThemeBackground(savedTheme)};
+        color: #ffffff;
+        font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
         font-weight: 400;
         line-height: 1.4;
-        font-variant-numeric: oldstyle-nums proportional-nums;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
         min-height: 100vh;
         box-sizing: border-box;
         overflow: hidden;
-      }
-      .timer-label {
-        font-size: clamp(0.85rem, 2vw, 1rem);
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.18em;
-        opacity: 0.92;
-        margin-bottom: 12px;
-      }
-      .timer-display {
-        font-size: clamp(2.2rem, 10vw, 3.2rem);
-        font-weight: 800;
-        font-variant-numeric: tabular-nums;
-        margin-bottom: 16px;
-        text-align: center;
-        line-height: 1.2;
-      }
-      .pip-actions {
         display: flex;
-        gap: 12px;
-        width: 100%;
-        justify-content: center;
       }
-      .pip-control-btn,
-      .close-btn {
-        border: none;
-        cursor: pointer;
+      .pip-card {
+        --pip-accent: #6366f1;
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        padding: 12px 14px 13px;
+        border-radius: 14px;
+        background: rgba(10, 18, 34, 0.97);
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      }
+      .pip-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .pip-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 9px;
         border-radius: 999px;
-        padding: 10px 18px;
-        background: rgba(255,255,255,0.18);
-        color: ${pipColor};
-        font-family: 'Piazzolla', serif;
-        font-weight: 600;
-        font-size: clamp(0.9rem, 2vw, 1rem);
-        line-height: 1.4;
+        background: color-mix(in srgb, var(--pip-accent) 16%, transparent);
+        border: 1px solid color-mix(in srgb, var(--pip-accent) 38%, transparent);
+        color: color-mix(in srgb, var(--pip-accent) 52%, #ffffff);
+        font-size: 0.6rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        white-space: nowrap;
       }
-      .close-btn {
-        position: absolute;
-        top: 12px;
-        right: 12px;
-        width: 28px;
-        height: 28px;
+      .pip-chip i {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--pip-accent);
+        display: inline-block;
+      }
+      .pip-close {
+        margin-left: auto;
+        flex: none;
+        width: 26px;
+        height: 26px;
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 0;
+        cursor: pointer;
+        border-radius: 9px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        background: rgba(255, 255, 255, 0.05);
+        color: rgba(255, 255, 255, 0.62);
+        transition: background 0.18s ease, color 0.18s ease;
+      }
+      .pip-close:hover {
+        background: rgba(255, 255, 255, 0.12);
+        color: #ffffff;
+      }
+      .pip-time {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3rem;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        font-variant-numeric: tabular-nums;
+        line-height: 1;
+      }
+      .pip-track {
+        height: 4px;
+        margin-bottom: 11px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.12);
+        overflow: hidden;
+      }
+      .pip-track.is-hidden {
+        visibility: hidden;
+      }
+      .pip-fill {
+        height: 100%;
+        width: 0;
+        border-radius: 999px;
+        background: var(--pip-accent);
+        transition: width 0.3s linear;
+      }
+      .pip-foot {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .pip-control-btn {
+        flex: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 9px 14px;
+        cursor: pointer;
+        border: 1px solid transparent;
+        border-radius: 9px;
+        background: var(--pip-accent);
+        color: #ffffff;
+        font-family: inherit;
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+      }
+      .pip-control-btn:hover {
+        filter: brightness(1.1);
+      }
+      .pip-reset-btn {
+        flex: none;
+        width: 34px;
+        height: 34px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        cursor: pointer;
+        border-radius: 9px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        background: rgba(255, 255, 255, 0.05);
+        color: rgba(255, 255, 255, 0.72);
+        transition: background 0.18s ease, color 0.18s ease;
+      }
+      .pip-reset-btn:hover {
+        background: rgba(255, 255, 255, 0.12);
+        color: #ffffff;
+      }
+      .pip-reset-btn:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      :focus-visible {
+        outline: 2px solid var(--pip-accent);
+        outline-offset: 2px;
       }
     `;
-    pipDoc.head.appendChild(style);
+    doc.head.appendChild(style);
 
-    const closeBtn = pipDoc.createElement("button");
-    closeBtn.className = "close-btn";
-    closeBtn.textContent = "×";
-    closeBtn.addEventListener("click", () => {
-      if (pipWindow) pipWindow.close();
-    });
-    pipDoc.body.appendChild(closeBtn);
+    const card = doc.createElement("div");
+    card.className = "pip-card";
 
-    const label = pipDoc.createElement("div");
-    label.className = "timer-label";
-    label.id = "pip-label";
-    label.textContent =
-      currentMode === "focus"
-        ? "Focus"
-        : currentMode === "short"
-          ? "Short Break"
-          : "Long Break";
-    pipDoc.body.appendChild(label);
+    const head = doc.createElement("div");
+    head.className = "pip-head";
+    const chip = doc.createElement("span");
+    chip.className = "pip-chip";
+    chip.appendChild(doc.createElement("i"));
+    const chipText = doc.createElement("span");
+    chipText.id = "pip-chip-text";
+    chipText.textContent = "Study";
+    chip.appendChild(chipText);
+    head.appendChild(chip);
 
-    const displayDiv = pipDoc.createElement("div");
-    displayDiv.className = "timer-display";
+    const closeBtn = doc.createElement("button");
+    closeBtn.className = "pip-close";
+    closeBtn.type = "button";
+    closeBtn.setAttribute("aria-label", "Close mini player");
+    closeBtn.appendChild(pipIcon(doc, PIP_ICON_CLOSE, 13, true));
+    head.appendChild(closeBtn);
+    card.appendChild(head);
+
+    const displayDiv = doc.createElement("div");
+    displayDiv.className = "pip-time";
     displayDiv.id = "pip-display";
-    displayDiv.textContent = display.textContent;
-    pipDoc.body.appendChild(displayDiv);
+    displayDiv.setAttribute("role", "timer");
+    displayDiv.setAttribute("aria-live", "polite");
+    displayDiv.setAttribute("aria-atomic", "true");
+    displayDiv.textContent = "00:00";
+    card.appendChild(displayDiv);
 
-    const actions = pipDoc.createElement("div");
-    actions.className = "pip-actions";
-    const controlBtn = pipDoc.createElement("button");
+    const track = doc.createElement("div");
+    track.className = "pip-track";
+    track.id = "pip-track";
+    const fill = doc.createElement("span");
+    fill.className = "pip-fill";
+    fill.id = "pip-fill";
+    track.appendChild(fill);
+    card.appendChild(track);
+
+    const actions = doc.createElement("div");
+    actions.className = "pip-foot";
+    const controlBtn = doc.createElement("button");
     controlBtn.className = "pip-control-btn";
     controlBtn.id = "pip-control-btn";
-    controlBtn.textContent = (startBtn && startBtn.textContent) || "Start";
+    controlBtn.type = "button";
+    controlBtn.appendChild(pipIcon(doc, PIP_ICON_PLAY, 13, false));
+    const controlLabel = doc.createElement("span");
+    controlLabel.textContent = "Start";
+    controlBtn.appendChild(controlLabel);
     actions.appendChild(controlBtn);
-    pipDoc.body.appendChild(actions);
 
-    const script = pipDoc.createElement("script");
-    script.textContent = `
-      const controlBtn = document.getElementById('pip-control-btn');
-      if (controlBtn && window.opener && typeof window.opener.toggleTimer === 'function') {
-        controlBtn.addEventListener('click', () => {
-          window.opener.toggleTimer();
-        });
+    const resetBtn = doc.createElement("button");
+    resetBtn.className = "pip-reset-btn";
+    resetBtn.id = "pip-reset-btn";
+    resetBtn.type = "button";
+    resetBtn.setAttribute("aria-label", "Reset timer");
+    resetBtn.appendChild(pipIcon(doc, PIP_ICON_RESET, 14, true));
+    actions.appendChild(resetBtn);
+    card.appendChild(actions);
+
+    doc.body.appendChild(card);
+
+    return {
+      card,
+      chipText,
+      closeBtn,
+      display: displayDiv,
+      track,
+      fill,
+      controlBtn,
+      controlIcon: controlBtn.querySelector("svg path"),
+      controlLabel,
+      resetBtn,
+    };
+  }
+
+  function wirePiPControls(refs) {
+    refs.controlBtn.addEventListener("click", () => {
+      if (pipIsStopwatch()) {
+        const swStart = document.getElementById("swStartBtn");
+        if (swStart) swStart.click();
+      } else if (typeof toggleTimer === "function") {
+        toggleTimer();
       }
-      const updateDisplay = () => {
-        const openerDoc = window.opener && window.opener.document;
-        if (!openerDoc) return;
-        const display = openerDoc.getElementById('display');
-        const mode = openerDoc.querySelector('.mode-btn.active');
-        const startBtn = openerDoc.getElementById('startBtn');
-        const pipDisplay = document.getElementById('pip-display');
-        const pipLabel = document.getElementById('pip-label');
-        const controlBtn = document.getElementById('pip-control-btn');
-        if (display && pipDisplay) pipDisplay.textContent = display.textContent;
-        if (mode && pipLabel) pipLabel.textContent = mode.textContent;
-        if (startBtn && controlBtn) controlBtn.textContent = startBtn.textContent;
-      };
-      updateDisplay();
-      setInterval(updateDisplay, 250);
-      window.addEventListener('beforeunload', () => {
-        if (window.opener) window.opener.pipWindow = null;
+      applyPiPState();
+    });
+
+    refs.resetBtn.addEventListener("click", () => {
+      const btn = pipIsStopwatch()
+        ? document.getElementById("swResetBtn")
+        : resetBtn;
+      if (btn && !btn.disabled) btn.click();
+      applyPiPState();
+    });
+
+    refs.closeBtn.addEventListener("click", closePiP);
+
+    const ownerDoc = refs.card.ownerDocument;
+    if (ownerDoc) {
+      ownerDoc.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closePiP();
       });
-    `;
-    pipDoc.body.appendChild(script);
+    }
+  }
+
+  function clearPiPSync() {
+    if (pipSyncTimer && pipWindow) {
+      try {
+        pipWindow.clearInterval(pipSyncTimer);
+      } catch (e) {
+        /* The window is already gone; its timers went with it. */
+      }
+    }
+    pipSyncTimer = null;
+  }
+
+  /* Safe to call any number of times and from any close path. */
+  function handlePiPClosed() {
+    clearPiPSync();
+    pipRefs = null;
+    pipWindow = null;
+    pipThemeKey = "";
+    setPipToggleActive(false);
+  }
+
+  function closePiP() {
+    const win = pipWindow;
+    handlePiPClosed();
+    if (win && !win.closed) {
+      try {
+        win.close();
+      } catch (e) {
+        /* Already gone: the guard above covers the real state. */
+      }
+    }
+  }
+
+  function startPiPSync() {
+    clearPiPSync();
+    /* The tick lives in the mini player's window. That document stays visible
+       while the main tab is behind another window, so unlike this document's
+       timers it is not throttled to once a minute. */
+    pipSyncTimer = pipWindow.setInterval(applyPiPState, 250);
+    applyPiPState();
+  }
+
+  async function openPiP() {
+    if (pipOpening) return;
+    pipOpening = true;
+    let win = null;
+    try {
+      /* Document PiP is the only API that gives a real always-on-top window.
+         If the browser exposes it but refuses this particular request (no
+         transient activation, policy, a second window), fall through to the
+         popup path instead of failing the whole feature. */
+      if (supportsDocumentPiP()) {
+        try {
+          win = await window.documentPictureInPicture.requestWindow({
+            width: 360,
+            height: 280,
+          });
+        } catch (err) {
+          console.warn("Document PiP unavailable, using popup:", err);
+          win = null;
+        }
+      }
+
+      if (!win) {
+        const left = Math.max(0, Math.round((screenX || 0) + 120));
+        const top = Math.max(0, Math.round((screenY || 0) + 120));
+        win = window.open(
+          "",
+          "pomora-pip",
+          "popup=yes,width=380,height=320,left=" + left + ",top=" + top,
+        );
+        if (!win) throw new Error("popup-blocked");
+      }
+
+      if (!win.document) throw new Error("no-document");
+
+      pipWindow = win;
+      pipRefs = buildPiPDocument(win.document);
+      wirePiPControls(pipRefs);
+
+      win.addEventListener("pagehide", () => {
+        if (pipWindow === win) handlePiPClosed();
+      });
+      win.addEventListener("beforeunload", () => {
+        if (pipWindow === win) handlePiPClosed();
+      });
+
+      startPiPSync();
+      setPipToggleActive(true);
+      try {
+        win.focus();
+      } catch (e) {
+        /* Focus is best-effort; the window is already open. */
+      }
+    } catch (e) {
+      console.warn("PiP failed:", e);
+      /* Close a window that was opened but could not be built, so a failure
+         never leaves an empty mini player behind. */
+      closePiP();
+      const blocked = String((e && e.message) || "") === "popup-blocked";
+      showAlert(
+        blocked
+          ? "Your browser blocked the mini player window. Allow pop-ups for this site, then try again."
+          : "Could not open the mini player. Use Chrome or Edge for the always-on-top version, or allow pop-ups for this site.",
+      );
+    } finally {
+      pipOpening = false;
+    }
   }
 
   async function togglePiP() {
     if (pipWindow) {
-      pipWindow.close();
-      pipWindow = null;
-      if (pipToggle) pipToggle.classList.remove("active");
-      clearPipStayOnTopInterval();
+      closePiP();
       return;
     }
-
-    try {
-      const requestWindow =
-        window.documentPictureInPicture &&
-        window.documentPictureInPicture.requestWindow;
-      if (requestWindow) {
-        pipWindow = await requestWindow.call(window.documentPictureInPicture, {
-          width: 360,
-          height: 260,
-        });
-      } else {
-        pipWindow = window.open(
-          "about:blank",
-          "timer-pip",
-          "width=360,height=260,left=" +
-            (screenX + 100) +
-            ",top=" +
-            (screenY + 100),
-        );
-      }
-
-      if (pipWindow && pipWindow.document) {
-        buildPiPDocument(pipWindow.document);
-        pipWindow.focus();
-        refreshPipStayOnTop();
-        pipWindow.addEventListener("beforeunload", () => {
-          pipWindow = null;
-          clearPipStayOnTopInterval();
-          if (pipToggle) pipToggle.classList.remove("active");
-        });
-      }
-
-      if (pipToggle) pipToggle.classList.toggle("active", !!pipWindow);
-    } catch (e) {
-      console.warn("PiP failed:", e);
-      if (pipToggle) pipToggle.classList.remove("active");
-    }
+    await openPiP();
   }
+
+  window.addEventListener("beforeunload", () => {
+    if (pipWindow && !pipWindow.closed) {
+      try {
+        pipWindow.close();
+      } catch (e) {
+        /* ignore */
+      }
+    }
+    clearPiPSync();
+  });
 
   focusModeBtn.addEventListener("click", () => setActiveMode("focus"));
   shortBreakBtn.addEventListener("click", () => setActiveMode("short"));
@@ -681,14 +1238,16 @@
   startBtn.addEventListener("click", toggleTimer);
   resetBtn.addEventListener("click", resetTimer);
 
-  const pipBtn = document.getElementById("pipBtn");
-  if (pipBtn) {
-    pipBtn.addEventListener("click", togglePiP);
-  }
+  pipToggles.forEach((b) => b.addEventListener("click", togglePiP));
 
   minutesInput.addEventListener("change", () => {
+    const minutes = clampMinutes(
+      minutesInput.value,
+      Math.max(MIN_MINUTES, Math.round(modes.focus / 60)),
+    );
+    minutesInput.value = minutes;
     if (currentMode === "focus") {
-      remaining = Number(minutesInput.value) * 60;
+      remaining = minutes * 60;
       render();
     }
   });
@@ -731,19 +1290,20 @@
   loadSavedModes();
   render();
 
-  // ── theme config ──────────────────────────────────────────
   const THEME_CFG = {
     "gradient-default": { adv: true, section: "defaultThemeSettings" },
-    "gradient-day-night": { adv: true, section: "dayNightSettings" },
     "gradient-ocean": { adv: true, section: "deepOceanSettings" },
     "gradient-deep-ocean": { adv: true, section: "deepOceanSettings" },
     "gradient-forest": { adv: true, section: "forestThemeSettings" },
+    "gradient-glow": { adv: false, section: "staticThemeSettings" },
+    "gradient-bloom": { adv: false, section: "staticThemeSettings" },
     "color-dark": { adv: false, section: "staticThemeSettings" },
-    "color-light": { adv: false, section: "staticThemeSettings" },
   };
 
   const THEME_ALIAS = {
-    "gradient-sunset": "gradient-day-night",
+    "gradient-sunset": "gradient-default",
+    "gradient-day-night": "gradient-default",
+    "color-light": "gradient-default",
   };
 
   function normalizeTheme(theme) {
@@ -751,7 +1311,38 @@
     return THEME_ALIAS[theme] || theme;
   }
 
-  // ── DOM refs ──────────────────────────────────────────────
+  function activeCustomThemeId() {
+    if (typeof ThemeEngine === "undefined") return null;
+    const id =
+      typeof ThemeEngine.getActiveId === "function"
+        ? ThemeEngine.getActiveId()
+        : null;
+    if (id) return id;
+    try {
+      const stored = localStorage.getItem("customThemeActiveId");
+      return stored && ThemeEngine.get(stored) ? stored : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function activeNativeSceneId() {
+    if (typeof ThemeEngine === "undefined") return null;
+    const st =
+      typeof ThemeEngine.getNativeSceneState === "function"
+        ? ThemeEngine.getNativeSceneState()
+        : null;
+    return st && st.sceneId ? st.sceneId : null;
+  }
+
+  function paintThemeTiles(theme) {
+    const custom = activeCustomThemeId();
+    const owned = !!custom || !!activeNativeSceneId();
+    document.querySelectorAll(".theme-option").forEach((o) => {
+      o.classList.toggle("active", !owned && o.dataset.theme === theme);
+    });
+  }
+
   const settingsBtn = document.getElementById("settingsBtn");
   const themeModal = document.getElementById("themeModal");
   const timerContainer = document.getElementById("timerContainer");
@@ -761,6 +1352,8 @@
   const advCloseBtn = document.getElementById("advancedSettingsCloseBtn");
   const advOpenBtn = document.getElementById("openAdvancedSettingsBtn");
   const advSaveBtn = document.getElementById("advancedSettingsSaveBtn");
+  
+  const tlAutoDetectToggle = document.getElementById("tlAutoDetectToggle");
   const patchNotesPreview = document.getElementById("patchNotesPreview");
   const openPatchNotesBtn = document.getElementById("openPatchNotesBtn");
   const patchNotesPopup = document.getElementById("patchNotesPopup");
@@ -773,12 +1366,10 @@
   const dismissUpdateNoticeBtn = document.getElementById(
     "dismissUpdateNoticeBtn",
   );
-  const dayNightContainer = document.getElementById("dayNightContainer");
   const leavesContainer = document.getElementById("leaves");
   const waveContainer = document.getElementById("waveContainer");
   const oceanContainer = document.getElementById("oceanContainer");
 
-  // ── current state ─────────────────────────────────────────
   let savedTheme =
     normalizeTheme(localStorage.getItem("timerTheme")) || "gradient-default";
   if (!THEME_CFG[savedTheme]) {
@@ -790,65 +1381,250 @@
   let animationEnabled =
     localStorage.getItem("timerAnimationEnabled") !== "false";
   let currentAnimation = null;
-  let dayNightInterval = null;
   let pipAlwaysOnTop = localStorage.getItem("pipAlwaysOnTop") === "true";
 
-  // ── sound control ────────────────────────────────────────
   let timerSoundEnabled = localStorage.getItem("timerSoundEnabled") !== "false";
   let breakSoundEnabled = localStorage.getItem("breakSoundEnabled") !== "false";
   let statisticsEnabled = localStorage.getItem("statisticsEnabled") !== "false";
 
   const PATCH_NOTES = [
     {
-      date: "2026-06-03",
-      title: "Branding",
-      details:
-        "Added a new logo and updated the general branding. Also made the new logo the site's favicon which was previously missing",
+      version: "2.0.0",
+      date: "2026-10-16",
+      newest: true,
+      title: "Custom themes, UI redesign & expanded PiP",
+      changes: [
+        {
+          kind: "new",
+          text: "Theme Builder: Build custom themes with personalized colors, image, or video backgrounds.",
+        },
+        {
+          kind: "new",
+          text: "Animated Theme Library: 30+ animated scenes with curated color presets (can be toggled in Extras).",
+        },
+        {
+          kind: "improved",
+          text: "Site-wide Redesign: Modernized interface across Quick Settings, Advanced Settings, Task Planner, and more.",
+        },
+        {
+          kind: "improved",
+          text: "Study Analytics: Deeper breakdowns of your study habits with a dedicated session history log.",
+        },
+        {
+          kind: "improved",
+          text: "Interactive PiP: Redesigned floating window with direct controls (play, pause, reset), better window persistence and progress tracking.",
+        },
+        {
+          kind: "fixed",
+          text: "Picture-in-Picture now supports Stopwatch mode alongside countdown timers.",
+        },
+        {
+          kind: "fixed",
+          text: 'Clicking "Apply & Close" in Advanced Settings no longer resets the active theme selection.',
+        },
+      ],
     },
     {
-      date: "2026-06-03",
-      title: "Added PiP mode, improved UI and animations, and more",
-      details:
-        "Added a new Picture-in-Picture mode to better improve your workflow while working in other tabs, along with various UI improvements animations, new wave animation logic and bug fixes.",
+      version: "1.5.1",
+      date: "2026-09-16",
+      title: "Background stopwatch fix",
+      changes: [
+        {
+          kind: "fixed",
+          text: "Stopwatch accurately tracks elapsed time when running in background browser tabs.",
+        },
+      ],
     },
     {
+      version: "1.5.0",
+      date: "2026-07-15",
+      title: "Data backup & transfer",
+      changes: [
+        {
+          kind: "new",
+          text: "CSV Import & Export: Back up your study statistics or transfer data across browsers and devices.",
+        },
+      ],
+    },
+    {
+      version: "1.4.1",
+      date: "2026-06-27",
+      title: "Statistics logging fix",
+      changes: [
+        {
+          kind: "fixed",
+          text: "Resolved an issue where completed study sessions failed to record in statistics.",
+        },
+      ],
+    },
+    {
+      version: "1.4.0",
+      date: "2026-06-10",
+      title: "Stopwatch mode",
+      changes: [
+        {
+          kind: "new",
+          text: "Stopwatch Mode: Track open-ended study sessions without a countdown timer.",
+        },
+      ],
+    },
+    {
+      version: "1.3.1",
+      date: "2026-06-03",
+      title: "New logo & branding",
+      changes: [
+        {
+          kind: "new",
+          text: "Official Branding: Introduced the app logo, visual identity, and browser favicon.",
+        },
+      ],
+    },
+    {
+      version: "1.3.0",
+      date: "2026-06-02",
+      title: "Picture-in-Picture mode & animation polish",
+      changes: [
+        {
+          kind: "new",
+          text: "Picture-in-Picture Mode: Keep your timer visible in a floating window while working across other tabs.",
+        },
+        {
+          kind: "improved",
+          text: "Refined wave animation logic and smoother page transitions.",
+        },
+      ],
+    },
+    {
+      version: "1.2.1",
+      date: "2026-05-22",
+      title: "Maintenance update",
+      changes: [
+        {
+          kind: "fixed",
+          text: "Resolved various bugs across the timer, themes, and settings menu.",
+        },
+      ],
+    },
+    {
+      version: "1.2.0",
       date: "2026-05-20",
-      title: "Customize wave animation colors",
-      details:
-        "Added the ability to choose your own custom colors for the wave animation in the Default theme, and other small changes and bug fixes.",
+      title: "Custom wave animation colors",
+      changes: [
+        {
+          kind: "new",
+          text: "Wave Color Customization: Choose custom colors for the wave animation in the default theme.",
+        },
+      ],
     },
     {
+      version: "1.1.0",
       date: "2026-05-19",
-      title: "Expanded settings menu and other changes",
-      details:
-        "New expanded settings menu, theme overhaul, and new animations across the entire page.",
+      title: "Expanded settings & theme overhaul",
+      changes: [
+        {
+          kind: "new",
+          text: "Full Settings Modal: Open “Expand Settings” for deeper timer and preference configuration.",
+        },
+        {
+          kind: "improved",
+          text: "Overhauled theme styling and smoothed UI animations across the page.",
+        },
+      ],
     },
     {
+      version: "1.0.1",
       date: "2026-05-11",
-      title: "Bug fixes and UI improvements",
-      details:
-        "Improved and made UI more consistent. Fixed various bugs related to the timer and settings menu.",
+      title: "UI consistency & bug fixes",
+      changes: [
+        {
+          kind: "improved",
+          text: "Polished layout alignment and visual consistency across the interface.",
+        },
+        {
+          kind: "fixed",
+          text: "Fixed minor interaction bugs in the timer and settings menu.",
+        },
+      ],
     },
     {
+      version: "1.0.0",
       date: "2026-05-10",
-      title: "Advanced analytics menu",
-      details:
-        "Added a new analytics menu with more detailed breakdowns of your study sessions, including subject tracking and session history.",
+      title: "Advanced study analytics",
+      changes: [
+        {
+          kind: "new",
+          text: "Advanced Analytics Dashboard: In-depth breakdowns of study sessions, subject tracking, and history.",
+        },
+      ],
+    },
+    {
+      version: "0.9.0",
+      date: "2026-05-05",
+      title: "Release notes",
+      changes: [
+        {
+          kind: "new",
+          text: "Added in-app release notes to track updates and improvements.",
+        },
+      ],
     },
   ];
 
-  // Update notice constants (declare before bootstrap to avoid TDZ)
-  const UPDATE_NOTIFICATION_VERSION = "2026-06-05";
+  const RELEASE_KIND_LABELS = {
+    new: "New",
+    improved: "Improved",
+    fixed: "Fixed",
+  };
+  const RELEASE_MONTHS = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+
+  function formatReleaseDate(iso) {
+    const parts = String(iso || "").split("-");
+    if (parts.length !== 3) return sanitizeInput(iso);
+    const month = RELEASE_MONTHS[Number(parts[1]) - 1];
+    if (!month) return sanitizeInput(iso);
+    return Number(parts[2]) + " " + month + " " + parts[0];
+  }
+
+  function releaseKinds(release) {
+    const order = ["new", "improved", "fixed"];
+    const present = (release.changes || []).map((change) => change.kind);
+    return order.filter((kind) => present.indexOf(kind) !== -1);
+  }
+
+  function kindChip(kind) {
+    const chip = createSafeElement("span", {
+      class: "patch-notes-kind is-" + String(kind),
+    });
+    chip.appendChild(
+      createSafeElement("span", { class: "patch-notes-kind__dot" }),
+    );
+    chip.appendChild(
+      createSafeElement("span", {}, RELEASE_KIND_LABELS[kind] || String(kind)),
+    );
+    return chip;
+  }
+
+  const UPDATE_NOTIFICATION_VERSION = "2026-10-16";
   const UPDATE_NOTIFICATION_KEY = "timerUpdateNoticeVersion";
   const VISITED_KEY = "timerHasVisited";
 
-  // ── apply saved theme class ───────────────────────────────
   (function bootstrap() {
     timerContainer.classList.add("theme-" + savedTheme);
     if (document.body) document.body.classList.add("theme-" + savedTheme);
-    document
-      .querySelectorAll(`[data-theme="${savedTheme}"]`)
-      .forEach((el) => el.classList.add("active"));
+    paintThemeTiles(savedTheme);
     renderPatchNotesPreview();
     renderPatchNotesList();
     initUpdateNotice();
@@ -887,6 +1663,7 @@
   }
 
   function initUpdateNotice() {
+    fillUpdateNotice();
     const currentVersion = UPDATE_NOTIFICATION_VERSION;
     const seenVersion = localStorage.getItem(UPDATE_NOTIFICATION_KEY);
     const returning = isReturningUser();
@@ -906,12 +1683,17 @@
 
   function renderPatchNotesPreview() {
     if (!patchNotesPreview) return;
-    const first = PATCH_NOTES[0];
     patchNotesPreview.innerHTML = "";
-    if (!first) {
-      return;
-    }
+    const latest = PATCH_NOTES[0];
+    if (!latest) return;
+
     const moreCount = Math.max(0, PATCH_NOTES.length - 1);
+    if (openPatchNotesBtn) {
+      openPatchNotesBtn.textContent =
+        moreCount > 0
+          ? `View all updates (${PATCH_NOTES.length})`
+          : "View release notes";
+    }
 
     const btn = createSafeElement("button", {
       type: "button",
@@ -919,27 +1701,36 @@
       "data-index": "0",
     });
 
-    const headerDiv = createSafeElement("div");
-    const titleStrong = createSafeElement(
-      "strong",
-      {},
-      sanitizeInput(first.title),
+    const meta = createSafeElement("div", {
+      class: "patch-note-preview-meta",
+    });
+    meta.appendChild(
+      createSafeElement(
+        "span",
+        { class: "patch-notes-version" },
+        sanitizeInput(latest.version),
+      ),
     );
-    const dateSmall = createSafeElement("small", {}, sanitizeInput(first.date));
-    headerDiv.appendChild(titleStrong);
-    headerDiv.appendChild(dateSmall);
-    btn.appendChild(headerDiv);
+    meta.appendChild(
+      createSafeElement("small", {}, formatReleaseDate(latest.date)),
+    );
+    btn.appendChild(meta);
 
-    const detailsP = createSafeElement("p", {}, sanitizeInput(first.details));
-    btn.appendChild(detailsP);
+    btn.appendChild(
+      createSafeElement(
+        "strong",
+        { class: "patch-note-preview-title" },
+        sanitizeInput(latest.title),
+      ),
+    );
 
-    if (moreCount > 0) {
-      const moreDiv = createSafeElement(
-        "div",
-        { class: "patch-more" },
-        `and ${moreCount} more — View all`,
-      );
-      btn.appendChild(moreDiv);
+    const kinds = releaseKinds(latest);
+    if (kinds.length) {
+      const chips = createSafeElement("div", {
+        class: "patch-note-preview-chips",
+      });
+      kinds.forEach((kind) => chips.appendChild(kindChip(kind)));
+      btn.appendChild(chips);
     }
 
     patchNotesPreview.appendChild(btn);
@@ -948,23 +1739,104 @@
   function renderPatchNotesList() {
     if (!patchNotesList) return;
     patchNotesList.innerHTML = "";
-    PATCH_NOTES.forEach((note) => {
-      const entryDiv = createSafeElement("div", { class: "patch-notes-entry" });
+    if (!PATCH_NOTES.length) return;
 
-      const headerDiv = createSafeElement("div", {
-        class: "patch-notes-entry-header",
+    const timeline = createSafeElement("div", { class: "patch-notes-timeline" });
+    PATCH_NOTES.forEach((note, index) => {
+      const release = createSafeElement("article", {
+        class:
+          "patch-notes-release" +
+          (note.newest || index === 0 ? " is-newest" : ""),
       });
-      const titleH4 = createSafeElement("h4", {}, sanitizeInput(note.title));
-      const dateSpan = createSafeElement("span", {}, sanitizeInput(note.date));
-      headerDiv.appendChild(titleH4);
-      headerDiv.appendChild(dateSpan);
+      release.appendChild(
+        createSafeElement("span", { class: "patch-notes-node" }),
+      );
 
-      const detailsP = createSafeElement("p", {}, sanitizeInput(note.details));
+      const meta = createSafeElement("div", {
+        class: "patch-notes-release-meta",
+      });
+      meta.appendChild(
+        createSafeElement(
+          "span",
+          { class: "patch-notes-version" },
+          sanitizeInput(note.version),
+        ),
+      );
+      meta.appendChild(
+        createSafeElement(
+          "time",
+          { class: "patch-notes-date", datetime: note.date },
+          formatReleaseDate(note.date),
+        ),
+      );
+      if (note.newest || index === 0) {
+        meta.appendChild(
+          createSafeElement("span", { class: "patch-notes-newest" }, "Newest"),
+        );
+      }
+      release.appendChild(meta);
 
-      entryDiv.appendChild(headerDiv);
-      entryDiv.appendChild(detailsP);
-      patchNotesList.appendChild(entryDiv);
+      release.appendChild(
+        createSafeElement(
+          "h4",
+          { class: "patch-notes-release-title" },
+          sanitizeInput(note.title),
+        ),
+      );
+
+      const list = createSafeElement("ul", { class: "patch-notes-changes" });
+      (note.changes || []).forEach((change) => {
+        const item = createSafeElement("li", { class: "patch-notes-change" });
+        item.appendChild(kindChip(change.kind));
+        // The leading space is for assistive tech: the chip and the text are
+        // adjacent inline boxes, so without it the label runs into the prose
+        // ("NewTheme Builder"). Collapsed visually at the start of the cell.
+        item.appendChild(
+          createSafeElement("span", {}, " " + sanitizeInput(change.text)),
+        );
+        list.appendChild(item);
+      });
+      release.appendChild(list);
+      timeline.appendChild(release);
     });
+
+    patchNotesList.appendChild(timeline);
+
+    const subtitle = document.getElementById("patchNotesSubtitle");
+    if (subtitle && PATCH_NOTES[0]) {
+      subtitle.textContent =
+        PATCH_NOTES.length +
+        " releases · latest " +
+        PATCH_NOTES[0].version +
+        " · " +
+        formatReleaseDate(PATCH_NOTES[0].date);
+    }
+  }
+
+  function fillUpdateNotice() {
+    const release = PATCH_NOTES[0];
+    if (!release) return;
+
+    const versionEl = document.getElementById("updateNoticeVersion");
+    if (versionEl) versionEl.textContent = sanitizeInput(release.version);
+
+    const dateEl = document.getElementById("updateNoticeDate");
+    if (dateEl) dateEl.textContent = formatReleaseDate(release.date);
+
+    const titleEl = document.getElementById("updateNoticeTitle");
+    if (titleEl) titleEl.textContent = sanitizeInput(release.title);
+
+    const summaryEl = document.getElementById("updateNoticeSummary");
+    if (summaryEl) {
+      summaryEl.textContent =
+        "There has been an update since your last visit. Here is what changed.";
+    }
+
+    const chips = document.getElementById("updateNoticeChips");
+    if (chips) {
+      chips.innerHTML = "";
+      releaseKinds(release).forEach((kind) => chips.appendChild(kindChip(kind)));
+    }
   }
 
   function openPatchNotesPopup() {
@@ -979,9 +1851,6 @@
     refreshBodyOverflow();
   }
 
-  // ═══════════════════════════════════════════════════════════
-  //  SETTINGS BUTTON  →  spring-open theme modal
-  // ═══════════════════════════════════════════════════════════
   if (settingsBtn) {
     settingsBtn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -989,6 +1858,9 @@
       if (!modal) return;
       const isOpen = modal.classList.contains("open");
       modal.classList.toggle("open", !isOpen);
+
+      if (!isOpen && typeof window.__syncQsEditThemeBtn === "function")
+        window.__syncQsEditThemeBtn();
       addRipple(settingsBtn, e);
     });
   }
@@ -1000,7 +1872,9 @@
       !e.target.closest(".advanced-settings-panel") &&
       !e.target.closest(".planner-card") &&
       !e.target.closest(".task-popup-card") &&
-      !e.target.closest(".analytics-panel")
+      !e.target.closest(".analytics-panel") &&
+      !e.target.closest(".confirm-backdrop") &&
+      !e.target.closest(".te-confirm-backdrop")
     ) {
       const modal = themeModal || document.getElementById("themeModal");
       if (modal) modal.classList.remove("open");
@@ -1024,6 +1898,12 @@
     });
   if (dismissUpdateNoticeBtn)
     dismissUpdateNoticeBtn.addEventListener("click", closeUpdateNoticePopup);
+
+  const dismissUpdateNoticeLaterBtn = document.getElementById(
+    "dismissUpdateNoticeLaterBtn",
+  );
+  if (dismissUpdateNoticeLaterBtn)
+    dismissUpdateNoticeLaterBtn.addEventListener("click", closeUpdateNoticePopup);
   if (patchNotesPopup)
     patchNotesPopup.addEventListener("click", (e) => {
       if (e.target === patchNotesPopup) closePatchNotesPopup();
@@ -1054,75 +1934,64 @@
     setTimeout(() => ripple.remove(), 650);
   }
 
-  // ═══════════════════════════════════════════════════════════
-  //  THEME SELECTION
-  // ═══════════════════════════════════════════════════════════
+  setTimeout(() => {
+    document.querySelectorAll("button[disabled][title]").forEach((btn) => {
+      btn.style.position = "relative";
 
-  // Setup disabled button tooltips (complete rebuild)
-  document.addEventListener("DOMContentLoaded", function () {
-    setTimeout(() => {
-      document.querySelectorAll("button[disabled][title]").forEach((btn) => {
-        btn.style.position = "relative";
+      btn.addEventListener("mouseenter", function () {
+        if (this._activeTooltip) {
+          this._activeTooltip.remove();
+          this._activeTooltip = null;
+        }
 
-        btn.addEventListener("mouseenter", function () {
-          // create tooltip appended to body to avoid clipping by modal overflow
-          // remove any existing tooltip attached to this button
-          if (this._activeTooltip) {
-            this._activeTooltip.remove();
-            this._activeTooltip = null;
-          }
+        const tooltip = document.createElement("div");
+        tooltip.className = "btn-wip-tooltip";
+        tooltip.textContent = this.getAttribute("title") || "";
+        tooltip.style.cssText = [
+          "position: fixed",
+          "background: #111",
+          "color: #fff",
+          "padding: 8px 12px",
+          "border-radius: 6px",
+          "font-size: 12px",
+          "font-weight: 600",
+          "white-space: nowrap",
+          "pointer-events: none",
+          "z-index: 1000000",
+          "box-shadow: 0 6px 20px rgba(0,0,0,0.6)",
+          "border: 1px solid rgba(255,255,255,0.06)",
+        ].join(";");
 
-          const tooltip = document.createElement("div");
-          tooltip.className = "btn-wip-tooltip";
-          tooltip.textContent = this.getAttribute("title") || "";
-          tooltip.style.cssText = [
-            "position: fixed",
-            "background: #111",
-            "color: #fff",
-            "padding: 8px 12px",
-            "border-radius: 6px",
-            "font-size: 12px",
-            "font-weight: 600",
-            "white-space: nowrap",
-            "pointer-events: none",
-            "z-index: 1000000",
-            "box-shadow: 0 6px 20px rgba(0,0,0,0.6)",
-            "border: 1px solid rgba(255,255,255,0.06)",
-          ].join(";");
+        document.body.appendChild(tooltip);
 
-          document.body.appendChild(tooltip);
+        void tooltip.offsetHeight;
 
-          // force reflow to get accurate size
-          void tooltip.offsetHeight;
+        const rect = this.getBoundingClientRect();
+        const tw = tooltip.offsetWidth;
+        const th = tooltip.offsetHeight;
 
-          const rect = this.getBoundingClientRect();
-          const tw = tooltip.offsetWidth;
-          const th = tooltip.offsetHeight;
+        let left = Math.round(rect.left + rect.width / 2 - tw / 2);
+        let top = Math.round(rect.top - th - 10);
 
-          let left = Math.round(rect.left + rect.width / 2 - tw / 2);
-          let top = Math.round(rect.top - th - 10);
+        if (left < 8) left = 8;
+        if (left + tw > window.innerWidth - 8)
+          left = window.innerWidth - tw - 8;
+        if (top < 8) top = Math.round(rect.bottom + 10);
 
-          // viewport bounds
-          if (left < 8) left = 8;
-          if (left + tw > window.innerWidth - 8)
-            left = window.innerWidth - tw - 8;
-          if (top < 8) top = Math.round(rect.bottom + 10);
+        tooltip.style.left = left + "px";
+        tooltip.style.top = top + "px";
 
-          tooltip.style.left = left + "px";
-          tooltip.style.top = top + "px";
-
-          this._activeTooltip = tooltip;
-        });
-
-        btn.addEventListener("mouseleave", function () {
-          if (this._activeTooltip) {
-            this._activeTooltip.remove();
-            this._activeTooltip = null;
-          }
-        });
+        this._activeTooltip = tooltip;
       });
-    }, 100);
-  });
+
+      btn.addEventListener("mouseleave", function () {
+        if (this._activeTooltip) {
+          this._activeTooltip.remove();
+          this._activeTooltip = null;
+        }
+      });
+    });
+  }, 100);
 
   if (themeOptions.length > 0) {
     themeOptions.forEach((opt) => {
@@ -1130,13 +1999,16 @@
         const btn = e.currentTarget;
         if (!btn) return;
 
-        // Skip if button is disabled
         if (btn.hasAttribute("disabled")) return;
 
         const theme = normalizeTheme(btn.dataset.theme);
         if (!theme) return;
 
-        // swap class
+        if (typeof ThemeEngine !== "undefined") {
+          ThemeEngine.deactivate({ restorePreset: false });
+          ThemeEngine._rebuildCustomList();
+        }
+
         if (timerContainer) {
           const oldClasses = Array.from(timerContainer.classList).filter((c) =>
             c.startsWith("theme-"),
@@ -1154,26 +2026,39 @@
 
         themeOptions.forEach((o) => o.classList.remove("active"));
         btn.classList.add("active");
+        syncQsThemeEditState(); 
 
         savedTheme = theme;
         localStorage.setItem("timerTheme", theme);
 
-        applyTheme(theme);
+        if (
+          typeof window !== "undefined" &&
+          typeof window.reapplyBuiltInTheme === "function"
+        ) {
+          window.reapplyBuiltInTheme(theme, { userPick: true });
+        } else {
+          applyTheme(theme);
+        }
       });
     });
   }
 
   function updatePipAlwaysOnTopButton() {
-    const pipBtn = document.getElementById("pipBtn");
     const pipAlwaysOnTopToggle = document.getElementById(
       "pipAlwaysOnTopToggle",
     );
-    if (pipBtn) pipBtn.classList.toggle("always-on-top", pipAlwaysOnTop);
+
+    pipToggles.forEach((b) =>
+      b.classList.toggle("always-on-top", pipAlwaysOnTop),
+    );
     if (pipAlwaysOnTopToggle) {
       pipAlwaysOnTopToggle.checked = pipAlwaysOnTop;
     }
     localStorage.setItem("pipAlwaysOnTop", pipAlwaysOnTop ? "true" : "false");
-    refreshPipStayOnTop();
+    /* The old focus() loop lived here. It never made a popup on top; it just
+       stole the keyboard every 1.2s. Document PiP is always-on-top already,
+       so the setting only pins the buttons now. */
+    applyPiPState();
   }
 
   function initPipAlwaysOnTop() {
@@ -1195,9 +2080,6 @@
     initPipAlwaysOnTop();
   }
 
-  // ═══════════════════════════════════════════════════════════
-  //  EXTENDED SETTINGS MODAL
-  // ═══════════════════════════════════════════════════════════
   if (advOpenBtn)
     advOpenBtn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -1212,14 +2094,257 @@
   if (advBackdrop) advBackdrop.addEventListener("click", closeAdvModal);
   if (advSaveBtn) advSaveBtn.addEventListener("click", saveAdvSettings);
 
+  if (tlAutoDetectToggle) {
+
+    const _persist = (on) => {
+      try {
+        localStorage.setItem("tlAutoDetectColors", on ? "1" : "0");
+      } catch (e) {
+        }
+    };
+    const _tlIsOn = () => {
+      try {
+        return localStorage.getItem("tlAutoDetectColors") !== "0";
+      } catch (e) {
+        return true;
+      }
+    };
+    const _applyPalette = (on) => {
+      if (typeof ThemeEngine === "undefined") return;
+      if (!on) {
+
+        ThemeEngine.applyNativePresetPalette();
+        return;
+      }
+
+      const st =
+        typeof ThemeEngine.getNativeSceneState === "function"
+          ? ThemeEngine.getNativeSceneState()
+          : null;
+      const active =
+        typeof ThemeEngine.getActiveCustomThemeConfig === "function"
+          ? ThemeEngine.getActiveCustomThemeConfig()
+          : null;
+      const bg = active && active.bg;
+      if (st && st.sceneId) {
+        ThemeEngine._queueNativeScenePalette(
+          st.sceneId,
+          st.sceneOptions || {},
+          st.sceneBgColor || "",
+        );
+      } else if (bg && bg.type === "scene" && bg.sceneId) {
+        ThemeEngine._queueNativeScenePalette(
+          bg.sceneId,
+          bg.sceneOptions || {},
+          bg.sceneBgColor || "",
+        );
+      } else if (typeof ThemeEngine.applyBackgroundPalette === "function") {
+        ThemeEngine.applyBackgroundPalette(bg || null);
+      }
+    };
+    
+    window.__syncTlAutoDetectToggle = () => {
+      tlAutoDetectToggle.checked = _tlIsOn();
+    };
+    tlAutoDetectToggle.checked = _tlIsOn();
+
+    tlAutoDetectToggle.addEventListener("change", () => {
+      const on = tlAutoDetectToggle.checked;
+      _persist(on);
+      _applyPalette(on);
+    });
+  }
+
+  const libraryBtns = document.querySelectorAll(".open-theme-library-btn");
+  if (typeof ThemeScenes === "undefined") {
+    console.warn(
+      "Theme library entries hidden: ThemeScenes registry did not load.",
+    );
+    libraryBtns.forEach((btn) => (btn.style.display = "none"));
+  } else {
+
+    /* Scene files load on demand, so at this point only the ones on screen
+       are registered — ask the manifest for the library size instead. */
+    const sceneCount =
+      typeof ThemeScenes.visibleCount === "function"
+        ? ThemeScenes.visibleCount()
+        : typeof ThemeScenes.listLive === "function"
+          ? ThemeScenes.listLive().length
+          : ThemeScenes.list().length;
+    ["openThemeLibraryLabelSmall", "openThemeLibraryLabelFull"].forEach((id) => {
+      const label = document.getElementById(id);
+      if (label) label.textContent = `Open theme library (${sceneCount})`;
+    });
+    libraryBtns.forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof ThemeEngine === "undefined") return;
+
+        if (btn.id === "openThemeLibraryBtnSmall" && themeModal)
+          themeModal.classList.remove("open");
+        if (typeof ThemeEngine.openThemeLibrary === "function")
+          ThemeEngine.openThemeLibrary();
+        else if (typeof ThemeEngine.refreshThemeLibraryPanel === "function")
+          ThemeEngine.refreshThemeLibraryPanel();
+      });
+    });
+  }
+
+  function closeTopmostModal() {
+    const id = topmostOverlayId();
+    if (!id) return false;
+    const el = document.getElementById(id);
+    const close = OVERLAY_CLOSERS[id];
+    if (close) close(el);
+    else el.classList.remove("open");
+    return true;
+  }
+
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && advModal && advModal.classList.contains("open"))
-      closeAdvModal();
+    if (e.key === "Escape") {
+      closeTopmostModal();
+    }
+  });
+
+  /* Closed overlays are hidden with opacity alone, so without this their
+     controls stayed in the tab order and in the accessibility tree. Keep a
+     modal's contents reachable only while it is open. */
+  const OVERLAY_IDS = [
+    "updateNoticePopup",
+    "patchNotesPopup",
+    "plannerModal",
+    "taskPopup",
+    "advancedSettingsModal",
+    "statisticsModal",
+    "sessionLogModal",
+    "themeModal",
+    "themeEditorModal",
+    "tlModal",
+    "teSceneLibModal",
+  ];
+
+  const overlayReturnFocus = new Map();
+
+  /* Which overlay opened last. Escape must close what the user is looking at,
+     and a fixed list cannot know that a dialog was opened from another one. */
+  const overlayOpenOrder = [];
+  const overlayOpenState = new Map();
+
+  function noteOverlayOpen(id, isOpen) {
+    if (overlayOpenState.get(id) === isOpen) return;
+    overlayOpenState.set(id, isOpen);
+    const at = overlayOpenOrder.indexOf(id);
+    if (at !== -1) overlayOpenOrder.splice(at, 1);
+    if (isOpen) overlayOpenOrder.push(id);
+  }
+
+  function topmostOverlayId() {
+    for (let i = overlayOpenOrder.length - 1; i >= 0; i--) {
+      const el = document.getElementById(overlayOpenOrder[i]);
+      if (el && el.classList.contains("open")) return overlayOpenOrder[i];
+    }
+    /* Nothing tracked (an overlay that was already open before this ran):
+       fall back to the declared order, which is what the list used to do. */
+    return (
+      OVERLAY_IDS.find((id) => {
+        const el = document.getElementById(id);
+        return el && el.classList.contains("open");
+      }) || null
+    );
+  }
+
+  const OVERLAY_CLOSERS = {
+    updateNoticePopup: () => closeUpdateNoticePopup(),
+    patchNotesPopup: () => closePatchNotesPopup(),
+    taskPopup: () => closeTaskPopup(),
+    plannerModal: (el) => el.classList.remove("open"),
+    teSceneLibModal: (el) => el.classList.remove("open"),
+    tlModal: (el) => {
+      if (
+        typeof ThemeLibrary !== "undefined" &&
+        typeof ThemeLibrary.close === "function"
+      )
+        ThemeLibrary.close();
+      else el.classList.remove("open");
+    },
+    themeEditorModal: () => {
+      if (typeof ThemeEngine !== "undefined") ThemeEngine.closeEditor();
+    },
+    advancedSettingsModal: () => closeAdvModal(),
+    sessionLogModal: (el) => {
+      el.classList.remove("open");
+      el.setAttribute("aria-hidden", "true");
+    },
+    statisticsModal: (el) => el.classList.remove("open"),
+    themeModal: (el) => el.classList.remove("open"),
+  };
+
+  function firstOverlayControl(el) {
+    return el.querySelector(
+      'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    );
+  }
+
+  function syncOverlayA11y() {
+    OVERLAY_IDS.forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const isOpen = el.classList.contains("open");
+      noteOverlayOpen(id, isOpen);
+      if (isOpen) {
+        el.removeAttribute("inert");
+        el.removeAttribute("aria-hidden");
+        if (!overlayReturnFocus.has(id)) {
+          const previous = document.activeElement;
+          overlayReturnFocus.set(
+            id,
+            previous && previous !== document.body ? previous : null,
+          );
+          /* A dialog that opens without focus is a dead end for the keyboard:
+             tabbing continues on the page behind it. Widgets that focus their
+             own field (the task form) are already inside, so they are left
+             alone. */
+          if (!el.contains(document.activeElement)) {
+            requestAnimationFrame(() => {
+              if (!el.classList.contains("open")) return;
+              if (el.contains(document.activeElement)) return;
+              const first = firstOverlayControl(el);
+              if (first) first.focus({ preventScroll: true });
+            });
+          }
+        }
+        return;
+      }
+      if (el.contains(document.activeElement)) document.activeElement.blur();
+      el.setAttribute("inert", "");
+      el.setAttribute("aria-hidden", "true");
+      if (overlayReturnFocus.has(id)) {
+        const previous = overlayReturnFocus.get(id);
+        overlayReturnFocus.delete(id);
+        if (previous && document.contains(previous) && !previous.closest("[inert]"))
+          previous.focus({ preventScroll: true });
+      }
+    });
+  }
+
+  syncOverlayA11y();
+  const overlayObserver = new MutationObserver((records) => {
+    if (records.some((r) => r.target.id && OVERLAY_IDS.includes(r.target.id)))
+      syncOverlayA11y();
+  });
+  OVERLAY_IDS.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el)
+      overlayObserver.observe(el, {
+        attributes: true,
+        attributeFilter: ["class"],
+      });
   });
 
   function openAdvModal() {
     if (!advModal) return;
-    // sync clock inputs into full-settings panel
+    
     const fsFocus = document.getElementById("fsFocus");
     const fsShort = document.getElementById("fsShort");
     const fsLong = document.getElementById("fsLong");
@@ -1230,20 +2355,18 @@
     if (fsShort && qsShort) fsShort.value = qsShort.value;
     if (fsLong && qsLong) fsLong.value = qsLong.value;
 
-    // sync autoStartBreak toggle
+    syncClockCardVisibility();
+
     const asbToggle = document.getElementById("autoStartBreakToggle");
     if (asbToggle) asbToggle.checked = autoStartBreak;
 
-    // sync theme buttons inside full settings
-    document.querySelectorAll(".theme-option").forEach((o) => {
-      o.classList.toggle("active", o.dataset.theme === savedTheme);
-    });
+    paintThemeTiles(savedTheme);
 
-    // show correct theme section
     showThemeSettingsSection(savedTheme);
     loadAdvValues();
 
-    // wire up theme switching inside advanced modal (remove old listeners first)
+    if (typeof ThemeEngine !== "undefined") ThemeEngine._rebuildCustomList();
+
     advModal.querySelectorAll(".theme-option").forEach((opt) => {
       const clone = opt.cloneNode(true);
       opt.parentNode.replaceChild(clone, opt);
@@ -1255,43 +2378,51 @@
         const newTheme = normalizeTheme(btn.dataset.theme);
         if (!newTheme) return;
 
+        if (typeof ThemeEngine !== "undefined") {
+          ThemeEngine.deactivate({ restorePreset: false });
+          ThemeEngine._rebuildCustomList();
+        }
+
         savedTheme = newTheme;
+        localStorage.setItem("timerTheme", newTheme);
         advModal
           .querySelectorAll(".theme-option")
           .forEach((o) => o.classList.remove("active"));
         btn.classList.add("active");
         showThemeSettingsSection(newTheme);
         loadAdvValues();
+        if (
+          typeof window !== "undefined" &&
+          typeof window.reapplyBuiltInTheme === "function"
+        ) {
+          window.reapplyBuiltInTheme(newTheme, { userPick: true });
+        }
       });
     });
 
-    // TAB SWITCHING
     if (!advModal.dataset.tabsInit) {
       document.querySelectorAll(".fs-tab-btn").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const tabName = btn.dataset.tab;
-          document
-            .querySelectorAll(".fs-tab-btn")
-            .forEach((b) => b.classList.remove("active"));
-          document
-            .querySelectorAll(".fs-tab-content")
-            .forEach((c) => c.classList.remove("active"));
-          btn.classList.add("active");
-          const tabContent = document.getElementById(`tab-${tabName}`);
-          if (tabContent) tabContent.classList.add("active");
-        });
+        btn.addEventListener("click", () => setAdvTab(btn.dataset.tab));
       });
       advModal.dataset.tabsInit = "true";
     }
 
-    // SOUND TOGGLES
     const timerSoundToggle = document.getElementById("timerSoundToggle");
     const breakSoundToggle = document.getElementById("breakSoundToggle");
     const statisticsToggle = document.getElementById("statisticsToggle");
+    const keepSceneColorsToggle = document.getElementById(
+      "keepSceneColorsToggle",
+    );
 
     if (timerSoundToggle) timerSoundToggle.checked = timerSoundEnabled;
     if (breakSoundToggle) breakSoundToggle.checked = breakSoundEnabled;
     if (statisticsToggle) statisticsToggle.checked = statisticsEnabled;
+    syncQuickStatsRange();
+    if (keepSceneColorsToggle)
+      keepSceneColorsToggle.checked =
+        localStorage.getItem("pomoraKeepSceneColors") === "1";
+    if (typeof window.__syncTlAutoDetectToggle === "function")
+      window.__syncTlAutoDetectToggle();
 
     advModal.classList.add("open");
     document.body.style.overflow = "hidden";
@@ -1323,7 +2454,7 @@
       if (s.end) document.getElementById("gradientEndColor").value = s.end;
       if (s.waveAccent)
         document.getElementById("waveAccentColor").value = s.waveAccent;
-      // custom toggle
+      
       const wcToggle = document.getElementById("waveCustomToggle");
       if (wcToggle)
         wcToggle.checked =
@@ -1337,16 +2468,6 @@
     } else if (savedTheme === "gradient-forest") {
       if (s.anim !== undefined)
         document.getElementById("forestAnimationToggle").checked = s.anim;
-    } else if (savedTheme === "gradient-day-night") {
-      const mode = s.mode || "realtime";
-      document.querySelectorAll(".mode-toggle-btn").forEach((b) => {
-        b.classList.toggle("active", b.dataset.mode === mode);
-      });
-      setDayNightModeUI(mode);
-      if (s.sliderVal !== undefined) {
-        document.getElementById("dayNightSlider").value = s.sliderVal;
-        updateDNDisplay(s.sliderVal);
-      }
     } else if (
       savedTheme === "gradient-deep-ocean" ||
       savedTheme === "gradient-ocean"
@@ -1365,10 +2486,11 @@
         if (t) t.checked = !!s.anim;
       }
     }
+    syncColorPickerCards();
   }
 
   function saveAdvSettings() {
-    // save clock from full-settings inputs
+    
     const fsFocus = document.getElementById("fsFocus");
     const fsShort = document.getElementById("fsShort");
     const fsLong = document.getElementById("fsLong");
@@ -1379,14 +2501,24 @@
       updateModes();
     }
 
-    // save autoStartBreak
     const asbToggle = document.getElementById("autoStartBreakToggle");
     if (asbToggle) {
       autoStartBreak = asbToggle.checked;
       localStorage.setItem("autoStartBreak", autoStartBreak);
     }
 
-    // theme-specific settings (unchanged logic)
+    const activeScene =
+      typeof ThemeEngine !== "undefined" &&
+      typeof ThemeEngine.getNativeSceneState === "function"
+        ? ThemeEngine.getNativeSceneState()
+        : null;
+    const activeCustom =
+      typeof ThemeEngine !== "undefined" &&
+      typeof ThemeEngine.getActiveCustomThemeConfig === "function"
+        ? ThemeEngine.getActiveCustomThemeConfig()
+        : null;
+    const builtinOwns = !(activeScene && activeScene.sceneId) && !activeCustom;
+
     const s = {};
     if (savedTheme === "gradient-default") {
       s.start = document.getElementById("gradientStartColor").value;
@@ -1407,20 +2539,18 @@
         document.getElementById("waveLowQualityToggle").checked
       );
       s.anim = document.getElementById("defaultAnimationToggle").checked;
-      applyCustomGradient(s.start, s.end);
-      animationEnabled = s.anim;
-      localStorage.setItem("timerAnimationEnabled", s.anim);
-      if (!s.anim) stopAnimation();
-      else startAnimation("gradient-default");
+      if (builtinOwns) {
+        applyCustomGradient(s.start, s.end);
+        animationEnabled = s.anim;
+        localStorage.setItem("timerAnimationEnabled", s.anim);
+        if (!s.anim) stopAnimation();
+        else startAnimation("gradient-default");
+      }
     } else if (savedTheme === "gradient-forest") {
       s.anim = document.getElementById("forestAnimationToggle").checked;
       const leaves = document.getElementById("leaves");
-      if (leaves) leaves.style.display = s.anim ? "block" : "none";
-    } else if (savedTheme === "gradient-day-night") {
-      const activeBtn = document.querySelector(".mode-toggle-btn.active");
-      s.mode = activeBtn ? activeBtn.dataset.mode : "realtime";
-      s.sliderVal = document.getElementById("dayNightSlider").value;
-      applyDNMode(s.mode);
+      if (leaves && builtinOwns)
+        leaves.style.display = s.anim ? "block" : "none";
     } else if (
       savedTheme === "gradient-deep-ocean" ||
       savedTheme === "gradient-ocean"
@@ -1436,21 +2566,42 @@
       localStorage.setItem("advSettings_" + savedTheme, JSON.stringify(s));
     }
 
-    if (
-      [
-        "gradient-default",
-        "gradient-forest",
-        "gradient-day-night",
-        "gradient-deep-ocean",
-      ].includes(savedTheme)
-    ) {
-      applyTheme(savedTheme);
+    if (!builtinOwns && activeScene && activeScene.sceneId) {
+      
+    } else if (activeCustom) {
+      
+      try {
+        ThemeEngine.apply(activeCustom);
+      } catch (e) {
+        
+        if (
+          [
+            "gradient-default",
+            "gradient-forest",
+            "gradient-deep-ocean",
+          ].includes(savedTheme)
+        ) {
+          applyTheme(savedTheme);
+        }
+      }
+    } else {
+      if (
+        [
+          "gradient-default",
+          "gradient-forest",
+          "gradient-deep-ocean",
+        ].includes(savedTheme)
+      ) {
+        applyTheme(savedTheme);
+      }
     }
 
-    // SAVE SOUND TOGGLES
     const timerSoundToggle = document.getElementById("timerSoundToggle");
     const breakSoundToggle = document.getElementById("breakSoundToggle");
     const statisticsToggle = document.getElementById("statisticsToggle");
+    const keepSceneColorsToggle = document.getElementById(
+      "keepSceneColorsToggle",
+    );
 
     if (timerSoundToggle) {
       timerSoundEnabled = timerSoundToggle.checked;
@@ -1464,11 +2615,15 @@
       statisticsEnabled = statisticsToggle.checked;
       localStorage.setItem("statisticsEnabled", statisticsEnabled);
     }
+    if (keepSceneColorsToggle)
+      localStorage.setItem(
+        "pomoraKeepSceneColors",
+        keepSceneColorsToggle.checked ? "1" : "0",
+      );
 
     closeAdvModal();
   }
 
-  // ── live ocean slider value labels ───────────────────────
   ["oceanSpeed", "oceanTireSize", "oceanJellyfishSize"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) {
@@ -1478,32 +2633,34 @@
     }
   });
 
-  // ── Day/Night mode buttons ────────────────────────────────
-  document.querySelectorAll(".mode-toggle-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      document
-        .querySelectorAll(".mode-toggle-btn")
-        .forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-      const mode = btn.dataset.mode;
-      const sc = document.getElementById("sliderControlsContainer");
-      if (sc) sc.style.display = mode === "slider" ? "block" : "none";
+  function syncColorPickerCards() {
+    document.querySelectorAll(".te-color-picker").forEach(function (card) {
+      const inputId = card.getAttribute("data-for");
+      if (!inputId) return;
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      const swatch = card.querySelector(".te-color-picker-swatch");
+      const hex = card.querySelector(".te-color-picker-hex");
+      if (swatch) swatch.style.background = input.value;
+      if (hex) hex.textContent = input.value;
     });
-  });
+  }
 
-  // ── gradient color pickers live preview ──────────────────
   ["gradientStartColor", "gradientEndColor"].forEach((id) => {
     const el = document.getElementById(id);
-    if (el) el.addEventListener("input", updateGradientPreview);
+    if (el)
+      el.addEventListener("input", function () {
+        updateGradientPreview();
+        syncColorPickerCards();
+      });
   });
 
-  // live wave accent preview / apply
   const waveAccentEl = document.getElementById("waveAccentColor");
   if (waveAccentEl) {
     const applyWaveAccent = debounce(() => {
       const raw = localStorage.getItem("advSettings_gradient-default");
       const s = safeJSONParse(raw, {});
-      // only save accent if custom enabled
+      
       s.waveAccent = s.waveCustomEnabled === false ? null : waveAccentEl.value;
       localStorage.setItem("advSettings_gradient-default", JSON.stringify(s));
       if (currentAnimation === "wave") {
@@ -1513,7 +2670,10 @@
         updateWaveContainerGradient("gradient-default");
       }
     }, 260);
-    waveAccentEl.addEventListener("input", applyWaveAccent);
+    waveAccentEl.addEventListener("input", function () {
+      syncColorPickerCards();
+      applyWaveAccent();
+    });
   }
 
   function updateWaveAccentControls() {
@@ -1545,6 +2705,7 @@
       const defaultColor = "#8b5cf6";
       const el = document.getElementById("waveAccentColor");
       if (el) el.value = defaultColor;
+      syncColorPickerCards();
       const raw = localStorage.getItem("advSettings_gradient-default");
       const s = safeJSONParse(raw, {});
       s.waveAccent = defaultColor;
@@ -1571,7 +2732,6 @@
       }
     });
 
-  // ── gradient presets ─────────────────────────────────────
   document.querySelectorAll(".gradient-preset").forEach((btn) => {
     btn.addEventListener("click", () => {
       const map = {
@@ -1584,6 +2744,7 @@
       if (!colors) return;
       document.getElementById("gradientStartColor").value = colors[0];
       document.getElementById("gradientEndColor").value = colors[1];
+      syncColorPickerCards();
       updateGradientPreview();
     });
   });
@@ -1630,7 +2791,6 @@
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
-  // small debounce helper to avoid heavy live-updates
   function debounce(fn, wait) {
     let t = null;
     return function (...args) {
@@ -1661,25 +2821,25 @@
         saved.waveCustomEnabled === undefined
           ? true
           : !!saved.waveCustomEnabled;
-      // helper: deepen a color by mixing with black
+      
       const deepen = (hex, t) => mixHexColors(hex, "#000000", t);
       const lighten = (hex, t) => mixHexColors(hex, "#ffffff", t);
       const midBase = mixHexColors(start, end, 0.5);
-      // detect brightness to ensure waves show on very dark gradients
+      
       const [mr, mg, mb] = parseHexColor(midBase);
       const lum = 0.2126 * mr + 0.7152 * mg + 0.0722 * mb;
       if (useCustom && accent) {
-        // prefer a deeper accent mix to add depth
+        
         const accentDeep = deepen(accent, 0.24);
         const mid = mixHexColors(midBase, accentDeep, 0.36);
-        // if base is very dark, lighten a bit for contrast
+        
         const finalMid = lum < 60 ? lighten(mid, 0.14) : mid;
         return [rgba(start, 0.4), rgba(finalMid, 0.3), rgba(end, 0.22)];
       }
-      // default: slightly darken the middle to create contrast versus background gradient
+      
       let mid = deepen(midBase, 0.22);
       if (lum < 60) {
-        // for dark themes (midnight) make waves lighter and more opaque
+        
         mid = lighten(midBase, 0.18);
         return [rgba(start, 0.46), rgba(mid, 0.36), rgba(end, 0.28)];
       }
@@ -1702,27 +2862,11 @@
       ];
     }
 
-    if (theme === "gradient-day-night" || theme === "gradient-sunset") {
-      return [
-        "rgba(220, 110, 70, 0.16)",
-        "rgba(190, 95, 40, 0.11)",
-        "rgba(160, 70, 35, 0.07)",
-      ];
-    }
-
     if (theme === "color-dark") {
       return [
         "rgba(255, 255, 255, 0.12)",
         "rgba(255, 255, 255, 0.08)",
         "rgba(255, 255, 255, 0.05)",
-      ];
-    }
-
-    if (theme === "color-light") {
-      return [
-        "rgba(50, 50, 50, 0.12)",
-        "rgba(80, 80, 80, 0.08)",
-        "rgba(100, 100, 100, 0.05)",
       ];
     }
 
@@ -1755,13 +2899,15 @@
     }
   }
 
-  // ═══════════════════════════════════════════════════════════
-  //  ANIMATION SYSTEM
-  // ═══════════════════════════════════════════════════════════
   function applyTheme(theme) {
+    if (typeof ThemeEngine !== "undefined") {
+      const activeCustom = ThemeEngine.getActiveCustomThemeConfig();
+      if (activeCustom) {
+        ThemeEngine.deactivate({ restorePreset: false });
+      }
+    }
+
     stopAnimation();
-    stopDNRealtime();
-    if (dayNightContainer) dayNightContainer.style.display = "none";
     if (leavesContainer) leavesContainer.style.display = "none";
     if (waveContainer) waveContainer.style.display = "none";
     if (oceanContainer) oceanContainer.style.display = "none";
@@ -1789,8 +2935,7 @@
       }
     } else if (
       theme === "gradient-deep-ocean" ||
-      theme === "gradient-ocean" ||
-      theme === "gradient-day-night"
+      theme === "gradient-ocean"
     ) {
       timerContainer.style.background = "transparent";
     } else {
@@ -1814,10 +2959,10 @@
     } else if (theme === "gradient-deep-ocean" || theme === "gradient-ocean") {
       const oc = document.getElementById("oceanContainer");
       oc.style.display = "block";
-      // Make sure the ocean background div is visible
+      
       const oceanBg = document.getElementById("ocean");
       if (oceanBg) oceanBg.style.display = "block";
-      // Respect saved deep-ocean animation toggle (check either adv key)
+      
       const raw = getAdvRaw(theme);
       const saved = safeJSONParse(raw, {});
       const anim = saved.anim !== false;
@@ -1827,9 +2972,6 @@
       } else {
         currentAnimation = null;
       }
-    } else if (theme === "gradient-day-night") {
-      document.getElementById("dayNightContainer").style.display = "block";
-      initDayNight();
     } else if (theme === "gradient-default") {
       if (animationEnabled) {
         const wc = document.getElementById("waveContainer");
@@ -1846,19 +2988,19 @@
     if (leavesContainer) leavesContainer.style.display = "none";
     const wc = waveContainer || document.getElementById("waveContainer");
     const oc = oceanContainer || document.getElementById("oceanContainer");
-    const dc =
-      dayNightContainer || document.getElementById("dayNightContainer");
     const wCanvas = wc && wc.querySelector("canvas");
     const oCanvas = oc && oc.querySelector("canvas");
     if (wCanvas) wCanvas.remove();
     if (oCanvas) oCanvas.remove();
     if (wc) wc.style.display = "none";
     if (oc) oc.style.display = "none";
-    if (dc) dc.style.display = "none";
     currentAnimation = null;
   }
 
-  // ─── wave animation (restored from working version) ─────────────
+  window.stopThemeAnimations = function () {
+    stopAnimation();
+  };
+
   function initWaveAnimation() {
     const container = document.getElementById("waveContainer");
     const canvas = document.createElement("canvas");
@@ -1873,7 +3015,7 @@
 
     let w, h;
     let lastFrameTime = 0;
-    // allow reduced quality (lower FPS & smaller canvas) to save CPU
+    
     const raw = localStorage.getItem("advSettings_gradient-default");
     const advSaved = safeJSONParse(raw, {});
     const lowQuality = !!advSaved.waveLowQuality;
@@ -1905,7 +3047,6 @@
       ctx.clearRect(0, 0, w, h);
       const timeSec = currentTime * 0.001;
 
-      // Draw dramatic, highly complex overlapping waves with strong harmonics
       const waveConfigs = [
         {
           freq: 0.0018,
@@ -1968,7 +3109,7 @@
         const xStep = lowQuality ? 8 : 2;
 
         for (let x = 0; x <= w + xStep * 2; x += xStep) {
-          // Multi-harmonic wave: blend many frequencies for dramatic complexity
+          
           const primary = Math.sin(x * config.freq + phase);
           const harmonic1 =
             0.45 * Math.sin(x * config.freq * 2.1 + phase * 1.2);
@@ -2003,7 +3144,6 @@
     requestAnimationFrame(update);
   }
 
-  // ─── Ocean 3D (restored from original with full visuals) ───
   function initOcean3D(theme) {
     const container = document.getElementById("oceanContainer");
     const existingCanvas = container.querySelector("canvas");
@@ -2316,173 +3456,115 @@
     requestAnimationFrame(update);
   }
 
-  // ═══════════════════════════════════════════════════════════
-  //  DAY / NIGHT CYCLE
-  // ═══════════════════════════════════════════════════════════
-  function initDayNight() {
-    const raw = localStorage.getItem("advSettings_gradient-day-night");
-    const saved = safeJSONParse(raw, {});
-    const mode = saved.mode || "realtime";
-    applyDNMode(mode);
-  }
-
-  function applyDNMode(mode) {
-    stopDNRealtime();
-    const sc = document.getElementById("sliderControlsContainer");
-    if (sc) sc.style.display = mode === "slider" ? "block" : "none";
-
-    if (mode === "realtime") {
-      startDNRealtime();
-    } else if (mode === "slider") {
-      const raw = localStorage.getItem("advSettings_gradient-day-night");
-      const saved = safeJSONParse(raw, {});
-      const val = saved.sliderVal !== undefined ? saved.sliderVal : 12;
-      updateDNDisplay(val);
-      updateDNCycle(parseInt(val));
-    }
-  }
-
-  function startDNRealtime() {
-    function tick() {
-      const h = new Date().getHours();
-      updateDNCycle(h);
-      const sl = document.getElementById("dayNightSlider");
-      if (sl) sl.value = h;
-    }
-    tick();
-    dayNightInterval = setInterval(tick, 5000);
-  }
-
-  function stopDNRealtime() {
-    if (dayNightInterval) {
-      clearInterval(dayNightInterval);
-      dayNightInterval = null;
-    }
-  }
-
-  // slider live update
-  const _dayNightSlider = document.getElementById("dayNightSlider");
-  if (_dayNightSlider)
-    _dayNightSlider.addEventListener("input", (e) => {
-      const h = parseInt(e.target.value, 10);
-      updateDNDisplay(h);
-      updateDNCycle(h);
-    });
-
-  function updateDNDisplay(h) {
-    const el = document.getElementById("dayNightTimeDisplay");
-    if (el) el.textContent = String(h).padStart(2, "0") + ":00";
-  }
-
-  function getDayNightSkyProps(hour) {
-    let top, mid, bottom, worldBg, borderColor, starOpacity;
-
-    if (hour >= 5 && hour < 9) {
-      const p = (hour - 5) / 4;
-      top = mixHexColors("#87c5ff", "#9eceff", p);
-      mid = mixHexColors("#f7d9a2", "#fde4bd", p);
-      bottom = mixHexColors("#fff5e1", "#fff9f1", p);
-      worldBg = `radial-gradient(circle at 50% 42%, rgba(255,235,180,0.18), transparent 42%), radial-gradient(circle at 62% 68%, rgba(9,41,86,0.22), rgba(6,18,42,0.92))`;
-      borderColor = "#b8843e";
-      starOpacity = 0.05 * (1 - p);
-    } else if (hour >= 9 && hour < 17) {
-      const p = (hour - 9) / 8;
-      top = mixHexColors("#86d4ff", "#63b8ff", p);
-      mid = mixHexColors("#d4f1ff", "#98dfff", p);
-      bottom = mixHexColors("#e8f7ff", "#cbefff", p);
-      worldBg = `radial-gradient(circle at 45% 40%, rgba(255,255,255,0.16), transparent 42%), radial-gradient(circle at 58% 68%, rgba(9,45,89,0.18), rgba(6,18,40,0.88))`;
-      borderColor = "#9a6b2c";
-      starOpacity = 0;
-    } else if (hour >= 17 && hour < 20) {
-      const p = (hour - 17) / 3;
-      top = mixHexColors("#2b3b72", "#a74f66", p);
-      mid = mixHexColors("#f28e6c", "#f5b88d", p);
-      bottom = mixHexColors("#f8d5c0", "#f0d3b1", p);
-      worldBg = `radial-gradient(circle at 50% 38%, rgba(255,200,130,0.16), transparent 40%), radial-gradient(circle at 56% 64%, rgba(12,28,60,0.24), rgba(6,14,36,0.9))`;
-      borderColor = "#c3795b";
-      starOpacity = 0.15 * p;
-    } else {
-      const p = hour >= 20 ? (hour - 20) / 4 : (hour + 4) / 4;
-      top = mixHexColors("#041330", "#081e4e", p);
-      mid = mixHexColors("#071d46", "#05112a", p);
-      bottom = mixHexColors("#020512", "#04081b", p);
-      worldBg = `radial-gradient(circle at 50% 42%, rgba(68,110,180,0.12), transparent 45%), radial-gradient(circle at 54% 64%, rgba(9,20,45,0.3), rgba(2,8,20,0.96))`;
-      borderColor = "#4f7bc7";
-      starOpacity = 0.24;
-    }
-
-    return { top, mid, bottom, worldBg, borderColor, starOpacity };
-  }
-
-  function updateDNCycle(hour) {
-    const sun = document.getElementById("sun");
-    const moon = document.getElementById("moon");
-    const world = document.getElementById("world");
-    const sky = document.getElementById("dayNightContainer");
-    if (!sun || !moon || !world || !sky) return;
-
-    const { top, mid, bottom, worldBg, borderColor, starOpacity } =
-      getDayNightSkyProps(hour);
-    const worldWidth = world.offsetWidth || 380;
-    const travel = Math.max(180, worldWidth * 0.45);
-
-    let sunLeft = 100;
-    let moonLeft = 100;
-    let sunTop = 450;
-    let moonTop = 450;
-
-    if (hour >= 5 && hour < 19) {
-      const p = (hour - 5) / 14;
-      sunLeft = 80 + travel * p;
-      sunTop = 300 - p * 260;
-      moonTop = 450;
-      moonLeft = 80;
-      sun.style.opacity = "1";
-      moon.style.opacity = "0.08";
-    } else {
-      const p = hour >= 19 ? (hour - 19) / 5 : (hour + 5) / 5;
-      moonLeft = 80 + travel * p;
-      moonTop = 280 - p * 200;
-      sunTop = 450;
-      sunLeft = 80;
-      sun.style.opacity = "0";
-      sun.style.visibility = "hidden";
-      moon.style.opacity = "1";
-      moon.style.visibility = "visible";
-    }
-
-    if (hour >= 5 && hour < 19) {
-      sun.style.opacity = "1";
-      sun.style.visibility = "visible";
-      moon.style.opacity = "0";
-      moon.style.visibility = "hidden";
-    }
-
-    sun.style.left = sunLeft + "px";
-    moon.style.left = moonLeft + "px";
-    sun.style.top = sunTop + "px";
-    moon.style.top = moonTop + "px";
-
-    sky.style.background =
-      `radial-gradient(circle at 50% 8%, rgba(255,255,255,0.18), transparent 18%),` +
-      `linear-gradient(180deg, ${top} 0%, ${mid} 55%, ${bottom} 100%)`;
-    sky.style.setProperty("--stars-opacity", starOpacity.toFixed(3));
-    if (world) {
-      world.style.background = worldBg;
-      world.style.borderColor = borderColor;
-    }
-  }
-
-  // ── custom timer inputs (carry over from original) ────────
   const customFocus = document.getElementById("customFocus");
   const customShort = document.getElementById("customShort");
   const customLong = document.getElementById("customLong");
 
-  // ═══════════════════════════════════════════════════════════
-  //  BOOT
-  // ═══════════════════════════════════════════════════════════
+  window.reapplyBuiltInTheme = function (themeName, opts) {
+    const normalized = normalizeTheme(
+      themeName || savedTheme || "gradient-default",
+    );
+    savedTheme = normalized;
+    localStorage.setItem("timerTheme", normalized);
+
+    if (typeof ThemeEngine !== "undefined") {
+
+      if (
+        opts &&
+        opts.userPick &&
+        typeof ThemeEngine.getNativeSceneState === "function" &&
+        ThemeEngine.getNativeSceneState()
+      ) {
+        ThemeEngine.deactivateNativeScene();
+      }
+      ThemeEngine.deactivate({ restorePreset: false });
+    }
+
+    if (timerContainer) {
+      const oldClasses = Array.from(timerContainer.classList).filter((c) =>
+        c.startsWith("theme-"),
+      );
+      timerContainer.classList.remove(...oldClasses);
+      timerContainer.classList.add("theme-" + normalized);
+    }
+    if (document.body) {
+      const oldBodyClasses = Array.from(document.body.classList).filter((c) =>
+        c.startsWith("theme-"),
+      );
+      document.body.classList.remove(...oldBodyClasses);
+      document.body.classList.add("theme-" + normalized);
+    }
+
+    themeOptions.forEach((o) => o.classList.remove("active"));
+    document
+      .querySelectorAll(`[data-theme="${normalized}"]`)
+      .forEach((o) => o.classList.add("active"));
+    syncQsThemeEditState(); 
+
+    updateLogoTheme(normalized);
+    applyTheme(normalized);
+  };
+
+  window.restoreActiveTheme = function () {
+    if (typeof ThemeEngine === "undefined" || !document.body) return;
+    const body = document.body;
+
+    const st =
+      typeof ThemeEngine.getNativeSceneState === "function"
+        ? ThemeEngine.getNativeSceneState()
+        : null;
+    if (st && st.sceneId) {
+      if (!body.classList.contains("scene-library-active")) {
+        ThemeEngine.applyNativeScene(
+          st.sceneId,
+          st.sceneOptions || {},
+          st.sceneBgColor || "",
+        );
+      }
+      return;
+    }
+
+    const custom =
+      typeof ThemeEngine.getActiveCustomThemeConfig === "function"
+        ? ThemeEngine.getActiveCustomThemeConfig()
+        : null;
+    if (custom) {
+      if (!body.classList.contains(ThemeEngine.BODY_CLASS)) {
+        ThemeEngine.apply(custom);
+      }
+      return;
+    }
+
+    const theme = normalizeTheme(localStorage.getItem("timerTheme")) || "gradient-default";
+    const cls = "theme-" + theme;
+    if (!body.classList.contains(cls)) {
+      [document.body, timerContainer].forEach((el) => {
+        if (!el) return;
+        Array.from(el.classList)
+          .filter((c) => c.startsWith("theme-"))
+          .forEach((c) => el.classList.remove(c));
+        el.classList.add(cls);
+      });
+      applyTheme(theme);
+    }
+  };
+
+  function restoreNativeScene() {
+    if (typeof ThemeEngine === "undefined") return;
+    const st =
+      typeof ThemeEngine.getNativeSceneState === "function"
+        ? ThemeEngine.getNativeSceneState()
+        : null;
+    if (!st || !st.sceneId) return;
+    ThemeEngine.applyNativeScene(
+      st.sceneId,
+      st.sceneOptions || {},
+      st.sceneBgColor || "",
+    );
+  }
+
   function initEnhancedSystem() {
-    // restore custom gradient if on default theme
+    
     if (savedTheme === "gradient-default") {
       const raw = localStorage.getItem("advSettings_gradient-default");
       const s = safeJSONParse(raw, {});
@@ -2491,10 +3573,18 @@
       else if (s.anim === true) animationEnabled = true;
     }
     applyAutoBreakToggle();
-    applyTheme(savedTheme);
+
+    const activeCustom =
+      typeof ThemeEngine !== "undefined"
+        ? ThemeEngine.getActiveCustomThemeConfig()
+        : null;
+    if (activeCustom) {
+      ThemeEngine.apply(activeCustom);
+    } else {
+      window.reapplyBuiltInTheme(savedTheme);
+    }
   }
 
-  // ============ PLANNER LOGIC ============
   const plannerBtn = document.getElementById("plannerBtn");
   const plannerModal = document.getElementById("plannerModal");
   const plannerAddBtn = document.getElementById("plannerAddBtn");
@@ -2565,7 +3655,7 @@
           ? "priority-" + sanitizeInput(task.priority).toLowerCase()
           : "priority-normal";
 
-        taskItem.innerHTML = ""; // Clear first
+        taskItem.innerHTML = ""; 
         const taskInfoDiv = createSafeElement("div", { class: "task-info" });
         const taskTitle = createSafeElement(
           "h4",
@@ -2741,12 +3831,10 @@
     const prioritySelect = document.getElementById("taskPriority");
     const estimateInput = document.getElementById("taskEstimate");
 
-    // Clear all category chips selection
     if (categoryChips && categoryChips.length) {
       categoryChips.forEach((chip) => chip.classList.remove("selected"));
     }
 
-    // Only set categoryInput if it exists
     if (categoryInput) {
       categoryInput.value = "";
     }
@@ -2780,11 +3868,17 @@
     }
 
     taskPopup.classList.add("open");
+    /* Wait a frame: the overlay is still inert at this point, so focusing now
+       would be ignored. */
+    requestAnimationFrame(() => {
+      if (titleInput && taskPopup.classList.contains("open")) titleInput.focus();
+    });
   }
 
   function closeTaskPopup() {
     taskPopup.classList.remove("open");
     currentTaskId = null;
+    if (plannerAddBtn) plannerAddBtn.focus({ preventScroll: true });
   }
 
   function saveTask() {
@@ -2797,7 +3891,7 @@
     const estimateInput = document.getElementById("taskEstimate");
 
     if (!titleInput.value.trim()) {
-      alert("Task title is required");
+      showAlert("Task title is required");
       return;
     }
 
@@ -2839,13 +3933,16 @@
       renderTasks();
     }
   }
-
   function deleteTask(taskId) {
-    if (confirm("Delete this task?")) {
+    showConfirm("Delete this task?", "Delete", {
+      detail: "This cannot be undone.",
+    }).then(function (result) {
+      if (!result) return;
+
       tasks = getTasks().filter((t) => t.id !== taskId);
       saveTasks();
       renderTasks();
-    }
+    });
   }
 
   function setFilter(filter) {
@@ -2897,23 +3994,20 @@
     taskPopupCancelBtn.addEventListener("click", closeTaskPopup);
   if (saveTaskBtn) saveTaskBtn.addEventListener("click", saveTask);
 
-  // Tab switching in settings modal
   const tabBtns = document.querySelectorAll(".settings-tab-btn");
   const tabContents = document.querySelectorAll(".settings-tab-content");
+  const qsTitle = document.getElementById("qsTitle");
+
+  const QS_TITLES = { themes: "Theme & Clock", statistics: "Study Analytics" };
 
   tabBtns.forEach((btn) => {
     btn.addEventListener("click", () => {
       const tabName = btn.getAttribute("data-tab");
-      tabBtns.forEach((b) => {
-        b.classList.remove("active");
-        b.style.color = "rgba(255,255,255,0.5)";
-        b.style.borderBottomColor = "transparent";
-      });
+      tabBtns.forEach((b) => b.classList.remove("active"));
       tabContents.forEach((content) => (content.style.display = "none"));
 
       btn.classList.add("active");
-      btn.style.color = "white";
-      btn.style.borderBottomColor = "white";
+      if (qsTitle && QS_TITLES[tabName]) qsTitle.textContent = QS_TITLES[tabName];
       const activeContent = Array.from(tabContents).find(
         (c) => c.getAttribute("data-tab") === tabName,
       );
@@ -2924,18 +4018,255 @@
     });
   });
 
-  // Reset stats button
-  const resetStatsBtn = document.getElementById("resetStatsBtn");
-  if (resetStatsBtn) {
-    resetStatsBtn.addEventListener("click", () => {
-      if (confirm("Reset all statistics?")) {
-        resetStats();
-        updateStatsDisplay();
-      }
+  document
+    .querySelectorAll(
+      "#themeModal .qs-step-btn, #advancedSettingsModal .fs-step",
+    )
+    .forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const input = document.getElementById(btn.dataset.input);
+      if (!input) return;
+      const step = Number(btn.dataset.step) || 0;
+      const min = input.min === "" ? -Infinity : Number(input.min);
+      const max = input.max === "" ? Infinity : Number(input.max);
+      const current = Number(input.value) || 0;
+      const next = Math.min(max, Math.max(min, current + step));
+      if (next === current) return;
+      input.value = String(next);
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  });
+
+  function syncClockCardVisibility() {
+    const card = document.getElementById("clockSettingsCard");
+    if (!card) return;
+    const modeSelect = document.getElementById("timerModeSelect");
+    card.classList.toggle(
+      "is-hidden",
+      !!modeSelect && modeSelect.value === "stopwatch",
+    );
+  }
+  const clockModeSelect = document.getElementById("timerModeSelect");
+  if (clockModeSelect)
+    clockModeSelect.addEventListener("change", syncClockCardVisibility);
+  syncClockCardVisibility();
+
+  const qsCloseBtn = document.getElementById("qsCloseBtn");
+  if (qsCloseBtn) {
+    qsCloseBtn.addEventListener("click", () => {
+      if (themeModal) themeModal.classList.remove("open");
     });
   }
 
-  // Subject selector always visible
+  const qsOpenAnalyticsBtn = document.getElementById("qsOpenAnalyticsBtn");
+  if (qsOpenAnalyticsBtn) {
+    qsOpenAnalyticsBtn.addEventListener("click", () => openAnalytics());
+  }
+
+  const qsEditThemeBtn = document.getElementById("qsEditThemeBtn");
+  function _activeCustomTheme() {
+    return typeof ThemeEngine !== "undefined" &&
+      typeof ThemeEngine.getActiveCustomThemeConfig === "function"
+      ? ThemeEngine.getActiveCustomThemeConfig()
+      : null;
+  }
+  function syncQsEditThemeBtn() {
+
+    syncQsThemeEditState();
+    if (!qsEditThemeBtn) return;
+    const active = _activeCustomTheme();
+    qsEditThemeBtn.hidden = !active;
+    qsEditThemeBtn.title = active
+      ? `Edit “${active.name || "active theme"}”`
+      : "Edit active theme";
+  }
+  window.__syncQsEditThemeBtn = syncQsEditThemeBtn;
+  if (qsEditThemeBtn) {
+    qsEditThemeBtn.addEventListener("click", () => {
+      const active = _activeCustomTheme();
+      if (!active || typeof ThemeEngine.openEditor !== "function") return;
+
+      if (themeModal) themeModal.classList.remove("open");
+      ThemeEngine.openEditor(active);
+    });
+  }
+  syncQsEditThemeBtn();
+
+  function syncQsThemeEditState() {
+
+    document.querySelectorAll("#themeModal .qs-tile-edit").forEach((btn) => {
+      const tile = document.querySelector(
+        `#themeModal .theme-option[data-theme="${btn.dataset.editTheme}"]`,
+      );
+      btn.hidden = !(tile && tile.classList.contains("active"));
+    });
+  }
+
+  function setAdvTab(tabName) {
+    document
+      .querySelectorAll(".fs-tab-btn")
+      .forEach((b) => b.classList.toggle("active", b.dataset.tab === tabName));
+    document
+      .querySelectorAll(".fs-tab-content")
+      .forEach((c) => c.classList.toggle("active", c.id === "tab-" + tabName));
+  }
+
+  function openActiveThemeParameters(themeId) {
+
+    const custom = _activeCustomTheme();
+    if (custom && typeof ThemeEngine.openEditor === "function") {
+
+      if (themeModal) themeModal.classList.remove("open");
+      ThemeEngine.openEditor(custom);
+      return;
+    }
+    const sceneState =
+      typeof ThemeEngine.getNativeSceneState === "function"
+        ? ThemeEngine.getNativeSceneState()
+        : null;
+    if (
+      sceneState &&
+      sceneState.sceneId &&
+      typeof ThemeEngine.openThemeLibrary === "function"
+    ) {
+      if (themeModal) themeModal.classList.remove("open");
+      ThemeEngine.openThemeLibrary();
+      return;
+    }
+    const theme = normalizeTheme(themeId || savedTheme);
+    openAdvModal(); 
+    setAdvTab("theme");
+    const cfg = THEME_CFG[theme];
+    const card = cfg ? document.getElementById(cfg.section) : null;
+    if (card && typeof card.scrollIntoView === "function")
+      card.scrollIntoView({ block: "start" });
+  }
+
+  document.querySelectorAll("#themeModal .qs-tile-edit").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+
+      e.stopPropagation();
+      openActiveThemeParameters(btn.dataset.editTheme);
+    });
+  });
+
+  function syncQuickStatsRange() {
+    const group = document.getElementById("qsStatsRange");
+    if (!group) return;
+    const range = getQuickStatsRange();
+    group.querySelectorAll(".fs-choice-btn").forEach((btn) => {
+      const on = btn.dataset.range === range;
+      btn.classList.toggle("active", on);
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
+  const qsStatsRange = document.getElementById("qsStatsRange");
+  if (qsStatsRange) {
+    qsStatsRange.querySelectorAll(".fs-choice-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const range = btn.dataset.range;
+        if (!RANGE_LABELS[range]) return;
+        localStorage.setItem("quickStatsRange", range);
+        syncQuickStatsRange();
+        updateStatsDisplay();
+      });
+    });
+  }
+
+  const SHIPPED_DEFAULTS = {
+    mode: "pomodoro",
+    focus: 25,
+    short: 5,
+    long: 15,
+    range: "all",
+    toggles: {
+      autoStartBreakToggle: true,
+      timerSoundToggle: true,
+      breakSoundToggle: true,
+      pipAlwaysOnTopToggle: false,
+      statisticsToggle: true,
+      keepSceneColorsToggle: false,
+      tlAutoDetectToggle: true,
+    },
+  };
+
+  function resetAdvControls() {
+
+    const modeSelect = document.getElementById("timerModeSelect");
+    if (modeSelect) {
+      modeSelect.value = SHIPPED_DEFAULTS.mode;
+      modeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    const clock = {
+      fsFocus: SHIPPED_DEFAULTS.focus,
+      fsShort: SHIPPED_DEFAULTS.short,
+      fsLong: SHIPPED_DEFAULTS.long,
+    };
+    Object.keys(clock).forEach((id) => {
+      const input = document.getElementById(id);
+      if (input) input.value = String(clock[id]);
+    });
+    syncClockCardVisibility();
+    Object.keys(SHIPPED_DEFAULTS.toggles).forEach((id) => {
+      const box = document.getElementById(id);
+      if (box) box.checked = SHIPPED_DEFAULTS.toggles[id];
+    });
+    localStorage.setItem("quickStatsRange", SHIPPED_DEFAULTS.range);
+    syncQuickStatsRange();
+    updateStatsDisplay();
+  }
+
+  const SETTINGS_KEYS = [
+    "timerMode",
+    "lastTimerMode",
+    "timerModes",
+    "currentSubject",
+    "autoStartBreak",
+    "timerSoundEnabled",
+    "breakSoundEnabled",
+    "pipAlwaysOnTop",
+    "timerAnimationEnabled",
+    "timerTheme",
+    "themePresets",
+    "customThemes",
+    "activeCustomThemeId",
+    "tlAutoDetectColors",
+    "pomoraKeepSceneColors",
+    "quickStatsRange",
+    "statisticsEnabled",
+    "statsPatternView",
+    "sceneLibraryState",
+  ];
+
+  function resetAllSettings() {
+    SETTINGS_KEYS.forEach((key) => {
+      localStorage.removeItem(key);
+    });
+    
+    Object.keys(localStorage)
+      .filter((key) => key.indexOf("advSettings_") === 0)
+      .forEach((key) => localStorage.removeItem(key));
+
+    window.location.reload();
+  }
+
+  const advResetBtn = document.getElementById("advancedSettingsResetBtn");
+  if (advResetBtn) {
+    advResetBtn.addEventListener("click", resetAdvControls);
+  }
+
+  const resetAllSettingsBtn = document.getElementById("resetAllSettingsBtn");
+  if (resetAllSettingsBtn) {
+    resetAllSettingsBtn.addEventListener("click", () => {
+      showConfirm("Reset all settings?", "Reset all settings", {
+        detail:
+          "Themes, scenes, clock and toggles go back to their defaults. Your study history and planner tasks are kept.",
+      }).then((ok) => {
+        if (ok) resetAllSettings();
+      });
+    });
+  }
+
   const subjectSelector = document.getElementById("subjectSelector");
   const subjectSelect = document.getElementById("subjectSelect");
 
@@ -2948,138 +4279,602 @@
     });
   }
 
-  // Restore saved subject
   const savedSubject = localStorage.getItem("currentSubject");
   if (savedSubject && subjectSelect) {
     subjectSelect.value = savedSubject;
     currentSubject = savedSubject;
   }
 
-  // Expose functions to window for inline onclick handlers
   window.openTaskPopup = openTaskPopup;
   window.updateTaskStatus = updateTaskStatus;
   window.deleteTask = deleteTask;
   window.setFilter = setFilter;
 
-  // ============ ANALYTICS MODAL ============
+  const MINI_CLOSE_GLYPH =
+    '<svg class="uo-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>';
+
+  const MINI_TILE_GLYPH = {
+    trash:
+      '<svg class="uo-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg>',
+    alert:
+      '<svg class="uo-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v5M12 16.5h.01M10.3 3.9 2.6 17.4A2 2 0 0 0 4.3 20.4h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /></svg>',
+    pencil:
+      '<svg class="uo-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4ZM14 6l4 4" /></svg>',
+    import:
+      '<svg class="uo-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 20h16" /></svg>',
+    share:
+      '<svg class="uo-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" /></svg>',
+  };
+
+  function closeMiniPopup(backdrop) {
+    if (!backdrop || backdrop.classList.contains("closing")) return;
+    backdrop.classList.add("closing");
+    const reduced =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) {
+      backdrop.remove();
+      return;
+    }
+    setTimeout(function () {
+      backdrop.remove();
+    }, 180);
+  }
+
+  function showMiniPopup(opts) {
+    const opener =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    return new Promise(function (resolve) {
+      const backdrop = document.createElement("div");
+      backdrop.className = "confirm-backdrop";
+
+      const card = document.createElement("div");
+
+      card.className = opts.lede ? "confirm-card confirm-card-alert" : "confirm-card";
+      card.setAttribute("role", "alertdialog");
+      card.setAttribute("aria-modal", "true");
+      card.setAttribute("aria-label", opts.message);
+
+      const header = document.createElement("div");
+      header.className = "confirm-header";
+
+      const lead = document.createElement("div");
+      lead.className = "confirm-lead";
+      const tile = document.createElement("span");
+      tile.className = "confirm-tile";
+      tile.innerHTML = MINI_TILE_GLYPH[opts.tile] || MINI_TILE_GLYPH.alert;
+      const msg = document.createElement("p");
+      msg.className = "confirm-message";
+      msg.textContent = opts.message;
+      const closeBtn = document.createElement("button");
+      closeBtn.type = "button";
+      closeBtn.className = "confirm-close";
+      closeBtn.setAttribute("aria-label", "Close");
+      closeBtn.innerHTML = MINI_CLOSE_GLYPH;
+      lead.appendChild(tile);
+      lead.appendChild(msg);
+      header.appendChild(lead);
+      header.appendChild(closeBtn);
+      card.appendChild(header);
+
+      if (opts.detail) {
+        const detail = document.createElement("p");
+        detail.className = "confirm-detail";
+        detail.textContent = opts.detail;
+        card.appendChild(detail);
+      }
+
+      const actions = document.createElement("div");
+      actions.className = "confirm-actions";
+      let firstBtn = null;
+      (opts.buttons || [{ label: "OK", cls: "confirm-btn-primary", value: true }]).forEach(
+        function (spec) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = spec.cls;
+          btn.textContent = spec.label;
+          btn.addEventListener("click", function () {
+            done(spec.value);
+          });
+          if (!firstBtn) firstBtn = btn;
+          actions.appendChild(btn);
+        },
+      );
+      card.appendChild(actions);
+      backdrop.appendChild(card);
+
+      function done(value) {
+        document.removeEventListener("keydown", onKey, true);
+
+        closeMiniPopup(backdrop);
+        if (opener && opener.focus) opener.focus();
+        resolve(value);
+      }
+
+      function dismiss() {
+        done(opts.dismissValue === undefined ? null : opts.dismissValue);
+      }
+
+      function onKey(e) {
+        if (e.key !== "Escape") return;
+
+        e.stopImmediatePropagation();
+        e.stopPropagation();
+        dismiss();
+      }
+
+      closeBtn.addEventListener("click", dismiss);
+      backdrop.addEventListener("click", function (e) {
+        if (e.target === backdrop) dismiss();
+      });
+      document.addEventListener("keydown", onKey, true);
+      document.body.appendChild(backdrop);
+
+      card.setAttribute("tabindex", "-1");
+      setTimeout(function () {
+        card.focus({ preventScroll: true });
+      }, 0);
+    });
+  }
+
+  function showConfirm(message, confirmLabel, opts) {
+    opts = opts || {};
+    return showMiniPopup({
+      message: message,
+      detail: opts.detail,
+
+      tile: opts.tile || "trash",
+      buttons: [
+        { label: "Cancel", cls: "confirm-btn-cancel", value: false },
+        {
+          label: confirmLabel || "Reset",
+          cls: opts.danger === false ? "confirm-btn-primary" : "confirm-btn-danger",
+          value: true,
+        },
+      ],
+    });
+  }
+
+  function showAlert(message) {
+    return showMiniPopup({
+      message: message,
+      lede: true,
+      tile: "alert",
+      dismissValue: true,
+      buttons: [{ label: "OK", cls: "confirm-btn-primary", value: true }],
+    });
+  }
+
   const analyticsModal = document.getElementById("statisticsModal");
   const analyticsBackdrop = document.getElementById("analyticsBackdrop");
   const analyticsCloseBtn = document.getElementById("statisticsCloseBtn");
   const statsResetBtn2 = document.getElementById("statsResetBtn");
+  const statsImportBtn = document.getElementById("statsImportBtn");
+  const statsImportInput = document.getElementById("statsImportInput");
   const statsExportBtn = document.getElementById("statsExportBtn");
   const toggleSessionBtn = document.getElementById("toggleSessionHistory");
+  const activityCardLabel = document.getElementById("activityCardLabel");
+  const momentumCard = document.getElementById("statMomentumCard");
+  const patternCard = document.getElementById("statPatternCard");
+  const patternBody = document.getElementById("patternBody");
+  const patternHeatBtn = document.getElementById("patternHeatBtn");
+  const patternRhythmBtn = document.getElementById("patternRhythmBtn");
+  const patternEyebrowWord = document.getElementById("patternEyebrowWord");
+  const patternScope = document.getElementById("patternScope");
+  const sessionLogModal = document.getElementById("sessionLogModal");
+  const sessionLogBackdrop = document.getElementById("sessionLogBackdrop");
+  const sessionLogClose = document.getElementById("sessionLogClose");
+  const sessionLogSummary = document.getElementById("sessionLogSummary");
+  const sessionLogList = document.getElementById("sessionLogList");
 
   let analyticsRange = "today";
-  let sessionLogExpanded = false;
+  let statsPatternView = "heat";
 
-  const SUBJECT_COLORS = [
-    "#6366f1",
-    "#38bdf8",
-    "#a78bfa",
-    "#34d399",
-    "#f59e0b",
-    "#f472b6",
-    "#fb923c",
-    "#4ade80",
-    "#60a5fa",
-    "#e879f9",
-  ];
+  try {
+    const storedView = localStorage.getItem("statsPatternView");
+    if (storedView === "rhythm" || storedView === "heat")
+      statsPatternView = storedView;
+  } catch (e) {
+    }
 
-  function openAnalytics() {
-    if (themeModal) themeModal.classList.remove("open");
-    analyticsModal.classList.add("open");
-    renderAnalytics();
+  /* One hue per subject, fixed by subject rather than by rank, so a subject
+     keeps its colour between the progress bars, the session dots and the
+     range filters. The nine named subjects are an explicit, non-overlapping
+     palette (user, 2026-10-23): red maths, deep blue CS, orange chemistry,
+     teal biology, cyan physics, green economics, gold business, purple
+     psychology, fuschia statistics. Anything else gets a stable high-
+     saturation hue from its name, which can never collide with the named set
+     by accident because the named set is checked first. */
+  const SUBJECT_TOKENS = {
+    mathematics: "#ef4444",
+    maths: "#ef4444",
+    math: "#ef4444",
+    "computer science": "#2563eb",
+    computer_science: "#2563eb",
+    computerscience: "#2563eb",
+    compsci: "#2563eb",
+    computing: "#2563eb",
+    cs: "#2563eb",
+    chemistry: "#f97316",
+    chem: "#f97316",
+    biology: "#14b8a6",
+    bio: "#14b8a6",
+    physics: "#06b6d4",
+    phys: "#06b6d4",
+    economics: "#22c55e",
+    econ: "#22c55e",
+    business: "#eab308",
+    "business studies": "#eab308",
+    psychology: "#a855f7",
+    psych: "#a855f7",
+    psyc: "#a855f7",
+    statistics: "#ec4899",
+    stats: "#ec4899",
+  };
+  const BREAK_COLOR = "#64748b";
+
+  function subjectColor(name) {
+    const key = String(name || "")
+      .trim()
+      .toLowerCase();
+    if (!key) return "#64748b";
+    if (SUBJECT_TOKENS[key]) return SUBJECT_TOKENS[key];
+
+    let hash = 0;
+    for (let i = 0; i < key.length; i++)
+      hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+    /* Golden-angle spread over the wheel: adjacent names land far apart, and a
+       78% / 58% HSL pair keeps the fallback as vivid as the named palette.
+       If that hue lands near one of the nine named ones (English used to come
+       out a hair from Computer Science's blue), step again — "distinct at a
+       glance" has to hold for unnamed subjects too. */
+    const namedHues = [0, 25, 47, 142, 173, 190, 220, 275, 330];
+    const hueDistance = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
+    let hue = (hash * 137.508) % 360;
+    for (let guard = 0; guard < 12; guard++) {
+      if (!namedHues.some((h) => hueDistance(hue, h) < 24)) break;
+      hue = (hue + 137.508) % 360;
+    }
+    return `hsl(${Math.round(hue)} 78% 58%)`;
   }
 
-  function closeAnalytics() {
-    analyticsModal.classList.remove("open");
+  const RANGE_SCOPE = {
+    today: "· today",
+    week: "· this week",
+    month: "· this month",
+    all: "· all time",
+  };
+
+  function startOfWeek(d) {
+    const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+    return x;
   }
 
-  function getFilteredStats(range) {
-    const stats = getStats();
+  function activeRangeOptions(range, stats) {
     const now = new Date();
-    const todayStr = now.toDateString();
-    const weekAgo = new Date(now - 7 * 864e5);
+    const opts = { now, buckets: 8 };
+    if (range === "today") {
+      opts.from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    } else if (range === "week") {
+      opts.from = startOfWeek(now);
+    } else if (range === "month") {
+      opts.from = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else {
+      const all = (stats ? stats.sessions : [])
+        .map((s) => new Date(s.date))
+        .filter((d) => !isNaN(d));
+      const first = all.length ? new Date(Math.min(...all)) : now;
+      opts.from = new Date(first.getTime() - 1);
+    }
+    const spanDays = Math.max(1, Math.ceil((opts.now - opts.from) / 864e5));
+    opts.spanDays = spanDays;
+    opts.bucketDays = Math.max(1, Math.ceil(spanDays / opts.buckets));
+    opts.minDays = spanDays < 2 ? 1 : 2;
+    opts.minSessions = spanDays < 2 ? 2 : 5;
+    if (range === "all") opts.scoringDays = Math.min(30, spanDays);
+    return opts;
+  }
 
-    if (range === "all") return stats;
-
-    const sessions = stats.sessions.filter((s) => {
+  function getFilteredStats(range, stats) {
+    const all = stats || getStats();
+    const opts = activeRangeOptions(range, all);
+    const sessions = all.sessions.filter((s) => {
       const d = new Date(s.date);
-      if (range === "today") return d.toDateString() === todayStr;
-      if (range === "week") return d >= weekAgo;
-      return true;
+      if (range === "all") return true;
+      return d >= opts.from && d <= opts.now;
     });
-
     const totalStudyTime = sessions
       .filter((s) => s.type === "focus")
       .reduce((a, s) => a + s.duration, 0);
     const totalBreakTime = sessions
       .filter((s) => s.type !== "focus")
       .reduce((a, s) => a + s.duration, 0);
-    const subjectTime = {};
-    sessions
-      .filter((s) => s.type === "focus" && s.subject)
-      .forEach((s) => {
-        subjectTime[s.subject] = (subjectTime[s.subject] || 0) + s.duration;
+    const subjectTime = subjectTotals(sessions);
+    return { sessions, totalStudyTime, totalBreakTime, subjectTime, opts };
+  }
+
+  const fmtMinutes = (mins) => formatStudyMinutes(mins);
+
+  function renderMomentum(stats, opts, range) {
+    if (!momentumCard) return;
+    momentumCard.hidden = false;
+    const m = StatsMetrics.momentum(stats.sessions, opts);
+    const days = m.days;
+    const noun =
+      range === "today"
+        ? "today"
+        : range === "week"
+          ? "this week"
+          : range === "month"
+            ? "this month"
+            : "in your history";
+
+    const scoreEl = document.getElementById("momScore");
+    const deltaEl = document.getElementById("momDelta");
+    const weekEl = document.getElementById("momWeek");
+    const daysEl = document.getElementById("momDays");
+    const avgEl = document.getElementById("momAvg");
+    const windowEl = document.getElementById("momWindowLabel");
+    const scopeEl = document.getElementById("momScope");
+    const insightEl = document.getElementById("momInsight");
+
+    if (scoreEl) scoreEl.textContent = m.sessionCount ? String(m.score) : "–";
+    if (weekEl) weekEl.textContent = fmtMinutes(m.weekMinutes);
+    if (daysEl) daysEl.textContent = `${m.activeDays}/${days}`;
+    if (avgEl) avgEl.textContent = fmtMinutes(m.avgSession);
+    if (windowEl) windowEl.textContent = RANGE_LABELS[range] || "This week";
+
+    if (scopeEl) {
+      scopeEl.textContent =
+        range === "all"
+          ? "All-Time Overall Score"
+          : `${days}-day score vs previous ${days === 1 ? "day" : `${days} days`}`;
+    }
+
+    if (deltaEl) {
+      const showDelta = range !== "all" && m.hasPrevious;
+      deltaEl.hidden = !showDelta;
+      if (showDelta) {
+        const dir = m.delta > 0 ? "up" : m.delta < 0 ? "down" : "flat";
+        deltaEl.className = `mom-delta ${dir}`;
+        deltaEl.textContent = `${
+          dir === "up" ? "▲" : dir === "down" ? "▼" : "●"
+        } ${Math.abs(m.delta)}`;
+      } else {
+        deltaEl.textContent = "";
+      }
+    }
+
+    if (insightEl) {
+      if (!m.sessionCount) insightEl.textContent = `No study sessions ${noun}.`;
+      else if (range === "all" || !m.hasPrevious)
+        insightEl.textContent = `${fmtMinutes(m.weekMinutes)} studied ${noun}, with no earlier period to compare against.`;
+      else if (m.delta > 0)
+        insightEl.textContent = `Up ${m.delta} points on the previous ${days === 1 ? "day" : `${days} days`}, ${fmtMinutes(m.weekMinutes)} studied.`;
+      else if (m.delta < 0)
+        insightEl.textContent = `Down ${Math.abs(m.delta)} points on the previous ${days === 1 ? "day" : `${days} days`}. Keep the rhythm going.`;
+      else
+        insightEl.textContent = `Holding steady at ${m.score}, with ${fmtMinutes(m.weekMinutes)} studied ${noun}.`;
+    }
+
+    const spark = document.getElementById("momSpark");
+    if (spark) {
+      const trend = m.trend || [];
+      const max = Math.max(...trend, 1);
+      spark.innerHTML = "";
+      trend.forEach((mins, i) => {
+        const bar = createSafeElement("div", {
+          class:
+            "bar" + (!mins ? " empty" : i === trend.length - 1 ? " now" : ""),
+          style: `height:${mins ? Math.max(14, Math.round((mins / max) * 100)) : 6}%`,
+          "data-tip": `${fmtMinutes(mins)}`,
+        });
+        spark.appendChild(bar);
       });
+    }
 
-    return { sessions, totalStudyTime, totalBreakTime, subjectTime };
+    const axisFrom = document.getElementById("momSparkAxisFrom");
+    if (axisFrom)
+      axisFrom.textContent = `${m.bucketDays * (m.trend || []).length} days ago`;
+
+    const note = document.getElementById("momSparkNote");
+    if (note) {
+      if (m.bestWeek && m.bestWeek.minutes > 0)
+        note.textContent =
+          `Best: ${fmtMinutes(m.bestWeek.minutes)}` +
+          (m.bestWeek.weeksAgo === 0
+            ? " (current)"
+            : ` (${m.bestWeek.weeksAgo * m.bucketDays} days ago)`);
+      else note.textContent = "No study time in this window yet.";
+    }
   }
 
-  function calcStreak() {
-    const stats = getStats();
-    const days = new Set(
-      stats.sessions
-        .filter((s) => s.type === "focus")
-        .map((s) => new Date(s.date).toDateString()),
+  function renderPattern(stats, opts) {
+    if (!patternBody) return;
+    if (patternCard) patternCard.hidden = false;
+    const view = statsPatternView === "rhythm" ? "rhythm" : "heat";
+    if (patternEyebrowWord)
+      patternEyebrowWord.textContent =
+        view === "rhythm" ? "Study Rhythm" : "Study Pattern";
+    if (patternScope)
+      patternScope.textContent = RANGE_SCOPE[analyticsRange] || "· today";
+    if (patternHeatBtn) {
+      patternHeatBtn.classList.toggle("active", view === "heat");
+      patternHeatBtn.setAttribute("aria-pressed", String(view === "heat"));
+    }
+    if (patternRhythmBtn) {
+      patternRhythmBtn.classList.toggle("active", view === "rhythm");
+      patternRhythmBtn.setAttribute("aria-pressed", String(view === "rhythm"));
+    }
+
+    patternBody.innerHTML = "";
+
+    if (view === "rhythm") {
+      const rh = StatsMetrics.rhythm(stats.sessions, {
+        ...opts,
+        minSessions: opts.minSessions === 5 ? 3 : opts.minSessions,
+      });
+      if (!rh.hasEnough) {
+        patternBody.appendChild(
+          createSafeElement(
+            "p",
+            { class: "stat-empty" },
+            `Not enough data yet: ${Math.max(1, rh.minSessions - rh.sessionCount)} more study session${Math.max(1, rh.minSessions - rh.sessionCount) === 1 ? "" : "s"} in this window.`,
+          ),
+        );
+        return;
+      }
+      const hist = createSafeElement("div", { class: "rh-hist" });
+      rh.buckets.forEach((b) => {
+        const col = createSafeElement("div", { class: "rh-col" });
+        col.appendChild(
+          createSafeElement("span", { class: "rh-count" }, String(b.count)),
+        );
+        col.appendChild(
+          createSafeElement("div", {
+            class: "rh-bar",
+            style: `height:${Math.max(4, Math.round((b.count / rh.max) * 100))}%`,
+          }),
+        );
+        hist.appendChild(col);
+      });
+      patternBody.appendChild(hist);
+      const labels = createSafeElement("div", { class: "rh-labels" });
+      rh.buckets.forEach((b) =>
+        labels.appendChild(createSafeElement("span", {}, b.label)),
+      );
+      patternBody.appendChild(labels);
+
+      const callout = createSafeElement(
+        "p",
+        { class: "stat-callout" },
+        `Median session ${fmtMinutes(rh.median)} across ${rh.sessionCount} study session${rh.sessionCount === 1 ? "" : "s"}.`,
+      );
+      patternBody.appendChild(callout);
+
+      const subs = createSafeElement("div", { class: "rh-subs" });
+      [
+        [`${rh.coverage}%`, "Break coverage"],
+        [fmtMinutes(rh.avgBreak), "Average break"],
+        [String(rh.sessionCount), "Sessions logged"],
+      ].forEach(([v, k]) => {
+        const sub = createSafeElement("div", { class: "rh-sub" });
+        sub.appendChild(createSafeElement("span", { class: "v" }, v));
+        sub.appendChild(createSafeElement("span", { class: "k" }, k));
+        subs.appendChild(sub);
+      });
+      patternBody.appendChild(subs);
+      return;
+    }
+
+    const hm = StatsMetrics.heatmap(stats.sessions, opts);
+    if (!hm.hasEnough) {
+      const needSessions = Math.max(0, hm.minSessions - hm.sessionCount);
+      const needDays = Math.max(0, hm.minDays - hm.activeDays);
+
+      const days = `${needDays} more day${needDays === 1 ? "" : "s"}`;
+      const sessions = `${needSessions} more study session${needSessions === 1 ? "" : "s"}`;
+      let msg = "Not enough data yet.";
+      if (needSessions && needDays)
+        msg = `Not enough data yet: ${sessions} across ${days}.`;
+      else if (needSessions) msg = `Not enough data yet: ${sessions}.`;
+      else if (needDays) msg = `Not enough data yet: sessions on ${days}.`;
+      patternBody.appendChild(
+        createSafeElement("p", { class: "stat-empty" }, msg),
+      );
+      return;
+    }
+
+    const maxMins = Math.max(...hm.mins.flat(), 1);
+    const wrap = createSafeElement("div", { class: "hm-wrap" });
+    const dayCol = createSafeElement("div", { class: "hm-days" });
+    StatsMetrics.WEEKDAYS.forEach((d) =>
+      dayCol.appendChild(createSafeElement("span", {}, d)),
     );
-    let streak = 0;
-    const d = new Date();
-    while (days.has(d.toDateString())) {
-      streak++;
-      d.setDate(d.getDate() - 1);
-    }
-    return streak;
-  }
+    wrap.appendChild(dayCol);
 
-  function animateValue(el, target) {
-    const start = parseInt(el.textContent) || 0;
-    const duration = 600;
-    const startTime = performance.now();
-    function step(now) {
-      const p = Math.min((now - startTime) / duration, 1);
-      const ease = 1 - Math.pow(1 - p, 3);
-      el.textContent = Math.round(start + (target - start) * ease);
-      if (p < 1) requestAnimationFrame(step);
-    }
-    requestAnimationFrame(step);
+    const grid = createSafeElement("div", { class: "hm-grid" });
+    hm.mins.forEach((row, wd) => {
+      const rowEl = createSafeElement("div", { class: "hm-row" });
+      row.forEach((mins, hour) => {
+        const cell = createSafeElement("div", {
+          class:
+            "hm-cell" +
+            (hm.peak && hm.peak.wd === wd && hm.peak.hour === hour
+              ? " peak"
+              : ""),
+
+          style: mins
+            ? `background:color-mix(in srgb, var(--an-accent, #6366f1) ${Math.max(
+                12,
+                Math.round((mins / maxMins) * 100),
+              )}%, rgba(255,255,255,0.045))`
+            : "",
+          "data-tip": `${StatsMetrics.WEEKDAYS[wd]} ${String(hour).padStart(2, "0")}:00, ${fmtMinutes(mins)}`,
+        });
+        rowEl.appendChild(cell);
+      });
+      grid.appendChild(rowEl);
+    });
+    wrap.appendChild(grid);
+    patternBody.appendChild(wrap);
+
+    const hours = createSafeElement("div", { class: "hm-hours" });
+    for (let h = 0; h < 24; h++)
+      hours.appendChild(
+        createSafeElement("span", {}, h % 6 === 0 ? String(h) : ""),
+      );
+    patternBody.appendChild(hours);
+
+    if (hm.peak)
+      patternBody.appendChild(
+        createSafeElement(
+          "p",
+          { class: "stat-callout" },
+          `Peak ${hm.peakLabel}: ${fmtMinutes(hm.peak.perDay)} avg across ${hm.peak.occurrences} day${hm.peak.occurrences === 1 ? "" : "s"}.`,
+        ),
+      );
+
+    const legend = createSafeElement("div", { class: "hm-legend" });
+    legend.appendChild(createSafeElement("span", {}, "Less"));
+    [12, 38, 64, 100].forEach((pct) =>
+      legend.appendChild(
+        createSafeElement("i", {
+
+          style: `background:color-mix(in srgb, var(--an-accent, #6366f1) ${pct}%, rgba(255,255,255,0.045))`,
+        }),
+      ),
+    );
+    legend.appendChild(createSafeElement("span", {}, "More"));
+    patternBody.appendChild(legend);
   }
 
   function renderAnalytics() {
-    const data = getFilteredStats(analyticsRange);
-    const streak = calcStreak();
+    const stats = getStats();
+    const data = getFilteredStats(analyticsRange, stats);
+    const opts = data.opts;
+    const streak = StatsMetrics.streakOf(stats.sessions);
 
-    // Date label
     const label = document.getElementById("analyticsDateLabel");
     if (label) {
-      const now = new Date();
       if (analyticsRange === "today")
-        label.textContent = now.toLocaleDateString("en-GB", {
+        label.textContent = new Date().toLocaleDateString("en-GB", {
           weekday: "long",
           day: "numeric",
           month: "short",
         });
-      else if (analyticsRange === "week") label.textContent = "Last 7 days";
-      else label.textContent = "All time";
+      else label.textContent = RANGE_LABELS[analyticsRange] || "";
     }
 
-    // KPIs
     const studyEl = document.getElementById("kpiStudyTime");
     const breakEl = document.getElementById("kpiBreakTime");
     const sessEl = document.getElementById("kpiSessions");
     const strkEl = document.getElementById("kpiStreak");
-    if (studyEl) animateValue(studyEl, Math.round(data.totalStudyTime));
-    if (breakEl) animateValue(breakEl, Math.round(data.totalBreakTime));
+    if (studyEl)
+      animateValue(studyEl, Math.round(data.totalStudyTime), fmtMinutes);
+    if (breakEl)
+      animateValue(breakEl, Math.round(data.totalBreakTime), fmtMinutes);
     if (sessEl)
       animateValue(
         sessEl,
@@ -3087,7 +4882,10 @@
       );
     if (strkEl) animateValue(strkEl, streak);
 
-    // KPI bars (relative to max of the four)
+    const analyticsHint = document.getElementById("analyticsHint");
+    if (analyticsHint)
+      analyticsHint.hidden = data.sessions.some((s) => s.type === "focus");
+
     const maxVal = Math.max(
       data.totalStudyTime,
       data.totalBreakTime,
@@ -3095,164 +4893,306 @@
       streak * 10,
       1,
     );
+
+    const pct = (val) => Math.min(100, (val / maxVal) * 100) + "%";
     setTimeout(() => {
-      const sb = document.getElementById("kpiStudyBar");
-      const bb = document.getElementById("kpiBreakBar");
-      const sesb = document.getElementById("kpiSessionsBar");
-      const strb = document.getElementById("kpiStreakBar");
-      if (sb)
-        sb.style.width =
-          Math.min(100, (data.totalStudyTime / maxVal) * 100) + "%";
-      if (bb)
-        bb.style.width =
-          Math.min(100, (data.totalBreakTime / maxVal) * 100) + "%";
-      if (sesb)
-        sesb.style.width =
-          Math.min(100, ((data.sessions.length * 5) / maxVal) * 100) + "%";
-      if (strb)
-        strb.style.width = Math.min(100, ((streak * 10) / maxVal) * 100) + "%";
+      const bars = {
+        kpiStudyBar: data.totalStudyTime,
+        kpiBreakBar: data.totalBreakTime,
+        kpiSessionsBar: data.sessions.length * 5,
+        kpiStreakBar: streak * 10,
+      };
+      Object.entries(bars).forEach(([id, val]) => {
+        const el = document.getElementById(id);
+        if (el) el.style.width = pct(val);
+      });
     }, 50);
 
-    // Activity chart — last 7 days always
-    renderActivityChart();
-
-    // Subject list
+    renderMomentum(stats, opts, analyticsRange);
+    renderPattern(stats, opts);
+    renderActivityChart(data, opts);
     renderSubjectList(data);
-
-    // Session log
     renderSessionLog(data);
   }
 
-  function renderActivityChart() {
+  const DEMO_BACKUP_KEY = "timerStats_demoBackup";
+  const DEMO_ACTIVE_KEY = "timerStats_demoActive";
+  const DEMO_SUBJECTS = [
+    "Mathematics",
+    "Biology",
+    "Chemistry",
+    "Physics",
+    "Economics",
+    "Computer Science",
+    "English Language",
+    "Statistics",
+  ];
+  function buildDemoStats() {
+    const sessions = [];
+    const subjectTime = {};
+    let totalStudyTime = 0;
+    let totalBreakTime = 0;
+    const now = Date.now();
+    for (let back = 41; back >= 0; back--) {
+      const day = new Date(now - back * 86400000);
+
+      if (back % 13 === 6) continue;
+      const count = 1 + ((back * 7) % 3);
+      for (let i = 0; i < count; i++) {
+        const duration = [25, 40, 45, 50, 60, 75, 90][(back + i * 3) % 7];
+        const at = new Date(day);
+        at.setHours(9 + ((back + i * 5) % 11), (i * 17) % 60, 0, 0);
+        const subject = DEMO_SUBJECTS[(back + i) % DEMO_SUBJECTS.length];
+        sessions.push({
+          type: "focus",
+          duration,
+          subject,
+          date: at.toISOString(),
+        });
+        totalStudyTime += duration;
+        subjectTime[subject] = (subjectTime[subject] || 0) + duration;
+        const breakLen = duration >= 60 ? 10 : 5;
+        sessions.push({
+          type: "break",
+          duration: breakLen,
+          subject: "",
+          date: new Date(at.getTime() + duration * 60000).toISOString(),
+        });
+        totalBreakTime += breakLen;
+      }
+    }
+    return { totalStudyTime, totalBreakTime, sessions, subjectTime };
+  }
+  function seedDemoStats(force) {
+    const existing = getStats();
+    if ((existing.sessions || []).length && !force) {
+      console.warn(
+        "[PomoraDemo] This profile already has sessions. Call PomoraDemo.seed(true) to overwrite. Nothing was changed.",
+      );
+      return false;
+    }
+    if (localStorage.getItem(DEMO_ACTIVE_KEY) !== "1")
+      localStorage.setItem(
+        DEMO_BACKUP_KEY,
+        localStorage.getItem("timerStats") || "",
+      );
+    saveStats(buildDemoStats());
+    localStorage.setItem(DEMO_ACTIVE_KEY, "1");
+    renderAnalytics();
+    updateStatsDisplay();
+    console.info(
+      "[PomoraDemo] Demo profile active for review. PomoraDemo.clear() puts your own stats back.",
+    );
+    return true;
+  }
+  function clearDemoStats() {
+    const backup = localStorage.getItem(DEMO_BACKUP_KEY);
+    if (backup) localStorage.setItem("timerStats", backup);
+    else localStorage.removeItem("timerStats");
+    localStorage.removeItem(DEMO_BACKUP_KEY);
+    localStorage.removeItem(DEMO_ACTIVE_KEY);
+    renderAnalytics();
+    updateStatsDisplay();
+    console.info("[PomoraDemo] Demo profile cleared.");
+    return true;
+  }
+  window.PomoraDemo = {
+    seed: (force) => seedDemoStats(!!force),
+    clear: () => clearDemoStats(),
+    info: () => ({
+      active: localStorage.getItem(DEMO_ACTIVE_KEY) === "1",
+      sessions: (getStats().sessions || []).length,
+      usage: "seed() · seed(true) to overwrite real stats · clear()",
+    }),
+  };
+  if (new URLSearchParams(location.search).get("statsDemo") === "1") {
+    setTimeout(() => seedDemoStats(false), 0);
+  }
+
+  function renderActivityChart(data, opts) {
     const chartArea = document.getElementById("activityChart");
     const xLabels = document.getElementById("chartXLabels");
     if (!chartArea || !xLabels) return;
+    if (activityCardLabel)
+      activityCardLabel.textContent =
+        {
+          today: "Daily Activity",
+          week: "Weekly Activity",
+          month: "Monthly Activity",
+          all: "All-Time Activity",
+        }[analyticsRange] || "Activity";
 
-    const stats = getStats();
-    const days = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      days.push(d);
+    const buckets = [];
+    if (analyticsRange === "today") {
+      for (let h = 0; h < 24; h += 4) {
+        buckets.push({
+          from: h,
+          to: h + 4,
+          label: `${String(h).padStart(2, "0")}h–${String(h + 4).padStart(2, "0")}h`,
+          month: "",
+        });
+      }
+    } else if (analyticsRange === "all") {
+
+      const first = new Date(opts.from);
+      let cur = new Date(first.getFullYear(), first.getMonth(), 1);
+      const end = opts.now;
+      while (cur <= end) {
+        const next = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+        buckets.push({
+          from: new Date(cur),
+          to: next,
+
+          label: cur.toLocaleDateString("en-US", {
+            month: "short",
+            year: "2-digit",
+          }),
+          month: "",
+        });
+        cur = next;
+      }
+    } else {
+      const from = new Date(
+        opts.from.getFullYear(),
+        opts.from.getMonth(),
+        opts.from.getDate(),
+      );
+      const days = Math.max(1, Math.round((opts.now - from) / 864e5) + 1);
+      const step = Math.max(1, Math.ceil(days / 62));
+      for (let i = 0; i < days; i += step) {
+        const d = new Date(from.getTime() + i * 864e5);
+        buckets.push({
+          from: d,
+          to: new Date(d.getTime() + step * 864e5),
+          label: String(d.getDate()),
+          month: d.toLocaleDateString("en-GB", { month: "short" }),
+        });
+      }
     }
 
-    const dayData = days.map((d) => {
-      const str = d.toDateString();
-      const focus = stats.sessions
-        .filter(
-          (s) => s.type === "focus" && new Date(s.date).toDateString() === str,
-        )
-        .reduce((a, s) => a + s.duration, 0);
-      const brk = stats.sessions
-        .filter(
-          (s) => s.type !== "focus" && new Date(s.date).toDateString() === str,
-        )
-        .reduce((a, s) => a + s.duration, 0);
+    const rows = buckets.map((b) => {
+      const inBucket = (s) => {
+        const d = new Date(s.date);
+        if (analyticsRange === "today") {
+          return (
+            d.toDateString() === opts.now.toDateString() &&
+            d.getHours() >= b.from &&
+            d.getHours() < b.to
+          );
+        }
+        return d >= b.from && d < b.to;
+      };
       return {
-        focus,
-        brk,
-        label: d.toLocaleDateString("en-GB", { weekday: "short" }),
+        ...b,
+        study: data.sessions
+          .filter((s) => s.type === "focus" && inBucket(s))
+          .reduce((a, s) => a + s.duration, 0),
+        brk: data.sessions
+          .filter((s) => s.type !== "focus" && inBucket(s))
+          .reduce((a, s) => a + s.duration, 0),
       };
     });
 
-    const maxMins = Math.max(...dayData.map((d) => d.focus + d.brk), 1);
+    const maxBar = Math.max(...rows.map((r) => Math.max(r.study, r.brk)), 1);
 
+    const tipPrefix = (r) =>
+      analyticsRange === "all" && r.month === "" && r.label ? `${r.label} · ` : "";
     chartArea.innerHTML = "";
-    dayData.forEach((d) => {
-      const fh = Math.round((d.focus / maxMins) * 82);
-      const bh = Math.round((d.brk / maxMins) * 82);
+    rows.forEach((r) => {
       const wrap = createSafeElement("div", { class: "chart-bar-wrap" });
-
-      if (d.focus > 0) {
+      if (r.study > 0)
         wrap.appendChild(
           createSafeElement("div", {
             class: "chart-bar study-bar",
-            style: `height:${fh}px`,
-            "data-tip": `${d.focus}min study`,
+            style: `height:${Math.max(4, Math.round((r.study / maxBar) * 100))}%;min-height:4px`,
+            "data-tip": `${tipPrefix(r)}${fmtMinutes(r.study)} study`,
           }),
         );
-      }
-
-      if (d.brk > 0) {
+      if (r.brk > 0)
         wrap.appendChild(
           createSafeElement("div", {
             class: "chart-bar break-bar",
-            style: `height:${bh}px`,
-            "data-tip": `${d.brk}min break`,
+            style: `height:${Math.max(4, Math.round((r.brk / maxBar) * 100))}%;min-height:4px`,
+            "data-tip": `${tipPrefix(r)}${fmtMinutes(r.brk)} break`,
           }),
         );
-      }
-
-      if (d.focus === 0 && d.brk === 0) {
+      if (!r.study && !r.brk)
         wrap.appendChild(
           createSafeElement("div", {
+            class: "chart-bar empty-bar",
             style:
-              "height:3px;width:100%;border-radius:2px;background:rgba(255,255,255,0.04)",
+              "height:4px;min-height:4px;background:rgba(255,255,255,0.04);border-radius:2px",
           }),
         );
-      }
-
       chartArea.appendChild(wrap);
     });
 
     xLabels.innerHTML = "";
-    dayData.forEach((d) => {
-      xLabels.appendChild(
-        createSafeElement("span", { class: "chart-x-label" }, d.label),
-      );
+    /* Thin the tick labels to about eight, and keep an (empty) tick cell for
+       every bucket so the axis stays aligned with the bars. 24–31 ticks each
+       carrying "3" + "OCT" gave the axis a 616px min-content width inside a
+       245px card, which is what pushed the whole analytics panel sideways at
+       narrow widths. */
+    const labelEvery = Math.max(1, Math.ceil(rows.length / 8));
+    rows.forEach((r, i) => {
+      const tick = createSafeElement("span", { class: "chart-x-label" });
+      if (i % labelEvery === 0) {
+        tick.appendChild(
+          createSafeElement("span", { class: "chart-x-label-top" }, r.label),
+        );
+        tick.appendChild(
+          createSafeElement("span", { class: "chart-x-label-bottom" }, r.month),
+        );
+      }
+      xLabels.appendChild(tick);
     });
   }
 
   function renderSubjectList(data) {
     const list = document.getElementById("subjectList");
     if (!list) return;
-    const st = data.subjectTime || {};
-    const entries = Object.entries(st).sort((a, b) => b[1] - a[1]);
+    const entries = Object.entries(data.subjectTime || {}).sort(
+      (a, b) => b[1] - a[1],
+    );
+    list.innerHTML = "";
     if (!entries.length) {
-      list.innerHTML = "";
+
       list.appendChild(
         createSafeElement(
           "p",
           { class: "analytics-empty" },
-          "No subject data yet",
+          EMPTY_SUBJECTS[analyticsRange] || EMPTY_SUBJECTS.all,
         ),
       );
       return;
     }
     const maxMins = entries[0][1];
-    list.innerHTML = "";
-    entries.forEach(([subj, mins], i) => {
+    entries.forEach(([subj, mins]) => {
       const pct = Math.round((mins / maxMins) * 100);
-      const color = SUBJECT_COLORS[i % SUBJECT_COLORS.length];
-      const hrs =
-        mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
-
       const row = createSafeElement("div", { class: "subject-row" });
-      const topRow = createSafeElement("div", { class: "subject-row-top" });
-      topRow.appendChild(
+      const top = createSafeElement("div", { class: "subject-row-top" });
+      top.appendChild(
         createSafeElement(
           "span",
           { class: "subject-name" },
           sanitizeInput(subj),
         ),
       );
-      topRow.appendChild(
-        createSafeElement("span", { class: "subject-time" }, hrs),
+      top.appendChild(
+        createSafeElement("span", { class: "subject-time" }, fmtMinutes(mins)),
       );
-      row.appendChild(topRow);
-
+      row.appendChild(top);
       const progress = createSafeElement("div", { class: "subject-progress" });
-      const fill = createSafeElement("div", {
-        class: "subject-progress-fill",
-        style: `width:0%;background:${color}`,
-        "data-pct": `${pct}`,
-      });
-      progress.appendChild(fill);
+      progress.appendChild(
+        createSafeElement("div", {
+          class: "subject-progress-fill",
+          style: `width:0%;background:${subjectColor(subj)}`,
+          "data-pct": `${pct}`,
+        }),
+      );
       row.appendChild(progress);
       list.appendChild(row);
     });
-
-    // Animate bars in
     setTimeout(() => {
       list.querySelectorAll(".subject-progress-fill").forEach((el) => {
         el.style.width = el.dataset.pct + "%";
@@ -3260,83 +5200,148 @@
     }, 80);
   }
 
+  function buildSessionEntry(s) {
+    const isFocus = s.type === "focus";
+    const d = new Date(s.date);
+    const time = d.toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const dateStr =
+      d.toDateString() === new Date().toDateString()
+        ? `Today ${time}`
+        : `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} ${time}`;
+    const title = isFocus
+      ? (s.subject || "").trim() || UNSPECIFIED_LABEL
+      : "Break";
+
+    const entry = createSafeElement("div", { class: "session-entry" });
+    entry.appendChild(
+      createSafeElement("div", {
+        class: `session-dot ${isFocus ? "focus" : "break"}`,
+        style: `background:${isFocus ? subjectColor(s.subject) : BREAK_COLOR}`,
+      }),
+    );
+    const info = createSafeElement("div", { class: "session-entry-info" });
+    info.appendChild(
+      createSafeElement(
+        "span",
+        { class: "session-entry-title" },
+        sanitizeInput(title || UNSPECIFIED_LABEL),
+      ),
+    );
+    info.appendChild(
+      createSafeElement("span", { class: "session-entry-sub" }, dateStr),
+    );
+    entry.appendChild(info);
+    entry.appendChild(
+      createSafeElement(
+        "span",
+        { class: "session-entry-duration" },
+        fmtMinutes(s.duration),
+      ),
+    );
+    return entry;
+  }
+
   function renderSessionLog(data) {
     const log = document.getElementById("sessionHistory");
     if (!log) return;
     const sessions = [...data.sessions].reverse();
-    const show = sessionLogExpanded ? sessions : sessions.slice(0, 5);
-
+    if (toggleSessionBtn)
+      toggleSessionBtn.textContent = `Show all (${sessions.length})`;
+    log.className = "session-log";
+    log.innerHTML = "";
     if (!sessions.length) {
-      log.innerHTML = "";
+
       log.appendChild(
-        createSafeElement("p", { class: "analytics-empty" }, "No sessions yet"),
+        createSafeElement(
+          "p",
+          { class: "analytics-empty" },
+          EMPTY_SESSIONS[analyticsRange] || EMPTY_SESSIONS.all,
+        ),
       );
       return;
     }
-
-    log.className = "session-log" + (sessionLogExpanded ? " expanded" : "");
-    log.innerHTML = "";
-
-    show.forEach((s) => {
-      const isFocus = s.type === "focus";
-      const d = new Date(s.date);
-      const time = d.toLocaleTimeString("en-GB", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      const dateStr =
-        d.toDateString() === new Date().toDateString()
-          ? `Today ${time}`
-          : `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} ${time}`;
-      const title = isFocus ? s.subject || "Focus session" : "Break";
-      const dur =
-        s.duration >= 60
-          ? `${Math.floor(s.duration / 60)}h ${s.duration % 60}m`
-          : `${s.duration}m`;
-
-      const entry = createSafeElement("div", { class: "session-entry" });
-      entry.appendChild(
-        createSafeElement("div", {
-          class: `session-dot ${isFocus ? "focus" : "break"}`,
-        }),
-      );
-
-      const info = createSafeElement("div", {
-        class: "session-entry-info",
-      });
-      info.appendChild(
-        createSafeElement(
-          "span",
-          { class: "session-entry-title" },
-          sanitizeInput(title),
-        ),
-      );
-      info.appendChild(
-        createSafeElement(
-          "span",
-          {
-            class: "session-entry-sub",
-          },
-          dateStr,
-        ),
-      );
-      entry.appendChild(info);
-      entry.appendChild(
-        createSafeElement("span", { class: "session-entry-duration" }, dur),
-      );
-      log.appendChild(entry);
-    });
-
-    if (toggleSessionBtn) {
-      toggleSessionBtn.textContent = sessionLogExpanded
-        ? "Show less"
-        : `Show all (${sessions.length})`;
-    }
+    sessions.slice(0, 5).forEach((s) => log.appendChild(buildSessionEntry(s)));
   }
 
-  // Event listeners
-  const _openStatsBtn = document.getElementById("openStatsModalBtn");
-  if (_openStatsBtn) _openStatsBtn.addEventListener("click", openAnalytics);
+  function setSessionLogOpen(open) {
+    if (!sessionLogModal) return;
+    sessionLogModal.classList.toggle("open", open);
+    sessionLogModal.setAttribute("aria-hidden", open ? "false" : "true");
+  }
+
+  function openSessionLog() {
+    if (!sessionLogModal) return;
+    const data = getFilteredStats(analyticsRange);
+    const sessions = [...data.sessions].reverse();
+    if (sessionLogSummary) {
+      sessionLogSummary.innerHTML = "";
+
+      const badges = [
+        `${sessions.length} Session${sessions.length === 1 ? "" : "s"}`,
+        `${fmtMinutes(data.totalStudyTime)} Study`,
+        RANGE_LABELS[analyticsRange] || "Today",
+      ];
+      badges.forEach((text) => {
+        sessionLogSummary.appendChild(
+          createSafeElement("span", { class: "sessionlog-badge" }, text),
+        );
+      });
+    }
+    if (sessionLogList) {
+      sessionLogList.innerHTML = "";
+      if (!sessions.length)
+        sessionLogList.appendChild(
+          createSafeElement(
+            "p",
+            { class: "analytics-empty" },
+            "No sessions yet",
+          ),
+        );
+      else
+        sessions.forEach((s) =>
+          sessionLogList.appendChild(buildSessionEntry(s)),
+        );
+    }
+    setSessionLogOpen(true);
+  }
+
+  function closeSessionLog() {
+    setSessionLogOpen(false);
+  }
+
+  function openAnalytics() {
+    if (themeModal) themeModal.classList.remove("open");
+    if (analyticsModal) analyticsModal.classList.add("open");
+    renderAnalytics();
+  }
+
+  function closeAnalytics() {
+    closeSessionLog();
+    if (analyticsModal) analyticsModal.classList.remove("open");
+  }
+
+  function animateValue(el, target, format) {
+    const start = parseFloat(el.dataset.rawValue) || 0;
+    const duration = 600;
+    const startTime = performance.now();
+    el.dataset.rawValue = String(target);
+    function step(now) {
+      const p = Math.min((now - startTime) / duration, 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      const value = Math.round(start + (target - start) * ease);
+      el.textContent = format ? format(value) : String(value);
+      if (p < 1) requestAnimationFrame(step);
+    }
+    if (!duration) {
+      el.textContent = format ? format(target) : String(target);
+      return;
+    }
+    requestAnimationFrame(step);
+  }
+
   if (analyticsBackdrop)
     analyticsBackdrop.addEventListener("click", closeAnalytics);
   if (analyticsCloseBtn)
@@ -3353,19 +5358,41 @@
     });
   });
 
-  if (toggleSessionBtn)
-    toggleSessionBtn.addEventListener("click", () => {
-      sessionLogExpanded = !sessionLogExpanded;
-      const data = getFilteredStats(analyticsRange);
-      renderSessionLog(data);
+  if (patternHeatBtn)
+    patternHeatBtn.addEventListener("click", () => {
+      statsPatternView = "heat";
+      try {
+        localStorage.setItem("statsPatternView", "heat");
+      } catch (e) {}
+      renderAnalytics();
+    });
+  if (patternRhythmBtn)
+    patternRhythmBtn.addEventListener("click", () => {
+      statsPatternView = "rhythm";
+      try {
+        localStorage.setItem("statsPatternView", "rhythm");
+      } catch (e) {}
+      renderAnalytics();
     });
 
+  if (toggleSessionBtn)
+    toggleSessionBtn.addEventListener("click", openSessionLog);
+  if (sessionLogClose)
+    sessionLogClose.addEventListener("click", closeSessionLog);
+  if (sessionLogBackdrop)
+    sessionLogBackdrop.addEventListener("click", closeSessionLog);
+
   if (statsResetBtn2)
-    statsResetBtn2.addEventListener("click", () => {
-      if (confirm("Reset all statistics? This cannot be undone.")) {
-        resetStats();
-        renderAnalytics();
-      }
+    statsResetBtn2.addEventListener("click", function () {
+      showConfirm("Reset all statistics?", undefined, {
+        detail: "This cannot be undone.",
+      }).then(function (result) {
+          if (result) {
+            resetStats();
+            renderAnalytics();
+          }
+        },
+      );
     });
 
   if (statsExportBtn)
@@ -3373,24 +5400,169 @@
       const stats = getStats();
       const rows = [["Type", "Subject", "Duration (min)", "Date"]];
       stats.sessions.forEach((s) => {
-        rows.push([
-          s.type,
-          s.subject || "",
-          s.duration,
-          new Date(s.date).toLocaleString(),
-        ]);
+        rows.push([s.type, s.subject || "", s.duration, s.date]);
       });
-      const csv = rows.map((r) => r.join(",")).join("\n");
+      const csv = rows
+        .map((row) =>
+          row
+            .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+            .join(","),
+        )
+        .join("\n");
       const a = document.createElement("a");
       a.href = "data:text/csv," + encodeURIComponent(csv);
       a.download = "study-sessions.csv";
       a.click();
     });
 
-  renderTasks();
-  initEnhancedSystem();
+  function parseCSVLine(line) {
+    const values = [];
+    let value = "";
+    let quoted = false;
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') {
+        if (quoted && line[i + 1] === '"') {
+          value += '"';
+          i++;
+        } else quoted = !quoted;
+      } else if (char === "," && !quoted) {
+        values.push(value.trim());
+        value = "";
+      } else value += char;
+    }
+    values.push(value.trim());
+    return values;
+  }
 
-  // ── Developer: Toggle update notice popup with Alt+Shift+, (requires ?dev=true) ─────
+  function parseImportedDate(values, dateIndex) {
+    const rawDate = values.slice(dateIndex).join(",").trim();
+    let date = new Date(rawDate);
+    if (!Number.isNaN(date.getTime())) return date;
+    
+    const localeMatch = rawDate.match(
+      /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:,?\s+(.*))?$/,
+    );
+    if (!localeMatch) return null;
+    const first = Number(localeMatch[1]);
+    const second = Number(localeMatch[2]);
+    const month = first > 12 ? second : first;
+    const day = first > 12 ? first : second;
+    const time = localeMatch[4] || "";
+    date = new Date(
+      `${month}/${day}/${localeMatch[3]}${time ? ` ${time}` : ""}`,
+    );
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  function importStatsCSV(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const lines = String(reader.result || "")
+        .split(/\r?\n/)
+        .filter((line) => line.trim());
+      if (lines.length < 2) {
+        showAlert("The CSV file does not contain any sessions.");
+        return;
+      }
+      const header = parseCSVLine(lines[0]).map((value) =>
+        value.replace(/^\uFEFF/, "").toLowerCase(),
+      );
+      const typeIndex = header.indexOf("type");
+      const subjectIndex = header.indexOf("subject");
+      const durationIndex = header.indexOf("duration (min)");
+      const dateIndex = header.indexOf("date");
+      if (typeIndex < 0 || durationIndex < 0 || dateIndex < 0) {
+        showAlert("This CSV file is missing required session columns.");
+        return;
+      }
+      const imported = lines.slice(1).reduce((sessions, line) => {
+        const values = parseCSVLine(line);
+        const duration = Number(values[durationIndex]);
+        const date = parseImportedDate(values, dateIndex);
+        if (
+          !values[typeIndex] ||
+          !Number.isFinite(duration) ||
+          duration < 0 ||
+          !date ||
+          Number.isNaN(date.getTime())
+        )
+          return sessions;
+        sessions.push({
+          type: values[typeIndex],
+          duration,
+          subject: subjectIndex >= 0 ? values[subjectIndex] || null : null,
+          date: date.toISOString(),
+        });
+        return sessions;
+      }, []);
+      if (!imported.length) {
+        showAlert("No valid sessions were found in the CSV file.");
+        return;
+      }
+      const stats = getStats();
+      stats.sessions = stats.sessions.concat(imported);
+      stats.totalStudyTime = stats.sessions
+        .filter((s) => s.type === "focus")
+        .reduce((total, s) => total + s.duration, 0);
+      stats.totalBreakTime = stats.sessions
+        .filter((s) => s.type !== "focus")
+        .reduce((total, s) => total + s.duration, 0);
+      stats.subjectTime = subjectTotals(stats.sessions);
+      saveStats(stats);
+      renderAnalytics();
+      updateStatsDisplay();
+
+      const importedNotice = `${imported.length} session${imported.length === 1 ? "" : "s"} imported.`;
+      if (typeof ThemeEngine !== "undefined" && ThemeEngine._showNotice) {
+        ThemeEngine._showNotice(importedNotice, "success");
+      } else {
+        showAlert(importedNotice);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  if (statsImportBtn && statsImportInput) {
+    statsImportBtn.addEventListener("click", () => statsImportInput.click());
+    statsImportInput.addEventListener("change", () => {
+      const [file] = statsImportInput.files || [];
+      if (file) importStatsCSV(file);
+      statsImportInput.value = "";
+    });
+  }
+
+  renderTasks();
+  /* A scene theme needs its own chunk before the first paint, so wait for it;
+     built-in gradient themes need nothing and apply synchronously. */
+  const bootNeedsScene = (function () {
+    try {
+      if (typeof ThemeEngine === "undefined") return false;
+      const st =
+        typeof ThemeEngine.getNativeSceneState === "function"
+          ? ThemeEngine.getNativeSceneState()
+          : null;
+      if (st && st.sceneId) return true;
+      const custom =
+        typeof ThemeEngine.getActiveCustomThemeConfig === "function"
+          ? ThemeEngine.getActiveCustomThemeConfig()
+          : null;
+      return !!(custom && custom.bg && custom.bg.type === "scene");
+    } catch (e) {
+      return false;
+    }
+  })();
+  const applyBootTheme = () => {
+    initEnhancedSystem();
+    restoreNativeScene();
+  };
+  const scenesReady =
+    typeof ThemeEngine !== "undefined" && ThemeEngine.scenesReady
+      ? ThemeEngine.scenesReady
+      : Promise.resolve();
+  if (bootNeedsScene) scenesReady.then(applyBootTheme, applyBootTheme);
+  else applyBootTheme();
+
   const isDev =
     new URLSearchParams(window.location.search).get("dev") === "true";
   if (isDev) {
@@ -3406,3 +5578,4 @@
     });
   }
 });
+

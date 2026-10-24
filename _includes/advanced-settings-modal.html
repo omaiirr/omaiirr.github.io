@@ -1,25 +1,21 @@
-<!-- Full Settings Modal -->
 <div class="advanced-settings-modal" id="advancedSettingsModal">
   <div class="advanced-settings-backdrop" id="advancedSettingsBackdrop"></div>
   <div class="advanced-settings-panel">
     <div class="advanced-settings-header">
       <div>
-        <p class="advanced-settings-eyebrow">Expand Settings</p>
+        <p class="advanced-settings-eyebrow">Settings</p>
         <h2 class="advanced-settings-title">Expanded Settings</h2>
       </div>
-      <button class="advanced-settings-close" id="advancedSettingsCloseBtn">
-        <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
-          <path
-            d="M1 1l16 16M17 1L1 17"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-          />
-        </svg>
+      <button
+        class="advanced-settings-close"
+        id="advancedSettingsCloseBtn"
+        type="button"
+        aria-label="Close settings"
+      >
+        {% include svg/uo-line-close.svg %}
       </button>
     </div>
 
-    <!-- TAB INTERFACE -->
     <div class="fs-tab-container">
       <div class="fs-tabs-sidebar">
         <button class="fs-tab-btn active" data-tab="general">
@@ -34,41 +30,161 @@
       </div>
 
       <div class="fs-tab-content-wrapper">
-        <!-- GENERAL TAB -->
         <div class="fs-tab-content active" id="tab-general">
-          <!-- Clock Settings -->
           <div class="fs-card">
-            <p class="fs-card-label">Clock (minutes)</p>
-            <div class="fs-clock-grid">
-              <div class="fs-clock-item">
-                <label>Focus</label>
-                <input
-                  id="fsFocus"
-                  type="number"
-                  min="1"
-                  max="120"
-                  value="25"
-                />
-              </div>
-              <div class="fs-clock-item">
-                <label>Short Break</label>
-                <input id="fsShort" type="number" min="1" max="60" value="5" />
-              </div>
-              <div class="fs-clock-item">
-                <label>Long Break</label>
-                <input id="fsLong" type="number" min="1" max="60" value="15" />
-              </div>
+            <p class="fs-card-label">Mode</p>
+            <div class="fs-mode-tiles" role="group" aria-label="Timer mode">
+              <button
+                type="button"
+                class="fs-mode-tile active"
+                data-mode="pomodoro"
+                aria-pressed="true"
+              >
+                <span class="fs-mode-ico">
+                  <svg class="uo-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M6.5 3h11"></path>
+                    <path d="M6.5 21h11"></path>
+                    <path d="M8 3v3.1a4.9 4.9 0 0 0 1.7 3.6L12 12l2.3-2.3A4.9 4.9 0 0 0 16 6.1V3"></path>
+                    <path d="M8 21v-3.1a4.9 4.9 0 0 1 1.7-3.6L12 12l2.3 2.3a4.9 4.9 0 0 1 1.7 3.6V21"></path>
+                  </svg>
+                </span>
+                <span class="fs-mode-txt"
+                  ><b>Pomodoro</b><em>Focused blocks with breaks</em></span
+                >
+              </button>
+              <button
+                type="button"
+                class="fs-mode-tile"
+                data-mode="stopwatch"
+                aria-pressed="false"
+              >
+                <span class="fs-mode-ico">
+                  <svg class="uo-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="13.5" r="7.5"></circle>
+                    <path d="M12 13.5V9.8"></path>
+                    <path d="M9.6 2.6h4.8"></path>
+                    <path d="M12 2.6V6"></path>
+                    <path d="M6 7.6 4.4 6"></path>
+                    <path d="M18 7.6 19.6 6"></path>
+                  </svg>
+                </span>
+                <span class="fs-mode-txt"
+                  ><b>Stopwatch</b><em>Counts up until you stop</em></span
+                >
+              </button>
             </div>
+            <select
+              id="timerModeSelect"
+              class="fs-mode-select"
+              tabindex="-1"
+              aria-hidden="true"
+            >
+              <option value="pomodoro">Pomodoro</option>
+              <option value="stopwatch">Stopwatch</option>
+            </select>
           </div>
 
-          <!-- Timer Behaviour -->
+          <div class="fs-card" id="clockSettingsCard">
+            <p class="fs-card-label">Session clock</p>
+            <div class="fs-steppers">
+              <div class="fs-stepper">
+                <span class="fs-stepper-label">Study</span>
+                <div class="fs-stepper-ctl">
+                  <button
+                    type="button"
+                    class="fs-step"
+                    data-step="-1"
+                    data-input="fsFocus"
+                    aria-label="Decrease study minutes"
+                  >−</button>
+                  <input
+                    id="fsFocus"
+                    type="number"
+                    min="1"
+                    max="120"
+                    value="25"
+                    inputmode="numeric"
+                    aria-label="Study minutes"
+                  />
+                  <button
+                    type="button"
+                    class="fs-step"
+                    data-step="1"
+                    data-input="fsFocus"
+                    aria-label="Increase study minutes"
+                  >+</button>
+                </div>
+                <span class="fs-unit">minutes</span>
+              </div>
+              <div class="fs-stepper">
+                <span class="fs-stepper-label">Short break</span>
+                <div class="fs-stepper-ctl">
+                  <button
+                    type="button"
+                    class="fs-step"
+                    data-step="-1"
+                    data-input="fsShort"
+                    aria-label="Decrease short break minutes"
+                  >−</button>
+                  <input
+                    id="fsShort"
+                    type="number"
+                    min="1"
+                    max="60"
+                    value="5"
+                    inputmode="numeric"
+                    aria-label="Short break minutes"
+                  />
+                  <button
+                    type="button"
+                    class="fs-step"
+                    data-step="1"
+                    data-input="fsShort"
+                    aria-label="Increase short break minutes"
+                  >+</button>
+                </div>
+                <span class="fs-unit">minutes</span>
+              </div>
+              <div class="fs-stepper">
+                <span class="fs-stepper-label">Long break</span>
+                <div class="fs-stepper-ctl">
+                  <button
+                    type="button"
+                    class="fs-step"
+                    data-step="-1"
+                    data-input="fsLong"
+                    aria-label="Decrease long break minutes"
+                  >−</button>
+                  <input
+                    id="fsLong"
+                    type="number"
+                    min="1"
+                    max="60"
+                    value="15"
+                    inputmode="numeric"
+                    aria-label="Long break minutes"
+                  />
+                  <button
+                    type="button"
+                    class="fs-step"
+                    data-step="1"
+                    data-input="fsLong"
+                    aria-label="Increase long break minutes"
+                  >+</button>
+                </div>
+                <span class="fs-unit">minutes</span>
+              </div>
+            </div>
+
+          </div>
+
           <div class="fs-card">
-            <p class="fs-card-label">Timer Behaviour</p>
+            <p class="fs-card-label">Behaviour</p>
             <label class="fs-toggle-row">
               <div class="fs-toggle-info">
                 <span class="fs-toggle-name">Auto-start break</span>
                 <span class="fs-toggle-desc"
-                  >Starts break timer automatically when focus ends</span
+                  >Starts break timer automatically when a study session ends</span
                 >
               </div>
               <div class="fs-toggle-wrap">
@@ -83,9 +199,8 @@
             </label>
           </div>
 
-          <!-- Sound Settings -->
           <div class="fs-card">
-            <p class="fs-card-label">Sounds</p>
+            <p class="fs-card-label">Alerts</p>
             <label class="fs-toggle-row">
               <div class="fs-toggle-info">
                 <span class="fs-toggle-name">Timer warning sound</span>
@@ -141,9 +256,7 @@
           </div>
         </div>
 
-        <!-- THEME TAB -->
         <div class="fs-tab-content" id="tab-theme">
-          <!-- Theme Selection -->
           <div class="fs-card">
             <p class="fs-card-label">Select Theme</p>
             <div class="theme-options fs-themes">
@@ -160,26 +273,6 @@
                 "
               >
                 Default
-              </button>
-              <button
-                class="theme-option"
-                data-theme="gradient-day-night"
-                disabled
-                title="Work in Progress - Coming Soon!"
-                style="
-                  background: linear-gradient(
-                    to bottom,
-                    #0a0a2e 0%,
-                    #1e3c72 35%,
-                    #f97316 68%,
-                    #fbbf24 100%
-                  );
-                  opacity: 0.5;
-                  cursor: not-allowed;
-                  filter: grayscale(100%);
-                "
-              >
-                Day/Night
               </button>
               <button
                 class="theme-option"
@@ -211,57 +304,65 @@
               >
                 Dark
               </button>
-              <button
-                class="theme-option"
-                data-theme="color-light"
-                style="background: #f0f0f0; color: #333"
-              >
-                Light
-              </button>
             </div>
+            <button
+              type="button"
+              id="openThemeLibraryBtnFull"
+              class="open-theme-library-btn"
+            >
+              <svg class="uo-icon"
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+                <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+              </svg>
+              <span id="openThemeLibraryLabelFull">Open theme library</span>
+            </button>
           </div>
 
-          <!-- Default: gradient builder -->
           <div
             class="theme-settings-section fs-card"
             id="defaultThemeSettings"
             style="display: none"
           >
-            <p class="fs-card-label">Gradient — Default Theme</p>
+            <p class="fs-card-label">Gradient · Default Theme</p>
             <p class="fs-sub-label">Presets</p>
             <div class="fs-preset-grid">
               <button
                 class="gradient-preset"
                 data-preset="default-purple"
-                style="
-                  background: linear-gradient(
-                    135deg,
-                    #6366f1,
-                    #ec4899,
-                    #f43f5e
-                  );
-                "
+                style="background:linear-gradient(135deg,#6366f1,#ec4899,#f43f5e)"
               >
                 Default
               </button>
               <button
                 class="gradient-preset"
                 data-preset="ocean-classic"
-                style="background: linear-gradient(135deg, #0066ff, #00d4ff)"
+                style="background:linear-gradient(135deg,#0066ff,#00d4ff)"
               >
                 Ocean
               </button>
               <button
                 class="gradient-preset"
                 data-preset="sunset-classic"
-                style="background: linear-gradient(135deg, #ff6b6b, #feca57)"
+                style="background:linear-gradient(135deg,#ff6b6b,#feca57)"
               >
                 Sunset
               </button>
               <button
                 class="gradient-preset"
                 data-preset="midnight"
-                style="background: linear-gradient(135deg, #1a1a2e, #16213e)"
+                style="background:linear-gradient(135deg,#1a1a2e,#16213e)"
               >
                 Midnight
               </button>
@@ -270,11 +371,25 @@
             <div class="fs-color-row">
               <div class="fs-color-item">
                 <label>Start</label>
-                <input type="color" id="gradientStartColor" value="#6366f1" />
+                <div class="te-color-picker" data-for="gradientStartColor" role="button" tabindex="0" style="margin-top:0;">
+                  <div class="te-color-picker-swatch" style="background:#6366f1;width:28px;height:28px;"></div>
+                  <div class="te-color-picker-info">
+                    <span class="te-color-picker-hex" style="font-size:0.8rem;">#6366f1</span>
+                  </div>
+                  <span class="te-color-picker-arrow">{% include svg/uo-line-chevron-down.svg %}</span>
+                </div>
+                <input type="color" id="gradientStartColor" class="te-color-input-hidden" value="#6366f1" />
               </div>
               <div class="fs-color-item">
                 <label>End</label>
-                <input type="color" id="gradientEndColor" value="#ec4899" />
+                <div class="te-color-picker" data-for="gradientEndColor" role="button" tabindex="0" style="margin-top:0;">
+                  <div class="te-color-picker-swatch" style="background:#ec4899;width:28px;height:28px;"></div>
+                  <div class="te-color-picker-info">
+                    <span class="te-color-picker-hex" style="font-size:0.8rem;">#ec4899</span>
+                  </div>
+                  <span class="te-color-picker-arrow">{% include svg/uo-line-chevron-down.svg %}</span>
+                </div>
+                <input type="color" id="gradientEndColor" class="te-color-input-hidden" value="#ec4899" />
               </div>
             </div>
             <div id="customGradientPreview" class="fs-gradient-preview"></div>
@@ -307,7 +422,14 @@
                   flex-wrap: wrap;
                 "
               >
-                <input type="color" id="waveAccentColor" value="#8b5cf6" />
+                <div class="te-color-picker te-color-picker--compact" data-for="waveAccentColor" role="button" tabindex="0" style="margin-top:0;">
+                  <div class="te-color-picker-swatch" style="background:#8b5cf6;"></div>
+                  <div class="te-color-picker-info">
+                    <span class="te-color-picker-hex">#8b5cf6</span>
+                  </div>
+                  <span class="te-color-picker-arrow">{% include svg/uo-line-chevron-down.svg %}</span>
+                </div>
+                <input type="color" id="waveAccentColor" class="te-color-input-hidden" value="#8b5cf6" />
                 <button
                   type="button"
                   id="waveAccentResetBtn"
@@ -352,7 +474,6 @@
             </label>
           </div>
 
-          <!-- Forest -->
           <div
             class="theme-settings-section fs-card"
             id="forestThemeSettings"
@@ -378,39 +499,6 @@
             </label>
           </div>
 
-          <!-- Day/Night -->
-          <div
-            class="theme-settings-section fs-card"
-            id="dayNightSettings"
-            style="display: none"
-          >
-            <p class="fs-card-label">Day / Night Cycle</p>
-            <p class="fs-hint">Follow your device clock or scrub manually.</p>
-            <div class="fs-mode-row">
-              <button class="mode-toggle-btn active" data-mode="realtime">
-                Real-time
-              </button>
-              <button class="mode-toggle-btn" data-mode="slider">Manual</button>
-            </div>
-            <div
-              id="sliderControlsContainer"
-              style="display: none; margin-top: 12px"
-            >
-              <label class="fs-range-label"
-                >Time — <span id="dayNightTimeDisplay">12:00</span></label
-              >
-              <input
-                type="range"
-                id="dayNightSlider"
-                min="0"
-                max="24"
-                value="12"
-                class="fs-range"
-              />
-            </div>
-          </div>
-
-          <!-- Deep Ocean -->
           <div
             class="theme-settings-section fs-card"
             id="deepOceanSettings"
@@ -435,7 +523,7 @@
               </div>
             </label>
             <label class="fs-range-label"
-              >Rotation speed — <span id="oceanSpeedValue">1</span>%</label
+              >Rotation speed: <span id="oceanSpeedValue">1</span>%</label
             >
             <input
               type="range"
@@ -446,7 +534,7 @@
               class="fs-range"
             />
             <label class="fs-range-label" style="margin-top: 11px"
-              >Debris size — <span id="oceanTireSizeValue">1</span>%</label
+              >Debris size: <span id="oceanTireSizeValue">1</span>%</label
             >
             <input
               type="range"
@@ -457,7 +545,7 @@
               class="fs-range"
             />
             <label class="fs-range-label" style="margin-top: 11px"
-              >Jellyfish size —
+              >Jellyfish size:
               <span id="oceanJellyfishSizeValue">1</span>%</label
             >
             <input
@@ -470,7 +558,6 @@
             />
           </div>
 
-          <!-- Dark / Light — no extra settings -->
           <div
             class="theme-settings-section fs-card"
             id="staticThemeSettings"
@@ -479,9 +566,29 @@
             <p class="fs-card-label">Theme Options</p>
             <p class="fs-hint">This theme has no additional settings.</p>
           </div>
-        </div>
 
-        <!-- EXTRAS TAB -->
+          <div class="fs-card">
+            <p class="fs-card-label">Custom Themes</p>
+            <div
+              id="customThemeListExpanded"
+              style="
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                margin-bottom: 12px;
+                min-height: 0;
+              "
+            ></div>
+            <button
+              type="button"
+              id="newThemeBtnExpanded"
+              class="btn-dashed"
+            >
+              {% include svg/uo-line-plus.svg %} New Theme
+            </button>
+          </div>
+          </div>
+
         <div class="fs-tab-content" id="tab-extras">
           <div class="fs-card">
             <p class="fs-card-label">Analytics</p>
@@ -502,10 +609,99 @@
                 <div class="fs-toggle-thumb"></div>
               </div>
             </label>
+
+            <div class="fs-choice-row">
+              <div class="fs-toggle-info">
+                <span class="fs-toggle-name">Quick Analytics Range</span>
+                <span class="fs-toggle-desc"
+                  >Set the data range for the Quick Settings' Analytics tab.</span
+                >
+              </div>
+              <div
+                class="fs-choice"
+                id="qsStatsRange"
+                role="group"
+                aria-label="Quick Statistics range"
+              >
+                <button
+                  type="button"
+                  class="fs-choice-btn"
+                  data-range="today"
+                  aria-pressed="false"
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  class="fs-choice-btn"
+                  data-range="week"
+                  aria-pressed="false"
+                >
+                  This week
+                </button>
+                <button
+                  type="button"
+                  class="fs-choice-btn"
+                  data-range="month"
+                  aria-pressed="false"
+                >
+                  This month
+                </button>
+                <button
+                  type="button"
+                  class="fs-choice-btn active"
+                  data-range="all"
+                  aria-pressed="true"
+                >
+                  All time
+                </button>
+              </div>
+            </div>
           </div>
 
           <div class="fs-card">
-            <p class="fs-card-label">Patch Notes</p>
+            <p class="fs-card-label">Animated Themes</p>
+            <label class="fs-toggle-row">
+              <div class="fs-toggle-info">
+                <span class="fs-toggle-name">Keep scene colors</span>
+                <span class="fs-toggle-desc"
+                  >When editing animated themes, keep your chosen colors even if you switch to another theme</span
+                >
+              </div>
+              <div class="fs-toggle-wrap">
+                <input
+                  type="checkbox"
+                  id="keepSceneColorsToggle"
+                  class="fs-toggle-input"
+                />
+                <div class="fs-toggle-thumb"></div>
+              </div>
+            </label>
+            <label class="fs-toggle-row" style="margin-top: 12px">
+              <div class="fs-toggle-info">
+                <span class="fs-toggle-name"
+                  >Auto-detect color palette</span
+                >
+                <span class="fs-toggle-desc"
+                  >Creates a matching color palette from the selected theme. Turn
+                  off to use default colors. (You can also manually customize the
+                  colors in the Theme builder).</span
+                >
+              </div>
+              <div class="fs-toggle-wrap">
+                <input
+                  type="checkbox"
+                  id="tlAutoDetectToggle"
+                  class="fs-toggle-input"
+                  checked
+                />
+                <div class="fs-toggle-thumb"></div>
+              </div>
+            </label>
+          </div>
+
+          <div class="fs-card">
+            <p class="fs-card-label">Release Notes</p>
             <p class="fs-hint" style="margin: 0">
               Latest updates and fixes for the site.
             </p>
@@ -516,6 +712,23 @@
               style="margin-top: 16px; width: 100%"
             >
               View all updates
+            </button>
+          </div>
+
+          <div class="fs-card">
+            <p class="fs-card-label">Reset All Settings</p>
+            <p class="fs-hint" style="margin: 0">
+              Puts every saved preference on this device back to its default:
+              themes, scenes, clock and toggles. Your study history and planner
+              tasks are kept.
+            </p>
+            <button
+              type="button"
+              id="resetAllSettingsBtn"
+              class="fs-reset-all-btn"
+              style="margin-top: 16px"
+            >
+              Reset all settings
             </button>
           </div>
 
@@ -532,14 +745,13 @@
     </div>
 
     <div class="advanced-settings-footer">
+      <button type="button" id="advancedSettingsResetBtn" class="fs-reset-btn">
+        Reset to defaults
+      </button>
       <button
-        class="advanced-settings-btn"
+        class="btn-accent"
         id="advancedSettingsSaveBtn"
-        style="
-          background: rgba(99, 102, 241, 0.2);
-          border: 1px solid rgba(99, 102, 241, 0.4);
-          color: #c7d2fe;
-        "
+        style="cursor:pointer;"
       >
         Apply &amp; Close
       </button>

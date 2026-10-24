@@ -2,10 +2,17 @@
   <div class="patch-notes-card">
     <div class="patch-notes-header">
       <div>
-        <p class="patch-notes-eyebrow">Patch Notes</p>
-        <h2 class="patch-notes-title">Recent Updates</h2>
+        <p class="patch-notes-eyebrow">Release Notes</p>
+        <h2 class="patch-notes-title">What&rsquo;s new</h2>
+        <p class="patch-notes-subtitle" id="patchNotesSubtitle"></p>
       </div>
-      <button class="patch-notes-close" id="patchNotesCloseBtn">×</button>
+      <button
+        class="patch-notes-close"
+        id="patchNotesCloseBtn"
+        aria-label="Close"
+      >
+        {% include svg/uo-line-close.svg %}
+      </button>
     </div>
 
     <div class="patch-notes-body" id="patchNotesList">
@@ -19,17 +26,38 @@
     <div class="update-notice-header">
       <div>
         <p class="patch-notes-eyebrow">Update Available</p>
-        <h2 class="patch-notes-title">New patch is live</h2>
+        <h2 class="patch-notes-title" id="updateNoticeTitle">
+          New release is live
+        </h2>
+        <div class="update-notice-meta">
+          <span class="patch-notes-version" id="updateNoticeVersion"></span>
+          <span class="update-notice-date" id="updateNoticeDate"></span>
+        </div>
       </div>
-      <button class="patch-notes-close" id="dismissUpdateNoticeBtn">×</button>
+      <button
+        class="patch-notes-close"
+        id="dismissUpdateNoticeBtn"
+        aria-label="Close"
+      >
+        {% include svg/uo-line-close.svg %}
+      </button>
     </div>
-    <p class="update-notice-text">
-      There has been an update since your last visit. Check out the patch notes
-      for full details.
-    </p>
+    <p class="update-notice-text" id="updateNoticeSummary"></p>
+    <div class="update-notice-chips" id="updateNoticeChips"></div>
     <div class="update-notice-actions">
-      <button id="viewPatchNotesFromUpdateBtn" class="fs-btn">
-        View patch notes
+      <button
+        type="button"
+        id="dismissUpdateNoticeLaterBtn"
+        class="update-notice-later-btn"
+      >
+        Later
+      </button>
+      <button
+        type="button"
+        id="viewPatchNotesFromUpdateBtn"
+        class="patch-notes-primary-btn"
+      >
+        View release notes
       </button>
     </div>
   </div>

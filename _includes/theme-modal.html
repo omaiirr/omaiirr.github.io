@@ -1,307 +1,322 @@
 <div class="theme-modal" id="themeModal">
   <div class="theme-modal-content">
-    <!-- Tab buttons -->
-    <div
-      style="
-        display: flex;
-        border-bottom: 2px solid rgba(255, 255, 255, 0.1);
-        margin-bottom: 20px;
-      "
-    >
+    <div class="qs-header">
+      <div>
+        <p class="qs-eyebrow">Quick Settings</p>
+        <h2 class="qs-title" id="qsTitle">Theme &amp; Clock</h2>
+      </div>
       <button
-        class="settings-tab-btn active"
-        data-tab="themes"
-        style="
-          flex: 1;
-          padding: 15px;
-          background: none;
-          border: none;
-          color: white;
-          cursor: pointer;
-          font-weight: 600;
-          border-bottom: 2px solid white;
-          margin-bottom: -2px;
-        "
+        class="qs-close"
+        id="qsCloseBtn"
+        type="button"
+        title="Close"
+        aria-label="Close settings"
       >
-        Settings
-      </button>
-      <button
-        class="settings-tab-btn"
-        data-tab="statistics"
-        style="
-          flex: 1;
-          padding: 15px;
-          background: none;
-          border: none;
-          color: rgba(255, 255, 255, 0.5);
-          cursor: pointer;
-          font-weight: 600;
-        "
-      >
-        Statistics
+        {% include svg/uo-line-close.svg %}
       </button>
     </div>
 
-    <!-- Themes Tab -->
+    <div class="settings-tab-bar">
+      <button class="settings-tab-btn active" data-tab="themes">
+        Settings
+      </button>
+      <button class="settings-tab-btn" data-tab="statistics">
+        Study Analytics
+      </button>
+    </div>
+
     <div class="settings-tab-content" data-tab="themes">
       <div class="theme-section">
-        <h3>Themes</h3>
+        <div class="qs-section-head">
+          <p class="qs-section-label">Themes</p>
+          <button
+            type="button"
+            id="qsEditThemeBtn"
+            class="qs-edit-theme-btn"
+            hidden
+            title="Edit active theme"
+            aria-label="Edit active theme"
+          >
+            {% include svg/uo-line-edit-square.svg %}
+          </button>
+        </div>
+        <div id="customThemeActiveBadge" class="custom-theme-badge" style="display:none;">
+          <svg width="14" height="14" viewBox="0 0 48 48" fill="currentColor" aria-hidden="true"><path d="M24.86,41.09C23.54,40.02 21.81,36.82 20.94,33.84L19.38,28.50L13.77,28.83C9.15,29.10 7.79,28.79 6.08,27.08C3.44,24.44 3.42,20.06 6.02,14.96C11.24,4.73 26.23,1.95 36.26,9.35C40.16,12.23 44.00,20.43 44.00,25.88C44.00,37.97 32.40,47.19 24.86,41.09Z M35.81,37.74C38.03,35.91 40.96,28.94 40.96,25.50C40.96,21.35 37.78,14.76 34.56,12.23C25.13,4.81 11.06,8.41 7.86,19.06C6.16,24.74 7.76,26.30 14.43,25.47C20.45,24.71 22.15,26.01 23.93,32.70C25.45,38.39 27.54,40.34 31.32,39.59C32.96,39.26 34.99,38.43 35.81,37.74Z M28.36,34.51C28.02,33.60 28.21,32.39 28.80,31.80C30.32,30.28 33.21,31.67 32.81,33.74C32.37,36.04 29.16,36.59 28.36,34.51Z M33.36,29.51C33.02,28.60 33.21,27.39 33.80,26.80C35.32,25.28 38.21,26.67 37.81,28.74C37.37,31.04 34.16,31.59 33.36,29.51Z M32.36,22.51C32.02,21.60 32.21,20.39 32.80,19.80C34.32,18.28 37.21,19.67 36.81,21.74C36.37,24.04 33.16,24.59 32.36,22.51Z M28.36,16.51C28.02,15.60 28.21,14.39 28.80,13.80C30.32,12.28 33.21,13.67 32.81,15.74C32.37,18.04 29.16,18.59 28.36,16.51Z M21.36,14.51C21.02,13.60 21.21,12.39 21.80,11.80C23.32,10.28 26.21,11.67 25.81,13.74C25.37,16.04 22.16,16.59 21.36,14.51Z"/></svg>
+          <span>Custom theme active</span>
+          <span style="font-size:0.72rem;opacity:0.7;">(click a built-in theme to deactivate)</span>
+        </div>
+
         <div class="theme-options">
+          <div class="theme-option-cell">
+            <button class="theme-option" data-theme="gradient-default" type="button">
+              <span
+                class="theme-swatch"
+                style="background: linear-gradient(135deg, #6366f1 0%, #ec4899 50%, #f43f5e 100%);"
+              ></span>
+              <span class="theme-name">Default</span>
+            </button>
+            <button
+              type="button"
+              class="qs-tile-edit"
+              data-edit-theme="gradient-default"
+              title="Edit Default theme settings"
+              aria-label="Edit Default theme settings"
+              hidden
+            >
+              {% include svg/uo-line-edit-square.svg %}
+            </button>
+          </div>
+          <div class="theme-option-cell">
+            <button class="theme-option" data-theme="gradient-deep-ocean" type="button">
+              <span
+                class="theme-swatch"
+                style="background: radial-gradient(circle at top left, #2da7ff 0%, #046b9b 45%, #001d36 100%);"
+              ></span>
+              <span class="theme-name">Deep Ocean</span>
+            </button>
+            <button
+              type="button"
+              class="qs-tile-edit"
+              data-edit-theme="gradient-deep-ocean"
+              title="Edit Deep Ocean theme settings"
+              aria-label="Edit Deep Ocean theme settings"
+              hidden
+            >
+              {% include svg/uo-line-edit-square.svg %}
+            </button>
+          </div>
+          <div class="theme-option-cell">
+            <button class="theme-option" data-theme="gradient-forest" type="button">
+              <span
+                class="theme-swatch"
+                style="background: linear-gradient(135deg, #134e5e 0%, #71b280 100%);"
+              ></span>
+              <span class="theme-name">Forest</span>
+            </button>
+            <button
+              type="button"
+              class="qs-tile-edit"
+              data-edit-theme="gradient-forest"
+              title="Edit Forest theme settings"
+              aria-label="Edit Forest theme settings"
+              hidden
+            >
+              {% include svg/uo-line-edit-square.svg %}
+            </button>
+          </div>
+          <div class="theme-option-cell">
+            <button class="theme-option" data-theme="color-dark" type="button">
+              <span class="theme-swatch" style="background: #000000;"></span>
+              <span class="theme-name">Dark</span>
+            </button>
+            <button
+              type="button"
+              class="qs-tile-edit"
+              data-edit-theme="color-dark"
+              title="Edit Dark theme settings"
+              aria-label="Edit Dark theme settings"
+              hidden
+            >
+              {% include svg/uo-line-edit-square.svg %}
+            </button>
+          </div>
           <button
-            class="theme-option"
-            data-theme="gradient-default"
-            style="
-              background: linear-gradient(
-                135deg,
-                #6366f1 0%,
-                #ec4899 50%,
-                #f43f5e 100%
-              );
-            "
+            type="button"
+            id="openThemeLibraryBtnSmall"
+            class="open-theme-library-btn"
           >
-            Default
+            <svg class="uo-icon"
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+              <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+              <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+              <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+            </svg>
+            <span id="openThemeLibraryLabelSmall">Open theme library</span>
           </button>
-          <button
-            class="theme-option"
-            data-theme="gradient-day-night"
-            disabled
-            title="Work in Progress - Coming Soon!"
-            style="
-              background: radial-gradient(
-                circle at top,
-                #ffd27f 0%,
-                #fd9b3c 45%,
-                #173a7c 100%
-              );
-              opacity: 0.5;
-              cursor: not-allowed;
-              filter: grayscale(100%);
-            "
-          >
-            Day / Night
-          </button>
-          <button
-            class="theme-option"
-            data-theme="gradient-deep-ocean"
-            style="
-              background: radial-gradient(
-                circle at top left,
-                #2da7ff 0%,
-                #046b9b 45%,
-                #001d36 100%
-              );
-            "
-          >
-            Deep Ocean
-          </button>
-          <button
-            class="theme-option"
-            data-theme="gradient-forest"
-            style="
-              background: linear-gradient(135deg, #134e5e 0%, #71b280 100%);
-            "
-          >
-            Forest
-          </button>
-          <button
-            class="theme-option"
-            data-theme="color-dark"
-            style="background: #000000"
-          >
-            Dark
-          </button>
-          <button
-            class="theme-option"
-            data-theme="color-light"
-            style="background: #f5f5f5; color: #333"
-          >
-            Light
-          </button>
+        </div>
+
+      </div>
+
+      <div class="timer-section">
+        <p class="qs-section-label">Clock</p>
+        <div class="qs-rows">
+          <div class="qs-row">
+            <span class="qs-row-label">Study</span>
+            <div class="qs-step">
+              <button
+                class="qs-step-btn"
+                type="button"
+                data-step="-1"
+                data-input="customFocus"
+                aria-label="Decrease study minutes"
+              >−</button>
+              <label class="qs-valwrap">
+                <input
+                  id="customFocus"
+                  class="qs-val"
+                  type="number"
+                  min="1"
+                  max="120"
+                  value="25"
+                  inputmode="numeric"
+                />
+                <span class="qs-unit">min</span>
+              </label>
+              <button
+                class="qs-step-btn"
+                type="button"
+                data-step="1"
+                data-input="customFocus"
+                aria-label="Increase study minutes"
+              >+</button>
+            </div>
+          </div>
+          <div class="qs-row">
+            <span class="qs-row-label">Short break</span>
+            <div class="qs-step">
+              <button
+                class="qs-step-btn"
+                type="button"
+                data-step="-1"
+                data-input="customShort"
+                aria-label="Decrease short break minutes"
+              >−</button>
+              <label class="qs-valwrap">
+                <input
+                  id="customShort"
+                  class="qs-val"
+                  type="number"
+                  min="1"
+                  max="60"
+                  value="5"
+                  inputmode="numeric"
+                />
+                <span class="qs-unit">min</span>
+              </label>
+              <button
+                class="qs-step-btn"
+                type="button"
+                data-step="1"
+                data-input="customShort"
+                aria-label="Increase short break minutes"
+              >+</button>
+            </div>
+          </div>
+          <div class="qs-row">
+            <span class="qs-row-label">Long break</span>
+            <div class="qs-step">
+              <button
+                class="qs-step-btn"
+                type="button"
+                data-step="-1"
+                data-input="customLong"
+                aria-label="Decrease long break minutes"
+              >−</button>
+              <label class="qs-valwrap">
+                <input
+                  id="customLong"
+                  class="qs-val"
+                  type="number"
+                  min="1"
+                  max="60"
+                  value="15"
+                  inputmode="numeric"
+                />
+                <span class="qs-unit">min</span>
+              </label>
+              <button
+                class="qs-step-btn"
+                type="button"
+                data-step="1"
+                data-input="customLong"
+                aria-label="Increase long break minutes"
+              >+</button>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div
-        class="timer-section"
-        style="
-          margin-top: 20px;
-          padding-top: 20px;
-          border-top: 1px solid rgba(255, 255, 255, 0.2);
-        "
-      >
-        <h3>Clock</h3>
-        <div class="custom-timer-inputs">
-          <div class="input-group">
-            <label for="customFocus">Focus (min)</label>
-            <input
-              id="customFocus"
-              type="number"
-              min="1"
-              max="120"
-              value="25"
-            />
-          </div>
-          <div class="input-group">
-            <label for="customShort">Short Break (min)</label>
-            <input id="customShort" type="number" min="1" max="60" value="5" />
-          </div>
-          <div class="input-group">
-            <label for="customLong">Long Break (min)</label>
-            <input id="customLong" type="number" min="1" max="60" value="15" />
-          </div>
-        </div>
-      </div>
-
-      <div
-        class="timer-section"
-        style="
-          margin-top: 20px;
-          padding-top: 20px;
-          border-top: 1px solid rgba(255, 255, 255, 0.2);
-        "
-      >
-        <h3>Advanced</h3>
+      <div class="timer-section">
+        <p class="qs-section-label">Advanced</p>
         <button
           type="button"
           id="openAdvancedSettingsBtn"
-          class="qs-fullsettings-btn"
+          class="btn-accent qs-advanced-btn"
         >
-          ⚙️ Expand Settings
+          {% include svg/uo-line-sliders-h.svg %} Expand Settings
         </button>
       </div>
-    </div>
 
-    <!-- Statistics Tab -->
+      <div id="customThemeSectionSidebar" style="display: none !important">
+        <div class="timer-section">
+          <h3>Custom Themes</h3>
+          <div
+            id="customThemeList"
+            style="
+              display: flex;
+              flex-direction: column;
+              gap: 8px;
+              margin-bottom: 12px;
+              min-height: 0;
+            "
+          ></div>
+          <button
+            type="button"
+            id="newThemeBtn"
+            class="btn-dashed"
+          >
+            ✚ New Theme
+          </button>
+        </div>
+      </div>
+      </div>
+
     <div
       class="settings-tab-content"
       data-tab="statistics"
       style="display: none"
     >
-      <div class="theme-section">
-        <h3>Today's Statistics</h3>
-        <div
-          style="
-            margin-top: 20px;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
-          "
-        >
-          <div
-            style="
-              margin: 15px 0;
-              font-size: 16px;
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-            "
-          >
-            <span style="color: rgba(255, 255, 255, 0.7)">Study Time:</span>
-            <strong style="font-size: 20px" id="totalStudyTime">0</strong>
-            <span style="color: rgba(255, 255, 255, 0.5)">minutes</span>
+      <div class="theme-section qs-stats">
+        <div class="qs-stats-head">
+          <p class="qs-section-label">Study stats</p>
+          <span class="qs-scope" id="qsStatsScope">All time</span>
+        </div>
+        <div class="qs-kpis">
+          <div class="qs-kpi">
+            <span>Study</span>
+            <strong id="totalStudyTime">0</strong>
           </div>
-          <div
-            style="
-              margin: 15px 0;
-              font-size: 16px;
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-            "
-          >
-            <span style="color: rgba(255, 255, 255, 0.7)">Break Time:</span>
-            <strong style="font-size: 20px" id="totalBreakTime">0</strong>
-            <span style="color: rgba(255, 255, 255, 0.5)">minutes</span>
+          <div class="qs-kpi">
+            <span>Break</span>
+            <strong id="totalBreakTime">0</strong>
           </div>
-          <div
-            style="
-              margin: 15px 0;
-              font-size: 16px;
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-            "
-          >
-            <span style="color: rgba(255, 255, 255, 0.7)">Sessions:</span>
-            <strong style="font-size: 20px" id="totalSessions">0</strong>
-            <span style="color: rgba(255, 255, 255, 0.5)">completed</span>
+          <div class="qs-kpi">
+            <span>Sessions</span>
+            <strong id="totalSessions">0</strong>
           </div>
         </div>
 
-        <h3 style="margin-top: 20px">Time by Subject</h3>
-        <div
-          id="subjectBreakdown"
-          style="
-            margin-top: 12px;
-            padding: 14px 18px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
-            min-height: 50px;
-          "
-        >
-          <div
-            style="
-              color: rgba(255, 255, 255, 0.4);
-              font-size: 0.85rem;
-              text-align: center;
-              padding: 8px 0;
-            "
-          >
-            No subject data yet
-          </div>
+        <p class="qs-section-label qs-subjects-label">Top subjects</p>
+        <div id="subjectBreakdown" class="qs-subjects">
+          <p class="qs-empty">No subject data yet</p>
         </div>
 
-        <button
-          id="openStatsModalBtn"
-          style="
-            margin-top: 20px;
-            margin-bottom: 10px;
-            padding: 8px 14px;
-            background: rgba(99, 102, 241, 0.2);
-            border: 1px solid rgba(99, 102, 241, 0.4);
-            color: #c7d2fe;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-left: auto;
-            margin-right: auto;
-          "
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <line x1="18" y1="20" x2="18" y2="10" />
-            <line x1="12" y1="20" x2="12" y2="4" />
-            <line x1="6" y1="20" x2="6" y2="14" />
-          </svg>
-          Analytics
-        </button>
-        <button
-          id="resetStatsBtn"
-          style="
-            margin-top: 20px;
-            padding: 12px 20px;
-            background: rgba(239, 68, 68, 0.2);
-            border: 1px solid rgba(239, 68, 68, 0.5);
-            color: #fca5a5;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            width: 100%;
-            transition: all 0.3s ease;
-          "
-        >
-          Reset Statistics
-        </button>
+        <div class="qs-stats-actions">
+          <button type="button" id="qsOpenAnalyticsBtn" class="btn-accent qs-analytics-btn">
+            <span class="qs-cta-label">Open Study Analytics</span>
+            <span class="qs-cta-count" id="qsAnalyticsCount" hidden></span>
+          </button>
+        </div>
       </div>
     </div>
   </div>

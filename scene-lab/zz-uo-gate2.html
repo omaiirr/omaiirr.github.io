@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gate 2 v2 — Surface 2: Release Notes (redo: colorful theme-adaptive language)</title>
+<style>
+  body { background:#111318; color:#e8eaf0; font:14px/1.5 system-ui,sans-serif; margin:0; padding:24px; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  p.sub { color:#8b90a0; margin:0 0 24px; font-size:13px; max-width:900px; }
+  .pair { margin-bottom:32px; }
+  .pair h2 { font-size:14px; font-weight:600; color:#c7a869; margin:0 0 8px; text-transform:uppercase; letter-spacing:.06em; }
+  .row { display:flex; gap:16px; flex-wrap:wrap; }
+  figure { margin:0; flex:1 1 380px; max-width:640px; }
+  figcaption { font-size:12px; color:#8b90a0; margin-bottom:6px; font-weight:600; }
+  figcaption.before { color:#d0868a; }
+  figcaption.after  { color:#8ad0a5; }
+  img { width:100%; border-radius:8px; border:1px solid #2a2e3a; display:block; background:#fff; }
+  .note { color:#8b90a0; font-size:12px; margin-top:6px; max-width:900px; }
+</style>
+</head>
+<body>
+<h1>Gate 2 v2 — Surface 2: Release Notes (redo)</h1>
+<p class="sub">Brought to the approved planner-v3 standard: accent-bounded cards with indigo glow, gradient white&rarr;accent titles, alto-blue eyebrow + dates (no white-alpha gray), tinted preview cards with accent-hover, glowing primary button — and the whole surface theme-adaptive via <code>--s23-*</code> variables that re-map to <code>--th-accent</code> under custom themes. The earlier gentle-diet wins (radius unification, unified date typography, springy motion, sanitizeInput fix) all carry over.</p>
+
+<div class="pair">
+  <h2>Release Notes list</h2>
+  <div class="row">
+    <figure><figcaption class="before">BEFORE (original, tokens-era shell)</figcaption><img src="zz-uo-before-all23-releasenotes.png" alt="before releasenotes"></figure>
+    <figure><figcaption class="after">AFTER v2 (colorful Refined)</figcaption><img src="zz-uo-after-releasenotes.png" alt="after releasenotes"></figure>
+  </div>
+  <p class="note">Battery asserts: card hairline = indigo 35%, eyebrow + dates = alto #8fa4d4, title carries the accent gradient, preview chrome register = tinted blue family, primary button glow.</p>
+</div>
+
+<div class="pair">
+  <h2>First-run update notice</h2>
+  <div class="row">
+    <figure><figcaption class="before">BEFORE</figcaption><img src="zz-uo-before-all23-updatenotice.png" alt="before updatenotice"></figure>
+    <figure><figcaption class="after">AFTER v2</figcaption><img src="zz-uo-after-updatenotice.png" alt="after updatenotice"></figure>
+  </div>
+</div>
+
+<div class="pair">
+  <h2>Settings &rarr; Extras preview</h2>
+  <div class="row">
+    <figure><figcaption class="before">BEFORE</figcaption><img src="zz-uo-before-all23-extras.png" alt="before extras"></figure>
+    <figure><figcaption class="after">AFTER v2</figcaption><img src="zz-uo-after-extras.png" alt="after extras"></figure>
+  </div>
+  <p class="note">The extras previews live in the advanced-settings modal — the <code>--s23-*</code> register is defined on body so they inherit it even outside the overlay shells.</p>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,436 @@
+<div
+  id="themeEditorModal"
+  class="te-modal"
+  role="dialog"
+  aria-modal="true"
+  aria-hidden="true"
+  aria-labelledby="teTitle"
+  tabindex="-1"
+>
+  <div class="te-backdrop"></div>
+  <div class="te-panel">
+    <div class="te-header">
+      <div>
+        <div class="te-eyebrow">Theme Builder</div>
+        <h2 id="teTitle" class="te-title">Customize Your Theme</h2>
+      </div>
+      <button id="teCloseBtn" class="te-close" aria-label="Close builder">
+        {% include svg/uo-line-close.svg %}
+      </button>
+    </div>
+
+    <div class="te-body">
+      <div class="te-tabs-sidebar">
+        <button class="te-tab-btn active" data-tab="bg">
+          {% include svg/uo-line-picture.svg %}Background
+        </button>
+        <button class="te-tab-btn" data-tab="colors">
+          {% include svg/uo-line-palette.svg %}Colors
+        </button>
+
+        <button class="te-tab-btn" data-tab="overlay">
+          {% include svg/uo-line-layers.svg %}Overlay
+        </button>
+      </div>
+
+      <div class="te-preview-area">
+        <div class="te-preview-header">Live Preview</div>
+        <div class="te-preview-stage" id="tePreviewStage">
+          <canvas id="tePreviewCanvas" class="te-preview-canvas"></canvas>
+          <div id="tePreviewOverlay" class="te-preview-overlay"></div>
+          <div class="te-preview-modes" id="tePreviewModes">
+            <span class="te-preview-mode active">Study</span>
+            <span class="te-preview-mode">Short Break</span>
+            <span class="te-preview-mode">Long Break</span>
+          </div>
+          <div class="te-preview-timer" id="tePreviewTimer">25:00</div>
+          <div class="te-preview-btn">Start Study</div>
+          <div id="tePreviewCard" class="te-preview-card">
+            <div class="te-preview-card-title">Current Session</div>
+            <div class="te-preview-card-body">
+              <span id="tePreviewSurfaceChip" class="te-preview-chip">Study</span>
+              <span class="te-preview-stat">
+                <span class="te-preview-stat-label">Completed</span>
+                <span class="te-preview-stat-value">0</span>
+              </span>
+            </div>
+          </div>
+          <div class="te-preview-logo">
+            <img src="{{ '/assets/logo.svg' | relative_url }}" alt="Logo" class="te-preview-logo-mark" />
+            <div class="te-preview-logo-text">
+              <span id="tePreviewBrand" class="te-preview-logo-name">Pomora</span>
+              <span id="tePreviewBrandSub" class="te-preview-logo-subtitle">Study Timer</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="te-controls">
+        <div class="te-tab-pane active" data-tab="bg">
+          <div class="te-field">
+            <label class="te-label">Type</label>
+            <select id="teBgType" class="te-select">
+              <option value="solid">Solid Color</option>
+              <option value="gradient">Gradient</option>
+              <option value="image">Image</option>
+              <option value="video">Video</option>
+              <option value="scene">Animated Theme</option>
+            </select>
+          </div>
+
+          <div id="teBgSolidGroup" class="te-field">
+            <label class="te-label">Color</label>
+            <div class="te-color-picker" data-for="teBgColor" role="button" tabindex="0">
+              <div class="te-color-picker-swatch" style="background:#6366f1"></div>
+              <div class="te-color-picker-info">
+                <span class="te-color-picker-label">Current</span>
+                <span class="te-color-picker-hex">#6366f1</span>
+              </div>
+              <span class="te-color-picker-arrow">{% include svg/uo-line-chevron-down.svg %}</span>
+            </div>
+            <input type="color" id="teBgColor" class="te-color-input-hidden" value="#6366f1" />
+          </div>
+
+          <div id="teBgGradientGroup" class="te-field" style="display: none">
+            <label class="te-label">Angle (deg)</label>
+            <input
+              type="range"
+              id="teGradAngle"
+              class="te-range"
+              min="0"
+              max="360"
+              value="135"
+            />
+            <span id="teGradAngleVal" class="te-range-val">135°</span>
+
+            <label class="te-label" style="margin-top: 10px">Stop 1</label>
+            <div class="te-color-picker" data-for="teGradStop0" role="button" tabindex="0">
+              <div class="te-color-picker-swatch" style="background:#6366f1"></div>
+              <div class="te-color-picker-info">
+                <span class="te-color-picker-label">Current</span>
+                <span class="te-color-picker-hex">#6366f1</span>
+              </div>
+              <span class="te-color-picker-arrow">{% include svg/uo-line-chevron-down.svg %}</span>
+            </div>
+            <input type="color" id="teGradStop0" class="te-color-input-hidden" value="#6366f1" />
+
+            <label class="te-label" style="margin-top: 8px">Stop 2</label>
+            <div class="te-color-picker" data-for="teGradStop1" role="button" tabindex="0">
+              <div class="te-color-picker-swatch" style="background:#ec4899"></div>
+              <div class="te-color-picker-info">
+                <span class="te-color-picker-label">Current</span>
+                <span class="te-color-picker-hex">#ec4899</span>
+              </div>
+              <span class="te-color-picker-arrow">{% include svg/uo-line-chevron-down.svg %}</span>
+            </div>
+            <input type="color" id="teGradStop1" class="te-color-input-hidden" value="#ec4899" />
+          </div>
+
+          <div id="teBgImageGroup" class="te-field" style="display: none">
+            <div class="te-tooltip-wrapper">
+              <label class="te-label" style="margin-bottom:0;flex-shrink:0;">Image URL</label><span
+                class="te-tooltip-trigger"
+                tabindex="0"
+                role="tooltip"
+                aria-label="Paste a direct link to an image hosted online."
+              >{% include svg/uo-line-info.svg %}</span>
+              <div class="te-tooltip">Paste a direct link to an image hosted online. Supports JPEG, PNG, WebP, GIF.</div>
+            </div>
+            <input
+              type="url"
+              id="teImgUrl"
+              class="te-text-input"
+              placeholder="https://example.com/image.jpg"
+            />
+            <div class="te-tooltip-wrapper" style="margin-top:8px;">
+              <label class="te-label" style="margin-bottom:0;flex-shrink:0;">Or upload</label>
+              <span
+                class="te-tooltip-trigger"
+                tabindex="0"
+                role="tooltip"
+                aria-label="For best quality, use a high-resolution image at least as large as your screen."
+              >
+                {% include svg/uo-line-info.svg %}
+              </span>
+              <div class="te-tooltip">
+                For sharp fullscreen backgrounds, use an image at least <strong>1920 × 1080 px</strong> (Full HD).<br><br>
+                For Retina / 4K displays: <strong>3840 × 2160 px</strong> or higher.<br><br>
+                Images smaller than your screen <strong>will be upscaled</strong> and may look pixelated.
+              </div>
+            </div>
+            <input
+              type="file"
+              id="teImgUpload"
+              class="te-file-input"
+              accept="image/*"
+            />
+            <div class="te-tooltip-wrapper" style="margin-top:8px;">
+              <label class="te-label" style="margin-bottom:0;flex-shrink:0;">Size</label>
+              <span
+                class="te-tooltip-trigger"
+                tabindex="0"
+                role="tooltip"
+                aria-label="Choose how the background image is scaled to fit your screen."
+              >
+                {% include svg/uo-line-info.svg %}
+              </span>
+              <div class="te-tooltip">
+                <strong>Fill Screen</strong>: fills every pixel; edges may be cropped. <u>No black bars.</u><br>
+                <strong>Fit Frame</strong>: shows entire image; may letterbox with black bars.<br>
+                <strong>Original Size</strong>: native resolution; may not fill the screen.
+              </div>
+            </div>
+            <select id="teImgSize" class="te-select">
+              <option value="cover">Fill Screen</option>
+              <option value="contain">Fit Frame</option>
+              <option value="auto">Original Size</option>
+            </select>
+            <div
+              id="teImgPreview"
+              class="te-img-preview"
+              style="
+                display: none;
+                margin-top: 8px;
+                border-radius: 8px;
+                overflow: hidden;
+                max-height: 100px;
+                background: rgba(255, 255, 255, 0.05);
+              "
+            >
+              <img
+                id="teImgPreviewEl"
+                alt=""
+                style="width: 100%; height: auto; display: block"
+              />
+            </div>
+          </div>
+
+          <div id="teBgVideoGroup" class="te-field" style="display: none">
+            <div class="te-tooltip-wrapper">
+              <label class="te-label" style="margin-bottom:0;flex-shrink:0;">Video URL</label>
+              <span class="te-tooltip-trigger" tabindex="0" role="tooltip" aria-label="Paste a direct link to a video file hosted online.">{% include svg/uo-line-info.svg %}</span>
+              <div class="te-tooltip">Paste a direct link to a video file hosted online. Supports MP4, WebM, Ogg. Not compatible with YouTube or streaming URLs, which require iframe embedding.</div>
+            </div>
+            <input
+              type="url"
+              id="teVideoUrl"
+              class="te-text-input"
+              placeholder="https://example.com/video.mp4"
+            />
+            <label class="te-label" style="margin-top: 8px">Or upload</label>
+            <input
+              type="file"
+              id="teVideoUpload"
+              class="te-file-input"
+              accept="video/*"
+            />
+            <label class="te-label" style="margin-top: 8px"
+              >Video Opacity</label
+            >
+            <input
+              type="range"
+              id="teVideoOpacity"
+              class="te-range"
+              min="0"
+              max="100"
+              value="100"
+            />
+            <span id="teVideoOpacityVal" class="te-range-val">100%</span>
+          </div>
+
+          {% include scene-panel.html prefix="te" hidden="true" %}
+        </div>
+
+        <div class="te-tab-pane" data-tab="colors">
+          <div class="te-field">
+            <label class="te-label">Accent</label>
+            <div class="te-color-picker" data-for="teColAccent" role="button" tabindex="0">
+              <div class="te-color-picker-swatch" style="background:#6366f1"></div>
+              <div class="te-color-picker-info">
+                <span class="te-color-picker-label">Current</span>
+                <span class="te-color-picker-hex">#6366f1</span>
+              </div>
+              <span class="te-color-picker-arrow">{% include svg/uo-line-chevron-down.svg %}</span>
+            </div>
+            <input type="color" id="teColAccent" class="te-color-input-hidden" value="#6366f1" />
+          </div>
+          <div class="te-field">
+            <label class="te-label">Text</label>
+            <div class="te-color-picker" data-for="teColText" role="button" tabindex="0">
+              <div class="te-color-picker-swatch" style="background:#ffffff"></div>
+              <div class="te-color-picker-info">
+                <span class="te-color-picker-label">Current</span>
+                <span class="te-color-picker-hex">#ffffff</span>
+              </div>
+              <span class="te-color-picker-arrow">{% include svg/uo-line-chevron-down.svg %}</span>
+            </div>
+            <input type="color" id="teColText" class="te-color-input-hidden" value="#ffffff" />
+          </div>
+          <div class="te-field">
+            <label class="te-label">Surface (modals)</label>
+            <div class="te-color-picker" data-for="teColSurface" role="button" tabindex="0">
+              <div class="te-color-picker-swatch" style="background:#0f172a"></div>
+              <div class="te-color-picker-info">
+                <span class="te-color-picker-label">Current</span>
+                <span class="te-color-picker-hex">#000000</span>
+              </div>
+              <span class="te-color-picker-arrow">{% include svg/uo-line-chevron-down.svg %}</span>
+            </div>
+            <input type="color" id="teColSurface" class="te-color-input-hidden" value="#0f172a" />
+          </div>
+          <div class="te-field">
+            <label class="te-label">Surface Text</label>
+            <div class="te-color-picker" data-for="teColSurfaceText" role="button" tabindex="0">
+              <div class="te-color-picker-swatch" style="background:#ffffff"></div>
+              <div class="te-color-picker-info">
+                <span class="te-color-picker-label">Current</span>
+                <span class="te-color-picker-hex">#ffffff</span>
+              </div>
+              <span class="te-color-picker-arrow">{% include svg/uo-line-chevron-down.svg %}</span>
+            </div>
+            <input type="color" id="teColSurfaceText" class="te-color-input-hidden" value="#ffffff" />
+          </div>
+          <div class="te-field">
+            <label class="te-label">Timer Display</label>
+            <div class="te-color-picker" data-for="teColTimer" role="button" tabindex="0">
+              <div class="te-color-picker-swatch" style="background:#ffffff"></div>
+              <div class="te-color-picker-info">
+                <span class="te-color-picker-label">Current</span>
+                <span class="te-color-picker-hex">#ffffff</span>
+              </div>
+              <span class="te-color-picker-arrow">{% include svg/uo-line-chevron-down.svg %}</span>
+            </div>
+            <input type="color" id="teColTimer" class="te-color-input-hidden" value="#ffffff" />
+
+          </div>
+          <div class="te-field">
+            <label class="te-label">Subtitle Color</label>
+            <div class="te-color-picker" data-for="teColFocusMode" role="button" tabindex="0">
+              <div class="te-color-picker-swatch" style="background:#6366f1"></div>
+              <div class="te-color-picker-info">
+                <span class="te-color-picker-label">Current</span>
+                <span class="te-color-picker-hex">#6366f1</span>
+              </div>
+              <span class="te-color-picker-arrow">{% include svg/uo-line-chevron-down.svg %}</span>
+            </div>
+            <input type="color" id="teColFocusMode" class="te-color-input-hidden" value="#6366f1" />
+            <input type="hidden" id="teColLogo" value="#ffffff" />
+          </div>
+
+          <button
+            type="button"
+            id="teAutoDetectColors"
+            class="te-btn te-btn-ghost"
+            style="width:100%;font-weight:400;"
+          >{% include svg/uo-line-palette.svg %}<span id="teAutoDetectLabel">Auto-detect from Background</span></button>
+        </div>
+
+        <div class="te-tab-pane" data-tab="overlay">
+          <div class="te-field">
+            <div class="te-tooltip-wrapper">
+              <label class="te-label" style="margin-bottom:0;flex-shrink:0;">Overlay</label>
+              <span
+                class="te-tooltip-trigger"
+                tabindex="0"
+                role="tooltip"
+                aria-label="The overlay is a semi-transparent color layer placed between your background and all UI elements. Use it to improve text readability on busy or bright backgrounds."
+              >
+                {% include svg/uo-line-info.svg %}
+              </span>
+              <div class="te-tooltip">
+                The overlay is a semi-transparent color layer placed <em>between</em> your background (image, video, gradient, or scene) and all UI elements (buttons, cards, text). Use it to improve text readability when using busy or bright backgrounds. A dark overlay at 30–50% opacity works well for most backgrounds.
+              </div>
+            </div>
+          </div>
+          <div class="te-field">
+            <label class="te-label">Overlay Color</label>
+            <div class="te-color-picker" data-for="teOverColor" role="button" tabindex="0">
+              <div class="te-color-picker-swatch" style="background:#000000"></div>
+              <div class="te-color-picker-info">
+                <span class="te-color-picker-label">Current</span>
+                <span class="te-color-picker-hex">#000000</span>
+              </div>
+              <span class="te-color-picker-arrow">{% include svg/uo-line-chevron-down.svg %}</span>
+            </div>
+            <input type="color" id="teOverColor" class="te-color-input-hidden" value="#000000" />
+          </div>
+          <div class="te-field">
+            <label class="te-label">Opacity</label>
+            <input
+              type="range"
+              id="teOverOpacity"
+              class="te-range"
+              min="0"
+              max="100"
+              value="30"
+            />
+            <span id="teOverOpacityVal" class="te-range-val">30%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="te-footer">
+      <div class="te-footer-actions">
+        <div class="te-footer-menu-wrap">
+          <button
+            type="button"
+            id="teMoreBtn"
+            class="te-btn te-btn-ghost te-more-btn"
+            title="More options"
+          >⋯</button>
+          <div class="te-footer-menu" id="teFooterMenu">
+            <button
+              id="tePreviewBtn"
+              class="te-menu-item"
+              style="font-weight:400;"
+              title="Preview theme fullscreen before saving"
+            >{% include svg/uo-line-eye.svg %}Preview</button>
+            <button
+              id="teExportBtn"
+              class="te-menu-item"
+              title="Export / Share"
+            >{% include svg/uo-line-export.svg %}Export</button>
+            <button
+              id="teImportBtn"
+              class="te-menu-item"
+              title="Import from string"
+            >{% include svg/uo-line-import.svg %}Import</button>
+          </div>
+        </div>
+        <button id="teSaveBtn" class="te-btn te-btn-primary">{% include svg/uo-line-save.svg %}Save</button>
+        <button id="teCancelBtn" class="te-btn te-btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="teSceneLibModal" class="te-scene-lib-modal">
+    <div class="te-scene-lib-backdrop"></div>
+    <div class="te-scene-lib-panel">
+      <div class="te-scene-lib-header">
+        <div>
+          <p class="te-scene-lib-eyebrow">Animated backgrounds</p>
+          <h3 class="te-scene-lib-title">Animated Themes</h3>
+        </div>
+        <button id="teSceneLibClose" class="te-scene-lib-close" type="button" title="Close">
+          {% include svg/uo-line-close.svg %}
+        </button>
+      </div>
+      <input
+        id="teSceneLibSearch"
+        class="te-scene-lib-search"
+        type="search"
+        placeholder="Search themes…"
+        autocomplete="off"
+      />
+      <div id="teSceneLibMoods" class="te-scene-lib-moods"></div>
+      <div id="teSceneLibGrid" class="te-scene-grid te-scene-lib-grid"></div>
+      <div id="teSceneLibCount" class="te-scene-lib-count"></div>
+    </div>
+  </div>
+
+  <div id="teHoverPreview" class="te-hover-preview">
+    <canvas class="te-hover-preview-canvas"></canvas>
+    <span class="te-hover-preview-label"></span>
+  </div>
+</div>

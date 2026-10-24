@@ -1,0 +1,11 @@
+<svg class="uo-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <path d="M3 7h8" />
+  <path d="M15 7h6" />
+  <circle cx="13" cy="7" r="2" />
+  <path d="M3 12h12" />
+  <path d="M19 12h2" />
+  <circle cx="17" cy="12" r="2" />
+  <path d="M3 17h3" />
+  <path d="M10 17h11" />
+  <circle cx="8" cy="17" r="2" />
+</svg>

@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Statistics — placement of the three new metric cards</title>
+<style>
+  /* =====================================================================
+     LAB CHROME
+     ===================================================================== */
+  :root { --ink:#0d1322; --ink2:#0b111f; }
+  * { box-sizing:border-box; }
+  body {
+    background:var(--ink); color:#e8eaf0; margin:0; padding:26px 22px 60px;
+    font:14px/1.5 "Plus Jakarta Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-feature-settings:"cv11";
+  }
+  .lab { max-width:1180px; margin:0 auto; }
+  h1 { font-size:19px; margin:0 0 6px; letter-spacing:-.01em; }
+  p.sub { color:#8fa4d4; font-size:13px; max-width:1000px; margin:0 0 6px; }
+  p.sub b { color:#dbe4ff; }
+  .method { color:#7b8bb2; font-size:12px; max-width:1000px; margin:10px 0 0; }
+  .method code { color:#b9c8ea; background:rgba(123,139,178,.12); padding:1px 5px; border-radius:4px; font-size:11.5px; }
+
+  /* switcher */
+  .switcher { display:flex; flex-wrap:wrap; gap:8px; margin:20px 0 12px; }
+  .switcher button {
+    display:flex; flex-direction:column; gap:2px; align-items:flex-start;
+    padding:9px 14px; border-radius:12px; cursor:pointer; text-align:left;
+    border:1px solid rgba(123,139,178,.28); background:rgba(123,139,178,.08);
+    color:#b9c8ea; font:inherit; font-size:13px; font-weight:700;
+    transition:transform .16s cubic-bezier(.34,1.56,.64,1), border-color .16s, background .16s;
+  }
+  .switcher button small { font-size:10.5px; font-weight:500; color:#7b8bb2; letter-spacing:.02em; }
+  .switcher button:hover { transform:translateY(-2px); border-color:rgba(123,139,178,.55); }
+  .switcher button.on { background:rgba(99,102,241,.18); border-color:#6366f1; color:#fff; box-shadow:0 6px 18px rgba(99,102,241,.25); }
+  .switcher button.on small { color:#a5b4fc; }
+  .switcher button .rec { font-size:9.5px; font-weight:800; letter-spacing:.09em; color:#7ee787; }
+  .switcher button .pick { font-size:9.5px; font-weight:800; letter-spacing:.09em; color:#c7a869; }
+  .picked { border:1px solid rgba(199,168,105,.4); background:rgba(199,168,105,.08); border-radius:14px; padding:12px 16px; margin:0 0 16px; font-size:12.5px; color:#e8dfc8; }
+  .picked b { color:#c7a869; }
+
+  /* variant notes */
+  .notes { border:1px solid rgba(123,139,178,.22); background:rgba(123,139,178,.05); border-radius:14px; padding:14px 16px; margin:0 0 20px; }
+  .notes h2 { margin:0 0 6px; font-size:14px; color:#fff; }
+  .notes p { margin:0 0 8px; font-size:12.5px; color:#b9c8ea; max-width:1000px; }
+  .notes ul { margin:0; padding-left:18px; font-size:12.5px; color:#8fa4d4; }
+  .notes ul li { margin-bottom:3px; }
+  .notes .good { color:#a8f0af; }
+  .notes .bad { color:#fca5a5; }
+
+  /* stage */
+  .stage { display:flex; justify-content:center; }
+  .scale-note { color:#7b8bb2; font-size:11.5px; text-align:center; margin:6px 0 0; }
+
+  /* =====================================================================
+     COPIED VERBATIM from assets/css/timer.css — analytics block (~2276-2750).
+     Only the modal/backdrop shell (.analytics-modal / .analytics-backdrop /
+     the open-transition) is omitted, because the lab shows the panel inline.
+     Everything else below is byte-for-byte the shipped styling.
+     ===================================================================== */
+  .analytics-panel {
+    position:relative;
+    z-index:1;
+    width:min(92vw,780px);
+    max-height:88vh;
+    overflow-y:auto;
+    background:#0b111f;
+    border:1px solid rgba(255,255,255,.07);
+    border-radius:24px;
+    padding:32px;
+    transform:translateY(20px) scale(.98);
+    transition:transform .3s cubic-bezier(.34,1.56,.64,1);
+    scrollbar-width:thin;
+    scrollbar-color:rgba(255,255,255,.1) transparent;
+  }
+  .analytics-panel::-webkit-scrollbar { width:6px; }
+  .analytics-panel::-webkit-scrollbar-thumb { background:rgba(255,255,255,.1); border-radius:3px; }
+  .analytics-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px; }
+  .analytics-eyebrow { margin:0 0 4px; font-size:.72rem; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:rgba(255,255,255,.35); }
+  .analytics-title { margin:0; font-size:1.6rem; font-weight:700; color:white; letter-spacing:-.02em; }
+  .analytics-close {
+    width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.1); color:rgba(255,255,255,.65); cursor:pointer;
+    display:flex; align-items:center; justify-content:center; transition:all .2s; flex-shrink:0; font-size:14px;
+  }
+  .analytics-date-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:28px; gap:12px; }
+  .analytics-date-pills { display:flex; gap:6px; background:rgba(255,255,255,.04); padding:4px; border-radius:10px; border:1px solid rgba(255,255,255,.06); }
+  .date-pill { background:none; border:none; color:rgba(255,255,255,.45); font-size:.82rem; font-weight:600; padding:6px 14px; border-radius:7px; cursor:pointer; transition:all .2s ease; }
+  .date-pill:hover { color:rgba(255,255,255,.8); }
+  .date-pill.active { background:rgba(255,255,255,.1); color:white; box-shadow:0 1px 4px rgba(0,0,0,.3); }
+  .analytics-date-label { font-size:.8rem; color:rgba(255,255,255,.3); }
+  .analytics-kpi-row { display:flex; align-items:stretch; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.07); border-radius:16px; padding:20px 0; margin-bottom:20px; overflow:hidden; }
+  .analytics-kpi { flex:1; padding:0 24px; display:flex; flex-direction:column; gap:2px; }
+  .analytics-kpi-divider { width:1px; background:rgba(255,255,255,.07); margin:4px 0; }
+  .kpi-value { font-size:2rem; font-weight:700; color:white; letter-spacing:-.03em; line-height:1; }
+  .kpi-unit { font-size:.75rem; color:rgba(255,255,255,.35); font-weight:500; margin-top:2px; }
+  .kpi-label { font-size:.75rem; color:rgba(255,255,255,.4); font-weight:500; margin-top:6px; text-transform:uppercase; letter-spacing:.08em; }
+  .kpi-bar { height:3px; background:rgba(255,255,255,.07); border-radius:2px; margin-top:10px; overflow:hidden; }
+  .kpi-bar-fill { height:100%; border-radius:2px; }
+  .kpi-bar-fill.study { background:#6366f1; }
+  .kpi-bar-fill.break { background:#38bdf8; }
+  .kpi-bar-fill.sessions { background:#a78bfa; }
+  .kpi-bar-fill.streak { background:#f59e0b; }
+  .analytics-body { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+  .analytics-card { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.07); border-radius:16px; padding:20px; }
+  .analytics-card-label { margin:0 0 16px; font-size:.72rem; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:rgba(255,255,255,.35); }
+  .chart-area { display:flex; align-items:flex-end; gap:6px; height:90px; margin-bottom:8px; }
+  .chart-bar-wrap { flex:1; display:flex; flex-direction:column; align-items:center; height:100%; justify-content:flex-end; gap:3px; }
+  .chart-bar { width:100%; border-radius:4px 4px 0 0; min-height:3px; position:relative; }
+  .chart-bar.study-bar { background:linear-gradient(180deg,#818cf8,#6366f1); }
+  .chart-bar.break-bar { background:linear-gradient(180deg,#7dd3fc,#38bdf8); opacity:.6; }
+  .chart-x-labels { display:flex; gap:6px; }
+  .chart-x-label { flex:1; text-align:center; font-size:.65rem; color:rgba(255,255,255,.25); font-weight:500; }
+  .subject-list { display:flex; flex-direction:column; gap:10px; }
+  .subject-row { display:flex; flex-direction:column; gap:5px; }
+  .subject-row-top { display:flex; justify-content:space-between; align-items:center; }
+  .subject-name { font-size:.85rem; color:rgba(255,255,255,.8); font-weight:500; }
+  .subject-time { font-size:.8rem; color:rgba(255,255,255,.45); font-weight:600; }
+  .subject-progress { height:4px; background:rgba(255,255,255,.06); border-radius:2px; overflow:hidden; }
+  .subject-progress-fill { height:100%; border-radius:2px; }
+  .analytics-sessions-card { margin-bottom:16px; }
+  .analytics-sessions-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+  .analytics-show-all { background:none; border:none; color:rgba(255,255,255,.35); font-size:.78rem; cursor:pointer; padding:0; }
+  .session-log { display:flex; flex-direction:column; gap:6px; max-height:200px; overflow-y:auto; }
+  .session-entry { display:flex; align-items:center; gap:12px; padding:10px 12px; background:rgba(255,255,255,.025); border-radius:10px; border:1px solid rgba(255,255,255,.05); }
+  .session-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .session-dot.focus { background:#6366f1; }
+  .session-dot.break { background:#38bdf8; }
+  .session-entry-info { flex:1; display:flex; flex-direction:column; gap:2px; }
+  .session-entry-title { font-size:.83rem; color:rgba(255,255,255,.8); font-weight:500; }
+  .session-entry-sub { font-size:.72rem; color:rgba(255,255,255,.3); }
+  .session-entry-duration { font-size:.82rem; font-weight:600; color:rgba(255,255,255,.5); }
+  .analytics-footer { display:flex; gap:10px; }
+  .analytics-btn { flex:1; padding:11px 16px; border-radius:10px; font-size:.85rem; font-weight:600; cursor:pointer; transition:all .2s ease; border:1px solid transparent; }
+  .analytics-btn-danger { background:rgba(239,68,68,.1); border-color:rgba(239,68,68,.25); color:#fca5a5; }
+  .analytics-btn-import { background:rgba(52,211,153,.1); border-color:rgba(52,211,153,.25); color:#a7f3d0; }
+  .analytics-btn-export { background:rgba(99,102,241,.1); border-color:rgba(99,102,241,.25); color:#c7d2fe; }
+
+  /* =====================================================================
+     LAB OVERRIDES — make the real panel sit inline instead of as an overlay
+     ===================================================================== */
+  .analytics-panel.mock {
+    width:780px; max-height:none; overflow:visible;
+    transform:none; box-shadow:0 30px 80px rgba(0,0,0,.5);
+  }
+  .analytics-panel.mock.wide { width:980px; }
+
+  /* =====================================================================
+     NEW — styles proposed for the three new cards. Same tokens as above:
+     card = rgba(255,255,255,.03) on .07 border, 16px radius, uppercase .72rem
+     labels at 35% white, values white, sub-stats at 30-45% white.
+     ===================================================================== */
+  .stat-card { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.07); border-radius:16px; padding:20px; }
+  .stat-head { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:16px; }
+  .stat-head .stat-title { margin:0; font-size:.72rem; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:rgba(255,255,255,.35); white-space:nowrap; }
+  .stat-callout { font-size:.75rem; color:rgba(255,255,255,.45); font-weight:600; white-space:nowrap; }
+  /* the heatmap ignores the date pills on purpose — so it states its own scope */
+  .stat-scope { font-size:.62rem; font-weight:600; letter-spacing:.06em; color:rgba(255,255,255,.25); margin-left:4px; text-transform:none; }
+  .stat-callout b { color:#a5b4fc; font-weight:700; }
+
+  /* monotone text primaries (all alpha tiers used by the shipped modal) */
+  .t1 { color:#fff; } .t2 { color:rgba(255,255,255,.8); } .t3 { color:rgba(255,255,255,.45); }
+  .t4 { color:rgba(255,255,255,.3); } .t5 { color:rgba(255,255,255,.25); }
+
+  /* ---- momentum ---- */
+  .mom { display:grid; grid-template-columns:minmax(0,1fr) 236px; gap:24px; align-items:center; }
+  .mom-score-row { display:flex; align-items:baseline; gap:10px; }
+  .mom-score { font-size:2.6rem; font-weight:700; line-height:1; letter-spacing:-.03em; color:#fff; }
+  .mom-den { font-size:.85rem; color:rgba(255,255,255,.3); font-weight:600; }
+  .mom-delta { font-size:.72rem; font-weight:700; padding:3px 9px; border-radius:999px; letter-spacing:.02em; }
+  .mom-delta.up { background:rgba(126,231,135,.14); color:#7ee787; border:1px solid rgba(126,231,135,.35); }
+  .mom-delta.down { background:rgba(248,113,113,.14); color:#fca5a5; border:1px solid rgba(248,113,113,.35); }
+  .mom-insight { font-size:.82rem; color:rgba(255,255,255,.55); margin:10px 0 12px; max-width:330px; }
+  .mom-subs { display:flex; gap:20px; }
+  .mom-sub .v { display:block; font-size:1.02rem; font-weight:700; color:#fff; line-height:1.15; }
+  .mom-sub .k { display:block; font-size:.66rem; font-weight:600; letter-spacing:.09em; text-transform:uppercase; color:rgba(255,255,255,.3); margin-top:3px; }
+  .mom-spark { display:flex; align-items:flex-end; gap:5px; height:58px; margin-bottom:7px; }
+  .mom-spark .b { flex:1; border-radius:3px 3px 0 0; background:linear-gradient(180deg,#818cf8,#6366f1); min-height:4px; }
+  .mom-spark .b.now { background:linear-gradient(180deg,#c4b5fd,#a78bfa); box-shadow:0 0 0 1px rgba(196,181,253,.35); }
+  .mom-spark .b.dim { background:rgba(255,255,255,.1); }
+  .spark-axis { display:flex; justify-content:space-between; font-size:.63rem; color:rgba(255,255,255,.25); font-weight:500; }
+  .spark-note { margin-top:8px; font-size:.68rem; color:rgba(255,255,255,.35); font-weight:600; }
+
+  /* ---- heatmap ---- */
+  .hm-wrap { display:grid; grid-template-columns:30px 1fr; gap:8px; align-items:stretch; }
+  .hm-days { display:flex; flex-direction:column; gap:4px; }
+  .hm-days span { flex:1; display:flex; align-items:center; font-size:.63rem; color:rgba(255,255,255,.3); font-weight:600; letter-spacing:.03em; }
+  .hm-grid { display:flex; flex-direction:column; gap:4px; }
+  .hm-row { display:grid; grid-template-columns:repeat(24,minmax(0,1fr)); gap:4px; flex:1; }
+  .hm-cell { border-radius:3px; background:rgba(255,255,255,.045); height:15px; }
+  .hm-hours { display:grid; grid-template-columns:repeat(24,minmax(0,1fr)); gap:4px; margin:6px 0 0 38px; }
+  .hm-hours span { font-size:.63rem; color:rgba(255,255,255,.25); font-weight:500; }
+  .hm-legend { display:flex; align-items:center; justify-content:flex-end; gap:6px; margin-top:14px; font-size:.66rem; color:rgba(255,255,255,.3); font-weight:600; }
+  .hm-legend i { width:11px; height:11px; border-radius:3px; display:inline-block; }
+  /* a card placed INSIDE another card drops its own chrome (no box-in-box) */
+  .stat-card.embedded { background:none; border:none; padding:0; }
+
+  .hm-compact .hm-cell { height:13px; }
+  .hm-compact .hm-hours { margin-left:34px; }
+  .hm-compact .hm-wrap { grid-template-columns:26px 1fr; }
+
+  /* ---- rhythm ---- */
+  .rh-hist { display:flex; align-items:flex-end; gap:8px; height:92px; margin-bottom:8px; }
+  .rh-col { flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:5px; height:100%; }
+  .rh-count { font-size:.68rem; font-weight:700; color:rgba(255,255,255,.55); }
+  .rh-bar { width:100%; border-radius:4px 4px 0 0; background:linear-gradient(180deg,#38bdf8,#6366f1); min-height:3px; }
+  .rh-labels { display:flex; gap:8px; }
+  .rh-labels span { flex:1; text-align:center; font-size:.63rem; color:rgba(255,255,255,.25); font-weight:500; }
+  .rh-subs { display:flex; gap:20px; margin-top:14px; padding-top:14px; border-top:1px solid rgba(255,255,255,.06); }
+  .rh-sub .v { display:block; font-size:.92rem; font-weight:700; color:#fff; line-height:1.15; }
+  .rh-sub .k { display:block; font-size:.62rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:rgba(255,255,255,.3); margin-top:3px; }
+
+  /* ---- variant C segmented toggle ---- */
+  .seg { display:flex; gap:4px; background:rgba(255,255,255,.04); padding:3px; border-radius:9px; border:1px solid rgba(255,255,255,.06); }
+  .seg button { background:none; border:none; color:rgba(255,255,255,.45); font:inherit; font-size:.72rem; font-weight:700; padding:5px 11px; border-radius:7px; cursor:pointer; }
+  .seg button.on { background:rgba(255,255,255,.1); color:#fff; }
+
+  /* ---- variant D two-zone ---- */
+  .d-zone { display:grid; grid-template-columns:300px minmax(0,1fr); gap:16px; align-items:start; }
+  .d-rail { display:flex; flex-direction:column; gap:16px; }
+  .d-main { display:flex; flex-direction:column; gap:16px; }
+  .d-main .analytics-kpi-row { margin-bottom:0; }
+  .d-main .analytics-kpi { padding:0 14px; }
+  .d-main .kpi-value { font-size:1.6rem; }
+  .d-rail .mom { grid-template-columns:1fr; gap:14px; }
+  /* the rail is 300px — the head has to wrap there or the callout overflows */
+  .d-rail .stat-head { flex-wrap:wrap; row-gap:3px; }
+  .d-rail .stat-callout { white-space:normal; }
+  .margin0 { margin-bottom:0 !important; }
+  .stack { display:flex; flex-direction:column; gap:16px; margin-bottom:16px; }
+  .row2 { display:grid; grid-template-columns:1.55fr 1fr; gap:16px; margin-bottom:16px; }
+  /* in a two-column row the momentum card is too narrow for side-by-side:
+     numbers on top, the 8-week sparkline runs the full width underneath */
+  .row2 .mom { grid-template-columns:1fr; gap:16px; }
+  .row2 .mom-insight { max-width:none; }
+  .row2 .mom-spark { height:52px; }
+  .row2even { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+</style>
+</head>
+<body>
+<div class="lab">
+  <h1>Statistics modal — where the three new cards go</h1>
+  <p class="sub">
+    Same three Tier-A cards in every variant — <b>peak focus hours</b> (heatmap), <b>focus rhythm</b> (session-length histogram + break
+    discipline) and <b>consistency &amp; momentum</b> (composite score + deltas + 8-week trend). Only their <b>placement</b> changes.
+    Everything else in the panel (the four KPI tiles, Daily Activity, By Subject, Recent Sessions, the footer) is the shipped markup and
+    the shipped CSS, copied verbatim — so the only thing you're judging is structure. Click a variant below.
+  </p>
+  <p class="method">
+    <b>Data:</b> the browser profile I checked has no <code>timerStats</code> yet, so this page computes from a deterministic seeded
+    dataset of ~1,900 sessions over 90 days in the real session shape <code>{ type, duration, subject, date }</code> — same fields
+    <code>logSession()</code> writes. <b>Hour of day</b> is derived honestly, the way it would ship: <code>new Date(s.date) − s.duration</code>
+    (the stored timestamp is stamped at completion). <b>Momentum</b> = <code>100 × (0.45·volume + 0.30·active-days + 0.25·avg-length)</code>,
+    each term capped, vs the previous 7 days. Nothing here reads or writes your real stats.
+    One design detail shown in all four variants, flagged for your call: the heatmap is drawn over the <b>last 8 weeks</b> rather than following the
+    Today / This Week / All Time pills — hourly patterns need weeks of data, and a single-day heatmap is nearly empty.
+  </p>
+
+  <div class="picked" id="picked">
+    <b>Decided 2026-10-11.</b> Layout <b>C — pinned momentum + one pattern card</b>: momentum as a slim full-width strip under the KPI tiles,
+    with the heatmap and the rhythm histogram sharing one “Focus Pattern” card behind a Heatmap / Rhythm toggle.
+    The peak-hours heatmap always covers the <b>last 8 weeks</b> and says so on the card, rather than following the date pills.
+    Variant A keeps its recommendation badge below for the record.
+  </div>
+
+  <div class="switcher" id="switcher"></div>
+  <div class="notes" id="notes"></div>
+  <div class="stage" id="stage"></div>
+  <p class="scale-note">Rendered at the real panel size (780px wide, 32px padding) — not scaled. Variant D is the exception and is noted on its card.</p>
+</div>
+
+<script>
+/* =====================================================================
+   1. DATA — deterministic seeded sessions, real session shape
+   ===================================================================== */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+const SUBJECTS = [["Maths",26],["Physics",20],["Chemistry",15],["Biology",11],["English",16],["Computer Science",12]];
+const TMPL = {
+  study: { background: "#6366f1" }
+};
+
+function seedStats(seed){
+  const rnd = mulberry32(seed);
+  const sessions = [];
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const DAYS = 90;
+
+  const pickWeighted = (pairs) => {
+    const total = pairs.reduce((a,p)=>a+p[1],0);
+    let r = rnd()*total;
+    for (const p of pairs){ r -= p[1]; if (r<=0) return p[0]; }
+    return pairs[pairs.length-1][0];
+  };
+
+  for (let back = DAYS-1; back >= 0; back--){
+    const d = new Date(today); d.setDate(d.getDate()-back);
+    const wd = d.getDay();                       // 0 Sun .. 6 Sat
+    const base = wd===0 ? .34 : wd===6 ? .58 : .87;
+    const trend = .78 + .34 * ((DAYS-back)/DAYS); // gently improving over the window
+    const dip = (back>=21 && back<=27) ? .35 : 0; // one rough patch, three weeks back
+    const p = Math.max(0, Math.min(.98, base*trend - dip));
+    if (rnd() > p) continue;
+
+    const count = Math.max(1, Math.min(4, 1 + Math.floor(rnd()*2.6 + (wd===6||wd===0?0:.7))));
+    for (let i = 0; i < count; i++){
+      // start-hour clusters: morning peak, late-afternoon peak, scattered evening
+      const roll = rnd();
+      let hour = roll < .40 ? 9 + Math.floor(rnd()*3) : roll < .70 ? 16 + Math.floor(rnd()*3) : 13 + Math.floor(rnd()*7);
+      hour = Math.max(6, Math.min(23, hour));
+      const start = new Date(d); start.setHours(hour, Math.floor(rnd()*60), 0, 0);
+
+      const dRoll = rnd();
+      let dur;
+      if (dRoll < .05) dur = [75,90][Math.floor(rnd()*2)];
+      else if (dRoll < .07) dur = [10,12][Math.floor(rnd()*2)];   // short / abandoned-ish
+      else if (dRoll < .40) dur = [15,20][Math.floor(rnd()*2)];
+      else if (dRoll < .72) dur = [25,30][Math.floor(rnd()*2)];
+      else dur = [45,50,60][Math.floor(rnd()*3)];
+
+      const done = new Date(start.getTime() + dur*60000);
+      sessions.push({ type:"focus", duration:dur, subject:pickWeighted(SUBJECTS), date:done.toISOString() });
+
+      if (i < count-1 && rnd() < .85){
+        const bDur = [5,5,5,10][Math.floor(rnd()*4)];
+        const bDone = new Date(done.getTime() + bDur*60000);
+        sessions.push({ type:"break", duration:bDur, subject:pickWeighted(SUBJECTS), date:bDone.toISOString() });
+      }
+    }
+  }
+  // a session is stamped when it COMPLETES (logSession), so nothing can be
+  // dated in the future — drop anything the day-loop generated past "now"
+  const nowStamp = new Date();
+  for (let i = sessions.length - 1; i >= 0; i--){
+    if (new Date(sessions[i].date) > nowStamp) sessions.splice(i,1);
+  }
+
+  // today and yesterday always carry sessions, so the streak tile and the
+  // 7-day windows are never empty (the live app would have today's too)
+  const hasFocusOn = (day)=> sessions.some(s=> s.type === "focus" && new Date(s.date).toDateString() === day.toDateString());
+  const addFocus = (start, dur)=> sessions.push({
+    type:"focus", duration:dur, subject:pickWeighted(SUBJECTS),
+    date:new Date(start.getTime()+dur*60000).toISOString()
+  });
+
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate()-1);
+  if (!hasFocusOn(yesterday)){
+    [[10,20,45],[18,0,30]].forEach(([h,m,dur])=>{
+      const start = new Date(yesterday); start.setHours(h,m,0,0); addFocus(start, dur);
+    });
+  }
+  if (!hasFocusOn(today)){
+    // two sessions that finished 2.5h and 45m ago — always in the past
+    [[150,30],[45,25]].forEach(([ago,dur])=>{
+      const end = new Date(nowStamp.getTime() - ago*60000);
+      const start = new Date(end.getTime() - dur*60000);
+      if (start.toDateString() === today.toDateString()) addFocus(start, dur);
+    });
+  }
+
+  sessions.sort((a,b)=> new Date(a.date) - new Date(b.date));
+
+  const stats = { totalStudyTime:0, totalBreakTime:0, sessions, subjectTime:{} };
+  sessions.forEach(s=>{
+    if (s.type === "focus"){
+      stats.totalStudyTime += s.duration;
+      if (s.subject) stats.subjectTime[s.subject] = (stats.subjectTime[s.subject]||0) + s.duration;
+    } else stats.totalBreakTime += s.duration;
+  });
+  return stats;
+}
+
+/* =====================================================================
+   2. METRICS — same derivations that would ship in stats-metrics.js
+   ===================================================================== */
+const DAY_MS = 864e5;
+const focusOnly = (sessions) => sessions.filter(s=>s.type==="focus");
+/** start time = completion timestamp − duration (stored date is stamped on completion) */
+const startOf = (s) => new Date(new Date(s.date).getTime() - s.duration*60000);
+
+function streakOf(stats){
+  const days = new Set(focusOnly(stats.sessions).map(s=>new Date(s.date).toDateString()));
+  let streak = 0; const d = new Date();
+  while (days.has(d.toDateString())){ streak++; d.setDate(d.getDate()-1); }
+  return streak;
+}
+
+/** weekday (Mon-first) × hour: focus minutes AND the distinct days behind them,
+    so a cell can be read as an average-per-day rather than a raw multi-week total */
+function heatmapOf(stats){
+  const mins = Array.from({length:7}, ()=> new Array(24).fill(0));
+  const days = Array.from({length:7}, ()=> new Array(24).fill(new Set()));
+  focusOnly(stats.sessions).forEach(s=>{
+    const d = startOf(s);
+    const wd = (d.getDay()+6)%7, hour = d.getHours();
+    mins[wd][hour] += s.duration;
+    days[wd][hour].add(new Date(s.date).toDateString());
+  });
+  return { mins, days };
+}
+
+const WEEKDAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+
+function peakOf(grid){
+  const { mins, days } = grid;
+  let best = { mins:0, wd:0, hour:0 };
+  mins.forEach((row,wd)=> row.forEach((m,hour)=>{ if (m > best.mins) best = { mins:m, wd, hour }; }));
+  if (!best.mins) return null;
+  const hour = best.hour;
+  const nDays = days[best.wd][hour].size || 1;
+  return {
+    wd: best.wd,
+    hour,
+    label:`${WEEKDAYS[best.wd]} ${String(hour).padStart(2,"0")}:00–${String((hour+1)%24).padStart(2,"0")}:00`,
+    perDay: best.mins / nDays,
+    occurrences: nDays
+  };
+}
+
+function minutesLabel(m){
+  m = Math.round(m||0);
+  if (m < 60) return m + "m";
+  const h = Math.floor(m/60), r = m%60;
+  return r ? `${h}h ${r}m` : `${h}h`;
+}
+
+function rhythmOf(stats){
+  const focus = focusOnly(stats.sessions);
+  const bounds = [[0,15],[15,30],[30,45],[45,60],[60,Infinity]];
+  const counts = bounds.map(()=>0);
+  const lengths = [];
+  focus.forEach(s=>{
+    lengths.push(s.duration);
+    for (let i=0;i<bounds.length;i++){
+      if (s.duration >= bounds[i][0] && s.duration < bounds[i][1]){ counts[i]++; break; }
+    }
+  });
+  lengths.sort((a,b)=>a-b);
+  const median = lengths.length ? lengths[Math.floor(lengths.length/2)] : 0;
+  const breaks = stats.sessions.filter(s=>s.type!=="focus");
+  const avgBreak = breaks.length ? breaks.reduce((a,s)=>a+s.duration,0)/breaks.length : 0;
+  const coverage = focus.length ? Math.round((breaks.length/focus.length)*100) : 0;
+  return {
+    bounds, counts, median,
+    max: Math.max(...counts, 1),
+    avgBreak,
+    coverage,
+    focusCount: focus.length
+  };
+}
+
+/** composite 0-100 over a 7-day window ending `endOffset` days ago */
+function scoreWindow(stats, endOffset){
+  const now = new Date();
+  const end = new Date(now.getTime() - endOffset*DAY_MS);
+  const startW = new Date(end.getTime() - 7*DAY_MS);
+  const focus = focusOnly(stats.sessions).filter(s=>{
+    const d = new Date(s.date);
+    return d > startW && d <= end;
+  });
+  const mins = focus.reduce((a,s)=>a+s.duration,0);
+  const days = new Set(focus.map(s=>new Date(s.date).toDateString())).size;
+  const avgLen = focus.length ? mins/focus.length : 0;
+  const volume = Math.min(1, mins / (7*120));
+  const active = Math.min(1, days/7);
+  const length = Math.min(1, avgLen/40);
+  return {
+    score: Math.round(100*(.45*volume + .30*active + .25*length)),
+    mins, days, avgLen, sessions: focus.length
+  };
+}
+
+function weeklyTotals(stats, weeks){
+  const out = [];
+  const now = new Date();
+  for (let w = weeks-1; w >= 0; w--){
+    const end = new Date(now.getTime() - w*7*DAY_MS);
+    const startW = new Date(end.getTime() - 7*DAY_MS);
+    const mins = focusOnly(stats.sessions).filter(s=>{
+      const d = new Date(s.date);
+      return d > startW && d <= end;
+    }).reduce((a,s)=>a+s.duration,0);
+    out.push(mins);
+  }
+  return out;
+}
+
+/* =====================================================================
+   3. EXISTING-MODAL RENDERERS — mirror timer.js renderAnalytics() output
+   ===================================================================== */
+const SUBJECT_COLORS = ["#6366f1","#38bdf8","#a78bfa","#34d399","#f59e0b","#f472b6","#fb923c","#4ade80","#60a5fa","#e879f9"];
+
+function rangeData(stats, range){
+  if (range === "all") return stats;
+  const now = new Date();
+  const todayStr = now.toDateString();
+  const weekAgo = new Date(now - 7*DAY_MS);
+  const sessions = stats.sessions.filter(s=>{
+    const d = new Date(s.date);
+    if (range === "today") return d.toDateString() === todayStr;
+    if (range === "week") return d >= weekAgo;
+    return true;
+  });
+  const totalStudyTime = sessions.filter(s=>s.type==="focus").reduce((a,s)=>a+s.duration,0);
+  const totalBreakTime = sessions.filter(s=>s.type!=="focus").reduce((a,s)=>a+s.duration,0);
+  const subjectTime = {};
+  sessions.filter(s=>s.type==="focus" && s.subject).forEach(s=>{
+    subjectTime[s.subject] = (subjectTime[s.subject]||0) + s.duration;
+  });
+  return { sessions, totalStudyTime, totalBreakTime, subjectTime };
+}
+
+function kpiRow(stats, data, streak){
+  const maxVal = Math.max(data.totalStudyTime, data.totalBreakTime, data.sessions.length*5, streak*10, 1);
+  const w = (v) => Math.min(100, (v/maxVal)*100).toFixed(1) + "%";
+  const tiles = [
+    ["kpiStudyTime", minutesLabel(data.totalStudyTime), "", "Study Time", "study", w(data.totalStudyTime)],
+    ["kpiBreakTime", minutesLabel(data.totalBreakTime), "", "Break Time", "break", w(data.totalBreakTime)],
+    ["kpiSessions", focusOnly(data.sessions).length, "", "Sessions", "sessions", w(data.sessions.length*5)],
+    ["kpiStreak", streak, "days", "Streak", "streak", w(streak*10)]
+  ];
+  return `<div class="analytics-kpi-row">${tiles.map((t,i)=>`
+    ${i ? '<div class="analytics-kpi-divider"></div>' : ""}
+    <div class="analytics-kpi">
+      <span class="kpi-value" id="${t[0]}">${t[1]}</span>
+      <span class="kpi-unit">${t[2]}</span>
+      <span class="kpi-label">${t[3]}</span>
+      <div class="kpi-bar"><div class="kpi-bar-fill ${t[4]}" style="width:${t[5]}"></div></div>
+    </div>`).join("")}</div>`;
+}
+
+function activityChart(stats){
+  const days = [];
+  for (let i = 6; i >= 0; i--){ const d = new Date(); d.setDate(d.getDate()-i); days.push(d); }
+  const dayData = days.map(d=>{
+    const str = d.toDateString();
+    const focus = stats.sessions.filter(s=>s.type==="focus" && new Date(s.date).toDateString()===str).reduce((a,s)=>a+s.duration,0);
+    const brk = stats.sessions.filter(s=>s.type!=="focus" && new Date(s.date).toDateString()===str).reduce((a,s)=>a+s.duration,0);
+    return { focus, brk, label:d.toLocaleDateString("en-GB",{weekday:"short"}) };
+  });
+  const maxMins = Math.max(...dayData.map(d=>d.focus+d.brk), 1);
+  const bars = dayData.map(d=>{
+    const fh = Math.round((d.focus/maxMins)*82);
+    const bh = Math.round((d.brk/maxMins)*82);
+    let inner = "";
+    if (d.focus > 0) inner += `<div class="chart-bar study-bar" style="height:${fh}px" title="${d.focus}min study"></div>`;
+    if (d.brk > 0) inner += `<div class="chart-bar break-bar" style="height:${bh}px" title="${d.brk}min break"></div>`;
+    if (!d.focus && !d.brk) inner += `<div style="height:3px;width:100%;border-radius:2px;background:rgba(255,255,255,0.04)"></div>`;
+    return `<div class="chart-bar-wrap">${inner}</div>`;
+  }).join("");
+  const labels = dayData.map(d=>`<span class="chart-x-label">${d.label}</span>`).join("");
+  return `<div class="analytics-card analytics-chart-card">
+    <p class="analytics-card-label">Daily Activity</p>
+    <div class="chart-area">${bars}</div>
+    <div class="chart-x-labels">${labels}</div>
+  </div>`;
+}
+
+function subjectCard(data){
+  const entries = Object.entries(data.subjectTime || {}).sort((a,b)=>b[1]-a[1]);
+  const maxMins = entries.length ? entries[0][1] : 1;
+  const rows = entries.map(([subj,mins],i)=>`
+    <div class="subject-row">
+      <div class="subject-row-top">
+        <span class="subject-name">${subj}</span>
+        <span class="subject-time">${minutesLabel(mins)}</span>
+      </div>
+      <div class="subject-progress"><div class="subject-progress-fill" style="width:${Math.round((mins/maxMins)*100)}%;background:${SUBJECT_COLORS[i%SUBJECT_COLORS.length]}"></div></div>
+    </div>`).join("");
+  return `<div class="analytics-card analytics-subject-card">
+    <p class="analytics-card-label">By Subject</p>
+    <div class="subject-list">${rows || '<p class="analytics-empty">No subject data yet</p>'}</div>
+  </div>`;
+}
+
+function sessionCard(data){
+  const sessions = [...data.sessions].reverse().slice(0,5);
+  const rows = sessions.map(s=>{
+    const isFocus = s.type === "focus";
+    const d = new Date(s.date);
+    const time = d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
+    const dateStr = d.toDateString() === new Date().toDateString()
+      ? `Today ${time}`
+      : `${d.toLocaleDateString("en-GB",{day:"numeric",month:"short"})} ${time}`;
+    const title = isFocus ? (s.subject || "Focus session") : "Break";
+    return `<div class="session-entry">
+      <div class="session-dot ${isFocus?"focus":"break"}"></div>
+      <div class="session-entry-info">
+        <span class="session-entry-title">${title}</span>
+        <span class="session-entry-sub">${dateStr}</span>
+      </div>
+      <span class="session-entry-duration">${minutesLabel(s.duration)}</span>
+    </div>`;
+  }).join("");
+  return `<div class="analytics-card analytics-sessions-card">
+    <div class="analytics-sessions-header">
+      <p class="analytics-card-label" style="margin:0">Recent Sessions</p>
+      <button class="analytics-show-all">Show all</button>
+    </div>
+    <div class="session-log">${rows || '<p class="analytics-empty">No sessions yet</p>'}</div>
+  </div>`;
+}
+
+function footer(){
+  return `<div class="analytics-footer">
+    <button class="analytics-btn analytics-btn-danger">Reset Data</button>
+    <button class="analytics-btn analytics-btn-import">Import CSV</button>
+    <button class="analytics-btn analytics-btn-export">Export CSV</button>
+  </div>`;
+}
+
+function headerColumns(dateLabel){
+  return `<div class="analytics-header">
+      <div class="analytics-header-left">
+        <p class="analytics-eyebrow">Overview</p>
+        <h2 class="analytics-title">Study Analytics</h2>
+      </div>
+      <button class="analytics-close">✕</button>
+    </div>
+    <div class="analytics-date-row">
+      <div class="analytics-date-pills">
+        <button class="date-pill">Today</button>
+        <button class="date-pill active">This Week</button>
+        <button class="date-pill">All Time</button>
+      </div>
+      <span class="analytics-date-label">${dateLabel}</span>
+    </div>`;
+}
+
+/* =====================================================================
+   4. NEW CARDS
+   ===================================================================== */
+function momentumCard(mom, weeks, compact){
+  const bars = weeks.map((mins,i)=>{
+    const max = Math.max(...weeks, 1);
+    const h = Math.max(4, Math.round((mins/max)*52));
+    const cls = i === weeks.length-1 ? "b now" : (mins === 0 ? "b dim" : "b");
+    return `<div class="${cls}" style="height:${h}px" title="${minutesLabel(mins)}"></div>`;
+  }).join("");
+  const maxWeek = Math.max(...weeks);
+  const bestIdx = weeks.indexOf(maxWeek);
+  const weeksBack = weeks.length - 1 - bestIdx;
+  const trendLine = weeksBack === 0
+    ? "Best week in the last 8"
+    : `Best: ${minutesLabel(maxWeek)} · ${weeksBack} ${weeksBack===1?"week":"weeks"} ago`;
+  return `<div class="stat-card">
+    <div class="stat-head">
+      <p class="stat-title">Momentum</p>
+      <span class="stat-callout">7-day score vs previous 7 days</span>
+    </div>
+    <div class="mom">
+      <div>
+        <div class="mom-score-row">
+          <span class="mom-score">${mom.score}</span>
+          <span class="mom-den">/100</span>
+          <span class="mom-delta ${mom.delta>=0?"up":"down"}">${mom.delta>=0?"▲":"▼"} ${Math.abs(mom.delta)}</span>
+        </div>
+        <p class="mom-insight">${momentumInsight(mom)}</p>
+        <div class="mom-subs">
+          <div class="mom-sub"><span class="v">${minutesLabel(mom.mins)}</span><span class="k">This week</span></div>
+          <div class="mom-sub"><span class="v">${mom.subDays}/7</span><span class="k">Active days</span></div>
+          <div class="mom-sub"><span class="v">${minutesLabel(mom.subAvg)}</span><span class="k">Avg session</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="mom-spark">${bars}</div>
+        <div class="spark-axis"><span>8 wks ago</span><span>now</span></div>
+        <div class="spark-note">${trendLine}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function momentumInsight(mom){
+  if (mom.delta >= 4) return `Up ${mom.delta} points on last week — ${minutesLabel(mom.mins)} banked across ${mom.subDays} active ${mom.subDays===1?"day":"days"}.`;
+  if (mom.delta <= -4) return `Down ${Math.abs(mom.delta)} points — ${minutesLabel(mom.avg)} a day this week vs ${minutesLabel(mom.prevAvg)} last week.`;
+  return `Level with last week — ${minutesLabel(mom.avg)} a day, ${mom.subDays} active ${mom.subDays===1?"day":"days"}.`;
+}
+
+function heatmapCard(peak, grid, compact, embedded){
+  const NAMES = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+  const grid2 = grid.mins;
+  const max = Math.max(...grid2.flat(), 1);
+  const cellColor = (mins)=>{
+    if (!mins) return "rgba(255,255,255,.045)";
+    const t = Math.pow(mins/max, .65);
+    return `rgba(${Math.round(99+96*t)},${Math.round(102+81*t)},${Math.round(241+14*t)},${(0.22+0.78*t).toFixed(3)})`;
+  };
+  const rows = grid2.map((row,wd)=>`<div class="hm-row">${
+    row.map((mins,h)=>{
+      const isPeak = peak && wd===peak.wd && h===peak.hour;
+      return `<div class="hm-cell" style="background:${cellColor(mins)}${isPeak?";box-shadow:0 0 0 1.5px rgba(255,255,255,.55)":""}" title="${NAMES[wd]} ${String(h).padStart(2,"0")}:00 · ${minutesLabel(mins)}"></div>`;
+    }).join("")
+  }</div>`).join("");
+  return `<div class="stat-card${compact?" hm-compact":""}${embedded?" embedded":""}">
+    <div class="stat-head">
+      <p class="stat-title">Peak Focus Hours<span class="stat-scope">· last 8 weeks</span></p>
+      ${peak ? `<span class="stat-callout">Peak <b>${peak.label}</b> · ${Math.round(peak.perDay)}m avg across ${peak.occurrences} ${peak.occurrences===1?"day":"days"}</span>` : ""}
+    </div>
+    <div class="hm-wrap">
+      <div class="hm-days">${NAMES.map(n=>`<span>${n}</span>`).join("")}</div>
+      <div class="hm-grid">${rows}</div>
+    </div>
+    <div class="hm-hours">${[0,3,6,9,12,15,18,21].map(h=>`<span style="grid-column:${h+1}/span 3">${String(h).padStart(2,"0")}</span>`).join("")}</div>
+    <div class="hm-legend">Less ${[0.12,0.35,0.6,0.85,1].map(a=>`<i style="background:rgba(${Math.round(99+96*a)},${Math.round(102+81*a)},${Math.round(241+14*a)},${a===0.12?0.25:a})"></i>`).join("")} More</div>
+  </div>`;
+}
+
+function rhythmCard(rhythm, embedded){
+  const buckets = rhythm.bounds.map((b,i)=>{
+    const label = b[1] === Infinity ? "60+" : `${b[0]}–${b[1]}`;
+    const h = Math.max(3, Math.round((rhythm.counts[i]/rhythm.max)*78));
+    return `<div class="rh-col">
+      <span class="rh-count">${rhythm.counts[i]}</span>
+      <div class="rh-bar" style="height:${h}px" title="${rhythm.counts[i]} sessions · ${label} min"></div>
+    </div>`;
+  }).join("");
+  const labels = rhythm.bounds.map(b=>`<span>${b[1]===Infinity?"60+":b[0]+"–"+b[1]}</span>`).join("");
+  return `<div class="stat-card${embedded?" embedded":""}">
+    <div class="stat-head">
+      <p class="stat-title">Focus Rhythm</p>
+      <span class="stat-callout">Median <b>${minutesLabel(rhythm.median)}</b></span>
+    </div>
+    <div class="rh-hist">${buckets}</div>
+    <div class="rh-labels">${labels}</div>
+    <div class="rh-subs">
+      <div class="rh-sub"><span class="v">${rhythm.coverage}%</span><span class="k">Breaks after focus</span></div>
+      <div class="rh-sub"><span class="v">${minutesLabel(rhythm.avgBreak)}</span><span class="k">Avg break</span></div>
+      <div class="rh-sub"><span class="v">${rhythm.focusCount}</span><span class="k">Sessions logged</span></div>
+    </div>
+  </div>`;
+}
+
+/* =====================================================================
+   5. VARIANT ASSEMBLY
+   ===================================================================== */
+/* deterministic seed search: pick the first dataset that demos well
+   (a live streak, an improving week, real focus hours) so the cards are
+   judged on layout, not on a flat random walk. */
+const stats = (()=>{
+  let best = null, bestScore = -Infinity;
+  for (let i = 0; i < 60; i++){
+    const s = seedStats(20261011 + i);
+    const streak = streakOf(s);
+    const now = scoreWindow(s, 0), prev = scoreWindow(s, 7);
+    const delta = now.score - prev.score;
+    const peak = peakOf(heatmapOf(s));
+    const r = rhythmOf(s);
+    const ok = streak >= 2 && delta >= 5 && now.days >= 5 && peak && peak.perDay >= 30 && r.median >= 25;
+    const score = (ok?1000:0) + delta*4 + streak*3 + now.days*2 + (peak?peak.perDay:0);
+    if (score > bestScore){ bestScore = score; best = s; }
+    if (ok) break;
+  }
+  return best;
+})();
+const data = rangeData(stats, "week");
+const streak = streakOf(stats);
+const grid = heatmapOf(stats);
+const peak = peakOf(grid);
+const rhythm = rhythmOf(stats);
+const mom = (()=>{
+  const now = scoreWindow(stats, 0);
+  const prev = scoreWindow(stats, 7);
+  const weeks = weeklyTotals(stats, 8);
+  return {
+    score: now.score,
+    delta: now.score - prev.score,
+    avg: now.mins/7,
+    prevAvg: prev.mins/7,
+    subDays: now.days,
+    subAvg: now.avgLen,
+    mins: now.mins
+  };
+})();
+const weeks = weeklyTotals(stats, 8);
+
+const momCard = () => momentumCard(mom, weeks, false);
+const momCardRail = () => momentumCard(mom, weeks, true);
+const hmCard = (compact, embedded) => heatmapCard(peak, grid, compact, embedded);
+const rhCard = (embedded) => rhythmCard(rhythm, embedded);
+
+const VARIANTS = {
+  A: {
+    h: "Insight row first",
+    tag: "new cards right under the KPIs",
+    height: 1640,
+    blurb: "The three new cards move into prime real estate, directly under the four KPI tiles: momentum + rhythm side by side, the heatmap on its own full-width band, then the existing Daily Activity / By Subject pair and the session log below. You see “how am I doing overall” and “when do I actually focus” without scrolling; the old charts become supporting detail.",
+    good: ["Everything new is above the fold in a 780px panel", "Heatmap keeps full hourly resolution (24 columns)", "No existing card is hidden or moved behind a control", "Momentum and rhythm are visually equal — neither is the “main” one"],
+    bad: ["Panel grows from ~1,020px to ~1,640px tall", "Two visual rhythms (new cards, then old charts) can read as two sections"],
+    build: () => marginBody([
+      kpiRow(stats, data, streak),
+      `<div class="row2">${momCard()}${rhCard()}</div>`,
+      `<div class="stack">${hmCard(false)}</div>`,
+      `<div class="analytics-body">${activityChart(stats)}${subjectCard(data)}</div>`,
+      sessionCard(data)
+    ])
+  },
+  B: {
+    h: "Additive stack at the bottom",
+    tag: "existing modal untouched, new depth below",
+    height: 1797,
+    blurb: "The current modal stays exactly as it is — KPIs, Daily Activity, By Subject — and the three new cards are appended below them, above Recent Sessions. Lowest-risk option: nothing existing moves, nothing needs re-learning, and the new material is clearly “more detail” rather than a redesign.",
+    good: ["Zero change to what already works — easiest to ship and to revert", "Cards get maximum width (metrics breathe)", "Reads naturally as: summary → charts → patterns → log"],
+    bad: ["Tallest panel: ~1,800px, nearly double today's", "Peak hours and momentum need scrolling to reach — the two things you'd open the modal for"],
+    build: () => marginBody([
+      kpiRow(stats, data, streak),
+      `<div class="analytics-body">${activityChart(stats)}${subjectCard(data)}</div>`,
+      `<div class="stack">${momCard()}${hmCard(false)}${rhCard()}</div>`,
+      sessionCard(data)
+    ])
+  },
+  C: {
+    h: "Pinned momentum + one pattern card",
+    tag: "heatmap and rhythm share a card behind a toggle",
+    height: 1561,
+    blurb: "Momentum gets a slim full-width strip directly under the KPIs (it's the headline number), while the heatmap and the rhythm histogram share a single “Focus Pattern” card with a Heatmap / Rhythm segmented toggle — one visible at a time, full width. Both patterns still get full hourly resolution because they don't compete for width.",
+    good: ["Both patterns keep full width and full detail — the toggle costs no resolution", "Momentum is always visible, whatever the toggle is set to", "Shortest of the three 780px variants (~1,560px vs A's ~1,640px)"],
+    bad: ["One pattern is always hidden — comparing them takes a click", "Earns its keep on width pressure, not on length: barely shorter than A", "Introduces the only interactive control inside the panel — it has to remember the choice"],
+    build: () => marginBody([
+      kpiRow(stats, data, streak),
+      `<div class="stack">${momCard()}</div>`,
+      `<div class="stat-card" id="patternCard">
+        <div class="stat-head">
+          <p class="stat-title">Focus Pattern</p>
+          <div class="seg" id="patternSeg">
+            <button class="on" data-p="heat">Heatmap</button>
+            <button data-p="rhythm">Rhythm</button>
+          </div>
+        </div>
+        <div id="patternBody">${hmCard(false, true)}</div>
+      </div>`,
+      `<div class="analytics-body">${activityChart(stats)}${subjectCard(data)}</div>`,
+      sessionCard(data)
+    ])
+  },
+  D: {
+    h: "Wider panel, two zones",
+    tag: "needs the panel to grow 780 → 980px",
+    height: 1469,
+    blurb: "The panel widens to 980px and splits into two zones: a persistent left rail with momentum and rhythm stacked, and the main column with the KPI tiles, the heatmap and the existing charts. The rail is the “always-on state of play”; the right column is the data. This is the biggest change — it touches the panel width and the desktop layout — but it's the only variant where every new card and every existing card stay on the same screen.",
+    good: ["Shortest panel of the four (~1,470px, vs ~1,020px today) despite showing the most", "New cards sit beside the old charts instead of stacked after them", "Rail gives momentum a permanent, predictable home"],
+    bad: ["Panel width change (780 → 980px) touches the whole modal, not just these cards", "Left rail is dead space below ~900px viewports — needs a stacked fallback", "KPI tiles get narrower; their values shrink from 2rem to 1.6rem to fit four in ~560px"],
+    build: () => marginBody([
+      `<div class="d-zone">
+        <div class="d-rail">${momCardRail()}${rhCard()}</div>
+        <div class="d-main">
+          ${kpiRow(stats, data, streak).replace('class="analytics-kpi-row"','class="analytics-kpi-row margin0"')}
+          ${hmCard(false)}
+          ${activityChart(stats).replace('class="analytics-card analytics-chart-card"','class="analytics-card analytics-chart-card margin0"')}
+          ${subjectCard(data).replace('class="analytics-card analytics-subject-card"','class="analytics-card analytics-subject-card"')}
+        </div>
+      </div>`,
+      sessionCard(data)
+    ])
+  }
+};
+
+function marginBody(sections){
+  return headerColumns("Last 7 days") + sections.join("") + footer();
+}
+
+function render(key){
+  const v = VARIANTS[key];
+  document.querySelectorAll("#switcher button").forEach(b=>b.classList.toggle("on", b.dataset.v===key));
+  document.getElementById("notes").innerHTML = `
+    <h2>Variant ${key} — ${v.h} <span style="font-weight:500;color:#8fa4d4">· ${v.tag}</span></h2>
+    <p>${v.blurb}</p>
+    <p style="color:#7b8bb2">Measured with this page's seeded dataset: panel ≈ <b style="color:#b9c8ea">${v.height.toLocaleString()}px</b> tall — today's shipped modal is <b style="color:#b9c8ea">1,018px</b> at the same data volume.</p>
+    <ul>
+      ${v.good.map(g=>`<li class="good">▲ ${g}</li>`).join("")}
+      ${v.bad.map(g=>`<li class="bad">▼ ${g}</li>`).join("")}
+    </ul>`;
+  const stage = document.getElementById("stage");
+  stage.innerHTML = `<div class="analytics-panel mock${key==="D"?" wide":""}">${v.build()}</div>`;
+  if (key === "C"){
+    const seg = document.getElementById("patternSeg");
+    const body = document.getElementById("patternBody");
+    seg.addEventListener("click", (e)=>{
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      seg.querySelectorAll("button").forEach(b=>b.classList.toggle("on", b===btn));
+      body.innerHTML = btn.dataset.p === "heat" ? hmCard(false, true) : rhCard(true);
+    });
+  }
+}
+
+const PICKED = "C";
+const RECOMMENDED = "A";
+document.getElementById("switcher").innerHTML = Object.entries(VARIANTS).map(([k,v])=>`
+  <button data-v="${k}" class="${k===PICKED?"on":""}">
+    ${k===PICKED?'<span class="pick">★ YOUR PICK</span>':k===RECOMMENDED?'<span class="rec">★ MY RECOMMENDATION</span>':""}
+    <span>${k} — ${v.h}</span>
+    <small>${v.tag}</small>
+  </button>`).join("");
+document.getElementById("switcher").addEventListener("click", (e)=>{
+  const btn = e.target.closest("button");
+  if (btn) render(btn.dataset.v);
+});
+render(PICKED);
+</script>
+</body>
+</html>
