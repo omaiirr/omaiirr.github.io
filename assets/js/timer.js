@@ -1431,15 +1431,15 @@ document.addEventListener("DOMContentLoaded", function () {
       changes: [
         {
           kind: "fixed",
-          text: "Animated themes no longer render into only the top-left quarter of the screen on high-DPI (Retina / display-scaled) monitors.",
+          text: "Animated themes now render correctly across the entire screen on high-DPI and Retina monitors, resolving an issue where they only appeared in the top-left corner.",
         },
         {
           kind: "fixed",
-          text: "Resetting the stopwatch or a countdown timer now records the time spent since the session started, so unfinished sessions stop being lost from your statistics.",
+          text: "Resetting the timer now records the time spent since the session started, so stopwatch or unfinished sessions are correctly logged in your statistics.",
         },
         {
           kind: "fixed",
-          text: "Elapsed time is now accumulated across pause/resume cycles, so pausing repeatedly no longer drops focused minutes.",
+          text: "Pause and resume cycles now correctly accumulate elapsed time, so repeated pauses won't drop your focused minutes.",
         },
       ],
     },
