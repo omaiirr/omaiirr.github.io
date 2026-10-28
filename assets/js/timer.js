@@ -115,6 +115,14 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     saveStats(stats);
   }
+
+  /* Stopwatch lives in its own module; give it the same logging path so a
+     reset there lands in the same session log. Takes milliseconds — the
+     stopwatch's natural unit — and converts to the minutes the stats store. */
+  window.logStudySession = function (type, ms) {
+    if (!(ms > 0) || !statisticsEnabled) return;
+    logSession(type, ms / 60000);
+  };
   function resetStats() {
     localStorage.removeItem("timerStats");
   }
@@ -382,6 +390,13 @@ document.addEventListener("DOMContentLoaded", function () {
   let endTime = null;
   let timerTick = null;
   let warningPlayed = false;
+  /* Banked active time for the current session, excluding every pause, plus
+     the timestamp the current run segment started (null while paused/reset).
+     A countdown alone cannot answer "how much of this session was real
+     focus time?" once a pause has happened, so the pause boundary is recorded
+     as it happens and summed on reset. */
+  let sessionElapsedMs = 0;
+  let segmentStart = null;
 
   function updateTimerDisplay() {
     const msLeft = endTime - Date.now();
@@ -415,6 +430,8 @@ document.addEventListener("DOMContentLoaded", function () {
             : modes.long / 60;
 
       logSession(currentMode, duration);
+      sessionElapsedMs = 0;
+      segmentStart = null;
       remaining = 0;
       render();
 
@@ -447,6 +464,12 @@ document.addEventListener("DOMContentLoaded", function () {
       if (timerTick) clearInterval(timerTick);
       timerTick = null;
       running = false;
+      /* Bank this run segment before freezing the clock, so pause time is
+         excluded and the session keeps its accumulated active time. */
+      if (segmentStart) {
+        sessionElapsedMs += Date.now() - segmentStart;
+        segmentStart = null;
+      }
       remaining = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
       render();
       startBtn.textContent = "Start";
@@ -455,6 +478,7 @@ document.addEventListener("DOMContentLoaded", function () {
       if (!(remaining > 0)) return;
       running = true;
       warningPlayed = false;
+      segmentStart = Date.now();
       endTime = Date.now() + remaining * 1000;
       updateTimerDisplay();
       timerTick = setInterval(updateTimerDisplay, 250);
@@ -469,6 +493,17 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   function resetTimer() {
+    /* Log the partial session first: elapsed active time since the session
+       began, excluding time spent paused. Without this a reset silently
+       discarded every unfinished minute. Zero-first after the read so a
+       double-click cannot log the same span twice. */
+    const elapsedMs =
+      sessionElapsedMs +
+      (running && segmentStart ? Date.now() - segmentStart : 0);
+    sessionElapsedMs = 0;
+    segmentStart = null;
+    if (elapsedMs > 0) logSession(currentMode, elapsedMs / 60000);
+
     if (timerTick) clearInterval(timerTick);
     timerTick = null;
     running = false;

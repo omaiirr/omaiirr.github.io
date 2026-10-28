@@ -190,15 +190,33 @@ const ThemeScenes = (() => {
     const resized = canvas.width !== pw || canvas.height !== ph;
     if (resized) {
       canvas.width = pw; canvas.height = ph;
-      const ctx = canvas.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
-    return { w, h, ctx: canvas.getContext("2d"), resized };
+    const ctx = canvas.getContext("2d");
+    /* Always re-apply the device-pixel transform, not only when the bitmap is
+       resized. Assigning canvas.width resets the context, and stop() resets it
+       deliberately — both leave the bitmap size untouched, so the `resized`
+       branch above never ran and the scene drew in CSS pixels into a dpr-sized
+       bitmap: only the top-left 1/dpr² of the screen got painted (the
+       quarter-canvas bug, visible only above dpr 1). Toggling fullscreen hid it
+       because that changes the size and forced the branch to run. One idempotent
+       setTransform per call keeps every start, restart and viewport change
+       correct without depending on the size having changed. */
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { w, h, ctx, resized, dpr };
   }
 
   function stop() {
     _queued = null;
     if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-    if (resizeHandler) { window.removeEventListener("resize", resizeHandler); resizeHandler = null; }
+    if (resizeHandler) {
+      window.removeEventListener("resize", resizeHandler);
+      document.removeEventListener("DOMContentLoaded", resizeHandler);
+      window.removeEventListener("load", resizeHandler);
+      window.removeEventListener("orientationchange", resizeHandler);
+      if (window.visualViewport)
+        window.visualViewport.removeEventListener("resize", resizeHandler);
+      resizeHandler = null;
+    }
     const scene = SCENES[activeId];
     if (scene && typeof scene.destroy === "function") scene.destroy(state);
     activeId = null; state = {}; lastTime = 0; currentOptions = {};
@@ -235,12 +253,37 @@ const ThemeScenes = (() => {
     canvas.style.display = "block"; state = {};
     let dims = _syncCanvasSize(canvas);
     scene.init(state, dims.w, dims.h, opts);
-    resizeHandler = () => {
+    /* One re-measure path for every way the box can change: the window resize
+       event, a rotation, the visual viewport (mobile URL bar / pinch zoom) and
+       the two moments where layout is still settling around a theme that has
+       just been applied. Each one re-inits only when the measured box or dpr
+       actually moved, so a no-op event does not rebuild the scene. */
+    const syncSceneSize = () => {
+      if (!activeId || canvasEl !== canvas) return;
+      const prev = dims;
       dims = _syncCanvasSize(canvas);
-      if (typeof scene.destroy === "function") scene.destroy(state);
-      scene.init(state, dims.w, dims.h, currentOptions);
+      if (
+        dims.resized ||
+        dims.w !== prev.w ||
+        dims.h !== prev.h ||
+        dims.dpr !== prev.dpr
+      ) {
+        if (typeof scene.destroy === "function") scene.destroy(state);
+        scene.init(state, dims.w, dims.h, currentOptions);
+      }
     };
+    resizeHandler = syncSceneSize;
     window.addEventListener("resize", resizeHandler);
+    document.addEventListener("DOMContentLoaded", resizeHandler);
+    window.addEventListener("load", resizeHandler);
+    window.addEventListener("orientationchange", resizeHandler);
+    if (window.visualViewport)
+      window.visualViewport.addEventListener("resize", resizeHandler);
+    /* A theme can start before its container has finished laying out (fonts,
+       stylesheets, a restore that runs on DOM content load). Re-measure on the
+       next frame so the canvas never keeps a pre-layout size — previously the
+       only thing that repaired it was a manual fullscreen toggle. */
+    requestAnimationFrame(syncSceneSize);
     /* Reduced motion: settle the scene on one still frame instead of running
        an endless loop behind the timer. */
     if (
@@ -255,11 +298,7 @@ const ThemeScenes = (() => {
     function frame(now) {
       if (!activeId || canvasEl !== canvas) return;
       const dt = Math.max(0, Math.min((now - lastTime) / 1000, 0.05));
-      lastTime = now; dims = _syncCanvasSize(canvas);
-      if (dims.resized) {
-        if (typeof scene.destroy === "function") scene.destroy(state);
-        scene.init(state, dims.w, dims.h, currentOptions);
-      }
+      lastTime = now; syncSceneSize();
       scene.draw(dims.ctx, dims.w, dims.h, state, currentOptions, dt);
       rafId = requestAnimationFrame(frame);
     }

@@ -62,10 +62,20 @@
     window.getStopwatchMs = currentMs;
 
     function resetStopwatch() {
+      /* Capture elapsed before zeroing: a reset used to silently discard the
+         whole run (e.g. 2h logged as 0 minutes). currentMs() folds in the
+         live segment, so pause-accumulated and just-run time are both counted
+         — pause time was already excluded by pauseStopwatch banking `elapsed`.
+         timer.js owns analytics; logStudySession forwards there with the
+         current focus subject and respects the statistics toggle. */
+      var ms = currentMs();
       pauseStopwatch();
       elapsed = 0;
       render(0);
       swResetBtn.disabled = true;
+      if (ms > 0 && typeof window.logStudySession === "function") {
+        window.logStudySession("focus", ms);
+      }
     }
 
     var pomodoroModeIds = ["focusMode", "shortBreakMode", "longBreakMode"];
