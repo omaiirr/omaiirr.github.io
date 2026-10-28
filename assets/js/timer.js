@@ -1424,9 +1424,28 @@ document.addEventListener("DOMContentLoaded", function () {
 
   const PATCH_NOTES = [
     {
+      version: "2.0.1",
+      date: "2026-10-28",
+      newest: true,
+      title: "Bug fix update: canvas sizing & session logging",
+      changes: [
+        {
+          kind: "fixed",
+          text: "Animated themes no longer render into only the top-left quarter of the screen on high-DPI (Retina / display-scaled) monitors.",
+        },
+        {
+          kind: "fixed",
+          text: "Resetting the stopwatch or a countdown timer now records the time spent since the session started, so unfinished sessions stop being lost from your statistics.",
+        },
+        {
+          kind: "fixed",
+          text: "Elapsed time is now accumulated across pause/resume cycles, so pausing repeatedly no longer drops focused minutes.",
+        },
+      ],
+    },
+    {
       version: "2.0.0",
       date: "2026-10-16",
-      newest: true,
       title: "Custom themes, UI redesign & expanded PiP",
       changes: [
         {
@@ -1652,7 +1671,7 @@ document.addEventListener("DOMContentLoaded", function () {
     return chip;
   }
 
-  const UPDATE_NOTIFICATION_VERSION = "2026-10-16";
+  const UPDATE_NOTIFICATION_VERSION = "2026-10-28";
   const UPDATE_NOTIFICATION_KEY = "timerUpdateNoticeVersion";
   const VISITED_KEY = "timerHasVisited";
 
